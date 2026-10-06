@@ -7,6 +7,7 @@ import { getErrorMessage } from '../../shared/api/axiosClient';
 import StatTile from '../../shared/components/StatTile';
 import Badge from '../../shared/components/Badge';
 import AlertBanner from '../../shared/components/AlertBanner';
+import PageHeader from '../../shared/components/PageHeader';
 
 const ESTADO_RESERVA = {
   reservado: { tone: 'warning', label: 'Reservado' },
@@ -15,7 +16,9 @@ const ESTADO_RESERVA = {
   cancelado: { tone: 'danger', label: 'Cancelado' },
 };
 
-const SIGUIENTE_RESERVA = { reservado: 'Sellar ingreso', en_uso: 'Sellar salida' };
+const TIPO_RESERVA = { cubiculo: 'Cubículo', estacion: 'Estación', sala_lectura: 'Sala de lectura' };
+
+const SIGUIENTE_RESERVA ={ reservado: 'Sellar ingreso', en_uso: 'Sellar salida' };
 
 const ESTADO_SOLVENCIA = {
   pendiente: { tone: 'warning', label: 'Pendiente' },
@@ -82,13 +85,11 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Administración</p>
-        <h1 className="mt-1 font-serif text-2xl font-semibold text-primary-dark">Panel administrativo</h1>
-        <p className="mt-1.5 max-w-xl text-sm text-slate-500">
-          Lo que el circulante ve en tiempo real: reservas de cubículos y espacios, y solicitudes de solvencia por revisar.
-        </p>
-      </div>
+      <PageHeader
+        crumbs={[{ label: 'Inicio', to: '/' }, { label: 'Panel administrativo' }]}
+        title="Panel administrativo"
+        subtitle="Lo que el circulante ve en tiempo real: reservas de cubículos y espacios, y solicitudes de solvencia por revisar."
+      />
 
       <AlertBanner>{error}</AlertBanner>
 
@@ -102,7 +103,7 @@ export default function AdminDashboardPage() {
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-serif text-base font-semibold text-primary-dark">Reservas de cubículos y espacios</h2>
+        <h2 className="font-heading text-base font-semibold text-primary-dark">Reservas de cubículos y espacios</h2>
         <div className="overflow-x-auto rounded-xl border border-border bg-white">
           <table className="w-full min-w-[720px] text-left text-sm">
             <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
@@ -128,11 +129,20 @@ export default function AdminDashboardPage() {
                   return (
                     <tr key={r.id}>
                       <td className="px-3 py-2.5 font-mono">{r.id}</td>
-                      <td className="px-3 py-2.5">{r.tipo === 'cubiculo' ? 'Cubículo' : 'Espacio de estudio'}</td>
+                      <td className="px-3 py-2.5">
+                        {TIPO_RESERVA[r.tipo] ?? r.tipo}
+                        {r.modalidadNombre ? <span className="block text-xs text-slate-500">{r.modalidadNombre}</span> : null}
+                      </td>
                       <td className="px-3 py-2.5">{r.recursoNombre}</td>
-                      <td className="px-3 py-2.5">{r.solicitante}</td>
+                      <td className="px-3 py-2.5">
+                        {r.solicitante}
+                        {r.identificacion ? <span className="block font-mono text-xs text-slate-500">{r.identificacion}</span> : null}
+                      </td>
                       <td className="px-3 py-2.5">{r.fecha}</td>
-                      <td className="px-3 py-2.5 font-mono">{r.hora}</td>
+                      <td className="whitespace-nowrap px-3 py-2.5 font-mono">
+                        {r.hora}–{r.horaFin}
+                        {r.duracion > 1 ? <span className="block text-xs text-slate-500">{r.duracion} horas</span> : null}
+                      </td>
                       <td className="px-3 py-2.5">
                         <Badge tone={estado.tone}>{estado.label}</Badge>
                       </td>
@@ -168,7 +178,7 @@ export default function AdminDashboardPage() {
       </section>
 
       <section className="flex flex-col gap-2">
-        <h2 className="font-serif text-base font-semibold text-primary-dark">Solicitudes de solvencia</h2>
+        <h2 className="font-heading text-base font-semibold text-primary-dark">Solicitudes de solvencia</h2>
         <div className="overflow-x-auto rounded-xl border border-border bg-white">
           <table className="w-full min-w-[680px] text-left text-sm">
             <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">

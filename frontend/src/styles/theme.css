@@ -1,15 +1,19 @@
 @theme {
-  --color-primary: #132a4c;
-  --color-primary-dark: #0b1c33;
-  --color-primary-light: #2d4a76;
-  --color-accent: #9c7a2e;
-  --color-accent-light: #fffaf0;
+  /* Paleta: azul, negro, rojo y blanco */
+  --color-primary: #1d4ed8;
+  --color-primary-dark: #1e3a8a;
+  --color-primary-light: #3b82f6;
+  --color-action: #dc2626;
+  --color-action-dark: #b91c1c;
+  --color-ink: #070b16;
+  --color-accent: #dc2626;
+  --color-accent-light: #fef2f2;
   --color-secondary: #dc2626;
-  --color-surface: #f2f1ec;
-  --color-border: #dcdcd2;
+  --color-surface: #f3f5f9;
+  --color-border: #dde2ec;
 
   --font-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
-  --font-serif: "Spectral", Georgia, "Times New Roman", serif;
+  --font-heading: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 }
 
@@ -20,10 +24,21 @@
 body {
   margin: 0;
   font-family: var(--font-sans);
-  background: #eef0ec;
-  color: #1b2129;
+  background: #ffffff;
+  color: #0f172a;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Fondo del encabezado: negro azulado con resplandores azul y rojo sobre una cuadrícula tenue. */
+.hero-bg {
+  background-color: #070b16;
+  background-image:
+    radial-gradient(48rem 26rem at 88% 118%, rgb(220 38 38 / 0.4), transparent 62%),
+    linear-gradient(rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
+    linear-gradient(135deg, #1e40af 0%, #12297a 30%, #0a1233 62%, #070b16 100%);
+  background-size: auto, 44px 44px, 44px 44px, auto;
 }

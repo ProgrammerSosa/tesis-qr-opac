@@ -1,7 +1,8 @@
 const { disponibilidad, crearReserva, listarReservas, avanzarEstado, cancelarReserva, resumen } = require('./reservas_data');
+const { REGLAS_CUBICULO } = require('./recursos_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
-const TIPOS_VALIDOS = ['cubiculo', 'espacio_estudio'];
+const TIPOS_VALIDOS = ['cubiculo', 'estacion', 'sala_lectura'];
 
 function validarTipo(req, res) {
   if (!TIPOS_VALIDOS.includes(req.params.tipo)) {
@@ -20,16 +21,29 @@ function getDisponibilidad(req, res) {
 
 function postReserva(req, res) {
   if (!validarTipo(req, res)) return;
-  const { recursoId, fecha, hora, solicitante } = req.body;
+  const { recursoId, fecha, hora, solicitante, identificacion, modalidad, duracion } = req.body;
   if (!recursoId || !fecha || !hora || !solicitante) {
     return fail(res, 'Faltan datos de la reserva');
   }
   try {
-    const reserva = crearReserva({ tipo: req.params.tipo, recursoId, fecha, hora, solicitante });
+    const reserva = crearReserva({
+      tipo: req.params.tipo,
+      recursoId,
+      fecha,
+      hora,
+      solicitante,
+      identificacion,
+      modalidad,
+      duracion,
+    });
     return ok(res, reserva, 'Reserva creada');
   } catch (err) {
-    return fail(res, err.message, 409);
+    return fail(res, err.message, err.estado || 500);
   }
+}
+
+function getReglas(req, res) {
+  return ok(res, REGLAS_CUBICULO);
 }
 
 function getReservas(req, res) {
@@ -52,4 +66,4 @@ function getResumen(req, res) {
   return ok(res, resumen());
 }
 
-module.exports = { getDisponibilidad, postReserva, getReservas, patchAvanzar, patchCancelar, getResumen };
+module.exports = { getDisponibilidad, getReglas, postReserva, getReservas, patchAvanzar, patchCancelar, getResumen };

@@ -5,7 +5,7 @@ export default function StatTile({ label, value, icon: Icon }) {
         <Icon size={19} />
       </div>
       <div>
-        <p className="font-serif text-2xl font-semibold leading-none text-primary-dark">{value}</p>
+        <p className="font-heading text-2xl font-semibold leading-none text-primary-dark">{value}</p>
         <p className="mt-1 text-xs text-slate-500">{label}</p>
       </div>
     </div>

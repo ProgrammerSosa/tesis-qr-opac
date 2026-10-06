@@ -4,6 +4,7 @@ import { solvenciaApi } from './solvenciaApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import Button from '../../shared/components/Button';
 import AlertBanner from '../../shared/components/AlertBanner';
+import PageHeader from '../../shared/components/PageHeader';
 import Badge from '../../shared/components/Badge';
 import { Input, Select } from '../../shared/components/FormField';
 
@@ -41,22 +42,19 @@ export default function SolvenciaPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">Trámites</p>
-        <h1 className="mt-1 font-serif text-2xl font-semibold text-primary-dark">Solicitud de solvencia</h1>
-        <p className="mt-1.5 max-w-xl text-sm text-slate-500">
-          Paz y salvo bibliotecario. Diligencia el formulario y recibe un número de radicado para hacer seguimiento,
-          sin necesidad de pedirlo en el mostrador.
-        </p>
-      </div>
+      <PageHeader
+        crumbs={[{ label: 'Inicio', to: '/' }, { label: 'Solicitud de solvencia' }]}
+        title="Solicitud de solvencia"
+        subtitle="Paz y salvo bibliotecario. Diligencia el formulario y recibe un número de radicado para hacer seguimiento, sin necesidad de pedirlo en el mostrador."
+      />
 
       <AlertBanner>{error}</AlertBanner>
 
       {comprobante ? (
-        <div className="rounded-xl border border-accent/40 bg-accent-light p-5">
-          <div className="mb-3 flex items-center gap-2 text-accent">
+        <div className="rounded-xl border border-primary/30 bg-blue-50 p-5">
+          <div className="mb-3 flex items-center gap-2 text-primary">
             <CheckCircle2 size={18} />
-            <span className="font-serif text-base font-semibold">Solicitud radicada</span>
+            <span className="font-heading text-base font-semibold">Solicitud radicada</span>
           </div>
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
             <dt className="text-slate-500">Radicado</dt>
@@ -74,7 +72,7 @@ export default function SolvenciaPage() {
             Guarda el radicado {comprobante.id}: con él puedes consultar el estado en el mostrador o en el panel
             administrativo.
           </p>
-          <button onClick={() => setComprobante(null)} className="mt-3 text-xs font-medium text-accent hover:underline">
+          <button onClick={() => setComprobante(null)} className="mt-3 text-xs font-semibold text-primary hover:underline">
             Hacer otra solicitud
           </button>
         </div>

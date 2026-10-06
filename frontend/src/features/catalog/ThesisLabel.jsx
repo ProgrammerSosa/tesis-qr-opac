@@ -7,7 +7,7 @@ export default function ThesisLabel({ tesis }) {
         <ThesisQr id={tesis.id} size={66} />
         <div className="min-w-0">
           <div className="mb-1.5 flex items-center gap-1.5">
-            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm bg-accent font-serif text-[10px] font-bold text-accent-light">
+            <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm bg-primary font-heading text-[10px] font-bold text-white">
               B
             </span>
             <span className="text-[10px] font-semibold tracking-wide text-slate-500">BIBLIOTECA UNIVERSITARIA</span>
