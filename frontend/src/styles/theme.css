@@ -1,0 +1,29 @@
+@theme {
+  --color-primary: #132a4c;
+  --color-primary-dark: #0b1c33;
+  --color-primary-light: #2d4a76;
+  --color-accent: #9c7a2e;
+  --color-accent-light: #fffaf0;
+  --color-secondary: #dc2626;
+  --color-surface: #f2f1ec;
+  --color-border: #dcdcd2;
+
+  --font-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Spectral", Georgia, "Times New Roman", serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: #eef0ec;
+  color: #1b2129;
+}
+
+#root {
+  min-height: 100vh;
+}

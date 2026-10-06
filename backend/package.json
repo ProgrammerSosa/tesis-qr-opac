@@ -1,0 +1,17 @@
+{
+  "name": "tesis-qr-opac-backend",
+  "version": "1.0.0",
+  "description": "API REST con la logica de busqueda del catalogo (OPAC) de tesis",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
