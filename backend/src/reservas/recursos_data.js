@@ -1,20 +1,41 @@
-const RECURSOS = {
-  cubiculo: [
-    { id: 'cub-1', nombre: 'Cubículo 1', capacidad: 4 },
-    { id: 'cub-2', nombre: 'Cubículo 2', capacidad: 4 },
-    { id: 'cub-3', nombre: 'Cubículo 3', capacidad: 6 },
-    { id: 'cub-4', nombre: 'Cubículo 4', capacidad: 2 },
-  ],
-  espacio_estudio: [
-    { id: 'esp-1', nombre: 'Mesa de estudio 1' },
-    { id: 'esp-2', nombre: 'Mesa de estudio 2' },
-    { id: 'esp-3', nombre: 'Mesa de estudio 3' },
-    { id: 'esp-4', nombre: 'Mesa de estudio 4' },
-    { id: 'esp-5', nombre: 'Mesa de estudio 5' },
-    { id: 'esp-6', nombre: 'Mesa de estudio 6' },
-  ],
+// Distribución de la sala de estudio. El mapa del frontend (studyRoomLayout.js) dibuja
+// estos mismos identificadores, así que al agregar o quitar lugares hay que ajustar ambos.
+const CUBICULOS = 6;
+const ESTACIONES = 30; // puestos individuales, cada uno con una sola silla
+const MESAS_SALA = 5;
+const SILLAS_POR_MESA = 6;
+
+// Reglas de reserva de cubículos. `cubiculos` son los números de cubículo habilitados para cada tipo.
+// `maxDiarias` es el tope de horas por persona al día dentro de ese tipo de reserva.
+const REGLAS_CUBICULO = {
+  fases: { nombre: 'Preparación de fases', cubiculos: [1, 2, 3, 4], minHoras: 4, maxHoras: 8, maxDiarias: 8 },
+  regular: { nombre: 'Estudio regular', cubiculos: [5, 6], minHoras: 2, maxHoras: 2, maxDiarias: 4 },
 };
 
-const FRANJAS = ['08:00', '09:00', '10:00', '11:00', '12:00', '14:00', '15:00', '16:00', '17:00'];
+function modalidadesDelCubiculo(numero) {
+  return Object.keys(REGLAS_CUBICULO).filter((clave) => REGLAS_CUBICULO[clave].cubiculos.includes(numero));
+}
 
-module.exports = { RECURSOS, FRANJAS };
+const RECURSOS = {
+  cubiculo: Array.from({ length: CUBICULOS }, (_, i) => ({
+    id: `cub-${i + 1}`,
+    nombre: `Cubículo ${i + 1}`,
+    capacidad: 5,
+    modalidades: modalidadesDelCubiculo(i + 1),
+  })),
+  estacion: Array.from({ length: ESTACIONES }, (_, i) => ({
+    id: `est-${i + 1}`,
+    nombre: `Estación ${i + 1}`,
+  })),
+  sala_lectura: Array.from({ length: MESAS_SALA }, (_, m) =>
+    Array.from({ length: SILLAS_POR_MESA }, (_, s) => ({
+      id: `sala-m${m + 1}-s${s + 1}`,
+      nombre: `Mesa ${m + 1} · Silla ${s + 1}`,
+    }))
+  ).flat(),
+};
+
+// Horas de inicio disponibles, una por hora seguida: una reserva de varias horas ocupa franjas consecutivas.
+const FRANJAS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+
+module.exports = { RECURSOS, FRANJAS, REGLAS_CUBICULO };
