@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, Loader2 } from 'lucide-react';
+import { Info, Loader2 } from 'lucide-react';
 import { reservasApi } from './reservasApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
-import Badge from '../../shared/components/Badge';
+import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import Button from '../../shared/components/Button';
+import Comprobante from '../../shared/components/Comprobante';
 import Modal from '../../shared/components/Modal';
 import AlertBanner from '../../shared/components/AlertBanner';
 import PageHeader from '../../shared/components/PageHeader';
@@ -21,6 +22,8 @@ function hoyISO() {
 }
 
 export default function StudyRoomPage() {
+  const { kiosco } = useKiosco();
+  const [condiciones, setCondiciones] = useState(null);
   const [zona, setZona] = useState(ZONAS[0].key);
   const [fecha, setFecha] = useState(hoyISO());
   const [hora, setHora] = useState('');
@@ -34,6 +37,7 @@ export default function StudyRoomPage() {
   const [seleccion, setSeleccion] = useState(null); // { recursoId, nombre, tipo }
   const [nombre, setNombre] = useState('');
   const [documento, setDocumento] = useState('');
+  const [correo, setCorreo] = useState('');
   const [reservando, setReservando] = useState(false);
   const [errorReserva, setErrorReserva] = useState('');
   const [comprobante, setComprobante] = useState(null);
@@ -60,6 +64,11 @@ export default function StudyRoomPage() {
       .reglas()
       .then((res) => setReglas(res.data.data))
       .catch((err) => setError(getErrorMessage(err, 'No se pudieron cargar las reglas de los cubículos')));
+    // Las condiciones generales son informativas: si no llegan, la pantalla funciona igual sin mostrarlas.
+    reservasApi
+      .condiciones()
+      .then((res) => setCondiciones(res.data.data))
+      .catch(() => setCondiciones(null));
   }, []);
 
   const horas = useMemo(() => (porTipo[TIPOS[0]]?.[0]?.franjas ?? []).map((f) => f.hora), [porTipo]);
@@ -123,15 +132,16 @@ export default function StudyRoomPage() {
     e.preventDefault();
     setReservando(true);
     setErrorReserva('');
-    const datos = { recursoId: seleccion.recursoId, fecha, hora, solicitante: nombre };
+    const datos = { recursoId: seleccion.recursoId, fecha, hora, solicitante: nombre, identificacion: documento, correo, kiosco };
     if (seleccion.tipo === 'cubiculo') {
-      Object.assign(datos, { identificacion: documento, modalidad, duracion: duracionCubiculo });
+      Object.assign(datos, { modalidad, duracion: duracionCubiculo });
     }
     try {
       const res = await reservasApi.reservar(seleccion.tipo, datos);
       setComprobante(res.data.data);
       setNombre('');
       setDocumento('');
+      setCorreo('');
       setSeleccion(null);
     } catch (err) {
       setErrorReserva(getErrorMessage(err, 'No se pudo crear la reserva'));
@@ -153,7 +163,15 @@ export default function StudyRoomPage() {
 
       <AlertBanner>{error}</AlertBanner>
 
-      {comprobante ? <Comprobante reserva={comprobante} onCerrar={() => setComprobante(null)} /> : null}
+      {comprobante ? (
+        <Comprobante
+          tipo="reserva"
+          registro={comprobante}
+          toleranciaMinutos={condiciones?.toleranciaMinutos}
+          textoNueva="Hacer otra reserva"
+          onNueva={() => setComprobante(null)}
+        />
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {ZONAS.map((z) => {
@@ -188,6 +206,24 @@ export default function StudyRoomPage() {
             </button>
           );
         })}
+      </div>
+
+      <div className="flex gap-3 rounded-lg border border-border bg-surface p-4 text-sm text-slate-700">
+        <Info size={18} className="mt-0.5 shrink-0 text-primary" />
+        <div>
+          <p className="font-bold text-slate-900">Condiciones de uso</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5">
+            <li>Duración permitida: cubículos según el tipo de reserva (más abajo); estaciones y sillas de la sala, 1 hora.</li>
+            <li>Para reservar necesitas tu carné, tu correo institucional o tu documento.</li>
+            {condiciones ? (
+              <li>
+                Si no te presentas dentro de {condiciones.toleranciaMinutos} minutos del inicio, la reserva se libera y el
+                lugar queda disponible para otra persona.
+              </li>
+            ) : null}
+            <li>Al terminar recibes un comprobante: puedes imprimirlo o enviarlo a tu correo.</li>
+          </ul>
+        </div>
       </div>
 
       <div className="flex flex-col gap-4 rounded-lg border border-border bg-white p-4">
@@ -290,7 +326,7 @@ export default function StudyRoomPage() {
               variant="primary"
               form="form-reserva"
               type="submit"
-              disabled={reservando || !nombre.trim() || (esReservaCubiculo && !documento.trim())}
+              disabled={reservando || !nombre.trim() || !documento.trim()}
             >
               {reservando ? 'Reservando...' : 'Confirmar'}
             </Button>
@@ -316,61 +352,27 @@ export default function StudyRoomPage() {
               onChange={(e) => setNombre(e.target.value)}
               placeholder="Nombre completo"
             />
-            {esReservaCubiculo ? (
-              <Input
-                label="Código o documento"
-                required
-                value={documento}
-                onChange={(e) => setDocumento(e.target.value)}
-                placeholder="Código estudiantil o número de documento"
-              />
-            ) : null}
+            <Input
+              label="Carné, correo institucional o documento"
+              required
+              hint="Con este dato se identifica tu reserva."
+              value={documento}
+              onChange={(e) => setDocumento(e.target.value)}
+              placeholder="Por ejemplo, tu número de carné"
+            />
+            <Input
+              label="Correo para el comprobante (opcional)"
+              type="email"
+              value={correo}
+              onChange={(e) => setCorreo(e.target.value)}
+              placeholder="correo@ejemplo.com"
+            />
+            <p className="text-xs text-slate-500">
+              Solo se guardan los datos necesarios para la reserva. Al terminar, la pantalla se limpia.
+            </p>
           </form>
         ) : null}
       </Modal>
-    </div>
-  );
-}
-
-function Comprobante({ reserva, onCerrar }) {
-  return (
-    <div className="rounded-xl border border-primary/30 bg-blue-50 p-5">
-      <div className="mb-3 flex items-center gap-2 text-primary">
-        <CheckCircle2 size={18} />
-        <span className="text-base font-bold">Comprobante de reserva</span>
-      </div>
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-        <dt className="text-slate-500">Código</dt>
-        <dd className="font-mono font-semibold">{reserva.id}</dd>
-        <dt className="text-slate-500">Lugar</dt>
-        <dd>{reserva.recursoNombre}</dd>
-        {reserva.modalidadNombre ? (
-          <>
-            <dt className="text-slate-500">Tipo de reserva</dt>
-            <dd>{reserva.modalidadNombre}</dd>
-          </>
-        ) : null}
-        <dt className="text-slate-500">Fecha y horario</dt>
-        <dd>
-          {reserva.fecha} · {reserva.hora} a {reserva.horaFin}
-          {reserva.duracion > 1 ? ` (${reserva.duracion} horas)` : ''}
-        </dd>
-        <dt className="text-slate-500">A nombre de</dt>
-        <dd>{reserva.solicitante}</dd>
-        <dt className="text-slate-500">Estado</dt>
-        <dd>
-          <Badge tone="status" dot>
-            Reservado
-          </Badge>
-        </dd>
-      </dl>
-      <p className="mt-3 text-xs text-slate-500">
-        Presenta este código {reserva.id} en el mostrador. El lugar queda apartado a tu nombre; el personal de biblioteca sella
-        el ingreso y la salida en el comprobante físico.
-      </p>
-      <button onClick={onCerrar} className="mt-3 text-xs font-semibold text-primary hover:underline">
-        Hacer otra reserva
-      </button>
     </div>
   );
 }

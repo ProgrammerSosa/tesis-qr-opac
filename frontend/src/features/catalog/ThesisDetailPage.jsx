@@ -1,11 +1,27 @@
-import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen, Bookmark, Download, FileText, List, Loader2, Printer, Search, ShoppingCart, Smartphone } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  BookOpen,
+  Bookmark,
+  Download,
+  FileText,
+  List,
+  Loader2,
+  Printer,
+  Search,
+  ShoppingCart,
+  Smartphone,
+} from 'lucide-react';
 import { catalogApi } from './catalogApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
+import { useKiosco } from '../../shared/kiosco/KioscoContext';
+import { LIBRARY } from '../../shared/config/library';
 import ThesisQr from './ThesisQr';
 import ThesisLabel from './ThesisLabel';
 import ThesisCard from './ThesisCard';
+import { ACCESOS, TIPOS_DOCUMENTO } from './tiposDocumento';
 import { IsbdView, MarcView } from './ThesisRecordViews';
 import { FORMATOS, descargarRegistro } from './recordExport';
 import Badge from '../../shared/components/Badge';
@@ -28,6 +44,8 @@ const VISTAS = [
 
 export default function ThesisDetailPage() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const { registrarEvento } = useKiosco();
   const [tesis, setTesis] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -35,6 +53,9 @@ export default function ThesisDetailPage() {
   const [vista, setVista] = useState('normal');
   const [enLista, setEnLista] = useState(false);
   const [reservada, setReservada] = useState(false);
+  const accesoContado = useRef(null);
+
+  const llegoPorQr = searchParams.get('origen') === 'qr';
 
   useEffect(() => {
     setCargando(true);
@@ -46,6 +67,13 @@ export default function ThesisDetailPage() {
       .catch((err) => setError(getErrorMessage(err, 'No se pudo cargar la tesis')))
       .finally(() => setCargando(false));
   }, [id]);
+
+  // Cuenta una vez cada llegada por el código QR de la etiqueta (solo si ese código sigue activo).
+  useEffect(() => {
+    if (!tesis || !llegoPorQr || !tesis.qr?.activo || accesoContado.current === tesis.id) return;
+    accesoContado.current = tesis.id;
+    registrarEvento('acceso_qr', { tesisId: tesis.id });
+  }, [tesis, llegoPorQr, registrarEvento]);
 
   if (cargando) {
     return (
@@ -69,6 +97,10 @@ export default function ThesisDetailPage() {
   }
 
   const relacionadas = tesis.relacionadas || [];
+  const tipoDocumento = TIPOS_DOCUMENTO[tesis.tipoDocumento] ?? tesis.modalidad;
+  const acceso = ACCESOS[tesis.documentoDigital?.acceso] ?? ACCESOS.sin_acceso;
+  const hayDigital = Boolean(tesis.documentoDigital?.disponible);
+  const qrDesactivado = llegoPorQr && !tesis.qr?.activo;
 
   return (
     <div className="flex flex-col gap-5">
@@ -79,6 +111,16 @@ export default function ThesisDetailPage() {
           { label: `Detalles para: ${tesis.titulo}` },
         ]}
       />
+
+      {qrDesactivado ? (
+        <div role="status" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            El código QR que escaneaste está desactivado. Esta es la ficha de la tesis en el catálogo de la biblioteca; si
+            tienes dudas sobre el código, consulta al personal.
+          </span>
+        </div>
+      ) : null}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <article className="flex min-w-0 flex-col gap-4">
@@ -102,7 +144,7 @@ export default function ThesisDetailPage() {
           <div>
             <h1 className="text-balance text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{tesis.titulo}</h1>
             <p className="mt-1.5 text-base text-slate-500">
-              {tesis.autor} · Programa de {tesis.programa}
+              {tesis.autor} · {tesis.programa}
             </p>
           </div>
 
@@ -114,22 +156,20 @@ export default function ThesisDetailPage() {
               <div className="flex flex-col gap-2.5 text-[15px] leading-relaxed text-slate-700">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-slate-500">Tipo de material:</span>
-                  <Badge tone="neutral">Tesis de grado</Badge>
+                  <Badge tone="neutral">{tipoDocumento}</Badge>
                   <Badge tone="status" dot>
                     {tesis.estado} para consulta
                   </Badge>
                 </div>
                 <p>
-                  <span className="text-slate-500">Bogotá :</span> Universidad — {tesis.facultad}, {tesis.anio}.
+                  <span className="text-slate-500">Publicación:</span> {LIBRARY.ciudad} : {tesis.institucion}, {tesis.facultad},{' '}
+                  {tesis.anio}.
                 </p>
                 <p>
                   <span className="text-slate-500">Descripción:</span> {tesis.paginas} p.
                 </p>
                 <p>
                   <span className="text-slate-500">Director(a):</span> {tesis.director}
-                </p>
-                <p>
-                  <span className="text-slate-500">Modalidad:</span> {tesis.modalidad}
                 </p>
                 <p>
                   <span className="text-slate-500">Código:</span> <span className="font-mono">{tesis.id}</span>
@@ -150,6 +190,44 @@ export default function ThesisDetailPage() {
                   {tesis.resumen}
                 </p>
               </div>
+
+              <section aria-labelledby="como-consultar" className="rounded-lg border border-border border-l-4 border-l-primary bg-surface p-4">
+                <h2 id="como-consultar" className="text-base font-bold text-slate-900">
+                  ¿Cómo consultar esta tesis?
+                </h2>
+                <dl className="mt-3 grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
+                  <div>
+                    <dt className="text-xs font-semibold text-slate-500">Ubicación</dt>
+                    <dd className="font-semibold text-slate-800">{tesis.ubicacion}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold text-slate-500">Modalidad</dt>
+                    <dd className="font-semibold text-slate-800">{tesis.modalidadAcceso}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold text-slate-500">Consulta física</dt>
+                    <dd className="font-semibold text-slate-800">{tesis.consultaFisica}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs font-semibold text-slate-500">Documento digital</dt>
+                    <dd className="font-semibold text-slate-800">{acceso.etiqueta}</dd>
+                  </div>
+                </dl>
+                <p className="mt-2.5 text-xs text-slate-500">
+                  {hayDigital
+                    ? acceso.detalle
+                    : 'Esta tesis no tiene documento digital disponible: se consulta el ejemplar físico en la biblioteca.'}
+                </p>
+                {hayDigital ? (
+                  <Link
+                    to={`/tesis/${tesis.id}/documento`}
+                    className="mt-3 inline-flex items-center gap-2 rounded-md bg-action px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-action-dark"
+                  >
+                    <FileText size={16} />
+                    Consultar documento digital
+                  </Link>
+                ) : null}
+              </section>
 
               <div>
                 <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
@@ -207,8 +285,8 @@ export default function ThesisDetailPage() {
 
                   {tab === 'notas' ? (
                     <p className="text-sm text-slate-600">
-                      Tipo documental: tesis de grado. Idioma: español. Formato digital disponible: PDF (acceso institucional,
-                      bajo solicitud).
+                      Tipo documental: {tipoDocumento.toLowerCase()}. Idioma: español. Versión digital:{' '}
+                      {hayDigital ? `${acceso.etiqueta.toLowerCase()} (PDF).` : 'no disponible.'}
                     </p>
                   ) : null}
 
@@ -229,8 +307,17 @@ export default function ThesisDetailPage() {
 
         <aside className="flex flex-col gap-4">
           <div className="flex flex-col gap-2.5 rounded-lg bg-surface p-3.5 print:hidden">
+            {hayDigital ? (
+              <Link
+                to={`/tesis/${tesis.id}/documento`}
+                className="inline-flex w-full items-center justify-start gap-2 rounded-md bg-action px-4 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-action-dark"
+              >
+                <FileText size={16} />
+                Consultar documento digital
+              </Link>
+            ) : null}
             <Button
-              variant="primary"
+              variant={hayDigital ? 'brand' : 'primary'}
               icon={Bookmark}
               className="w-full justify-start px-4 py-3 text-base"
               disabled={reservada}
@@ -276,8 +363,8 @@ export default function ThesisDetailPage() {
               <ThesisQr id={tesis.id} size={180} />
             </div>
             <p className="text-sm text-slate-500">
-              Escanea para llevar este registro a tu dispositivo. Es el mismo código dinámico impreso en la etiqueta de la
-              contraportada: no es necesario pedir el ejemplar físico para consultarlo.
+              Escanea para llevar este registro a tu dispositivo. Es el mismo código impreso en la etiqueta de la contraportada:
+              no es necesario pedir el ejemplar físico para consultarlo.
             </p>
           </div>
         </aside>

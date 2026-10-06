@@ -32,6 +32,48 @@ body {
   min-height: 100vh;
 }
 
+/* Comprobante físico (impresora térmica del kiosco): mientras se imprime, solo sale el ticket. */
+#ticket-impresion {
+  display: none;
+  page: ticket;
+}
+
+@page ticket {
+  size: 80mm auto;
+  margin: 4mm;
+}
+
+@media print {
+  body.imprimiendo-ticket #root {
+    display: none !important;
+  }
+
+  body.imprimiendo-ticket #ticket-impresion {
+    display: block;
+  }
+}
+
+/* Etiquetas de contraportada (panel del personal): mientras se imprimen, solo salen las etiquetas, en dos columnas. */
+#etiquetas-impresion {
+  display: none;
+}
+
+@media print {
+  body.imprimiendo-etiquetas #root {
+    display: none !important;
+  }
+
+  body.imprimiendo-etiquetas #etiquetas-impresion {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8mm;
+  }
+
+  #etiquetas-impresion > * {
+    break-inside: avoid;
+  }
+}
+
 /* Fondo del encabezado: negro azulado con resplandores azul y rojo sobre una cuadrícula tenue. */
 .hero-bg {
   background-color: #070b16;

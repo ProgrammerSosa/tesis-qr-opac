@@ -1,243 +1,153 @@
-import { useEffect, useState } from 'react';
-import { BookMarked, CalendarCheck, Clock, FileCheck2, Loader2, Stamp, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { BookMarked, CalendarCheck, ChartColumn, Clock, FileCheck2, FileText, LogOut, QrCode, ShieldCheck, Users } from 'lucide-react';
 import { adminApi } from './adminApi';
-import { reservasApi } from '../reservas/reservasApi';
-import { solvenciaApi } from '../solvencia/solvenciaApi';
-import { getErrorMessage } from '../../shared/api/axiosClient';
+import { authApi } from './authApi';
+import LoginForm from './LoginForm';
+import ReservasPanel from './ReservasPanel';
+import SolicitudesPanel from './SolicitudesPanel';
+import UsuariosPanel from './UsuariosPanel';
+import TesisDigitalesPanel from './TesisDigitalesPanel';
+import CodigosQrPanel from './CodigosQrPanel';
+import EstadisticasPanel from './EstadisticasPanel';
+import { EVENTO_SESION_EXPIRADA } from '../../shared/api/axiosClient';
+import { borrarSesion, guardarSesion, leerSesion } from '../../shared/auth/sesion';
 import StatTile from '../../shared/components/StatTile';
-import Badge from '../../shared/components/Badge';
-import AlertBanner from '../../shared/components/AlertBanner';
 import PageHeader from '../../shared/components/PageHeader';
 
-const ESTADO_RESERVA = {
-  reservado: { tone: 'warning', label: 'Reservado' },
-  en_uso: { tone: 'accent', label: 'En uso' },
-  finalizado: { tone: 'status', label: 'Finalizado' },
-  cancelado: { tone: 'danger', label: 'Cancelado' },
-};
+// Qué rol ve qué sección (propuesta, sección 4.5.6). El servidor repite la comprobación en cada petición:
+// ocultar una pestaña es comodidad, no seguridad.
+const SECCIONES = [
+  { clave: 'reservas', etiqueta: 'Reservas', icono: CalendarCheck, roles: ['administrador', 'circulacion'], Panel: ReservasPanel },
+  { clave: 'solicitudes', etiqueta: 'Solicitudes', icono: FileCheck2, roles: ['administrador', 'circulacion'], Panel: SolicitudesPanel },
+  { clave: 'usuarios', etiqueta: 'Usuarios', icono: Users, roles: ['administrador', 'circulacion'], Panel: UsuariosPanel },
+  { clave: 'tesis', etiqueta: 'Tesis digitales', icono: FileText, roles: ['administrador', 'tesis'], Panel: TesisDigitalesPanel },
+  { clave: 'qr', etiqueta: 'Códigos QR', icono: QrCode, roles: ['administrador', 'tesis'], Panel: CodigosQrPanel },
+  { clave: 'estadisticas', etiqueta: 'Estadísticas', icono: ChartColumn, roles: ['administrador', 'consulta'], Panel: EstadisticasPanel },
+];
 
-const TIPO_RESERVA = { cubiculo: 'Cubículo', estacion: 'Estación', sala_lectura: 'Sala de lectura' };
-
-const SIGUIENTE_RESERVA ={ reservado: 'Sellar ingreso', en_uso: 'Sellar salida' };
-
-const ESTADO_SOLVENCIA = {
-  pendiente: { tone: 'warning', label: 'Pendiente' },
-  en_revision: { tone: 'accent', label: 'En revisión' },
-  aprobada: { tone: 'status', label: 'Aprobada' },
-  rechazada: { tone: 'danger', label: 'Rechazada' },
-};
-
-const SIGUIENTE_SOLVENCIA = { pendiente: 'Pasar a revisión', en_revision: 'Aprobar' };
+const AVISO_SESION_TERMINADA = 'Tu sesión terminó. Inicia sesión de nuevo para continuar.';
 
 export default function AdminDashboardPage() {
+  const [sesion, setSesion] = useState(leerSesion);
+  const [aviso, setAviso] = useState('');
+  const [seccion, setSeccion] = useState(null);
   const [resumen, setResumen] = useState(null);
-  const [reservas, setReservas] = useState([]);
-  const [solicitudes, setSolicitudes] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState('');
 
-  async function cargar() {
-    setError('');
-    try {
-      const [r1, r2, r3] = await Promise.all([adminApi.resumen(), reservasApi.listar(), solvenciaApi.listar()]);
-      setResumen(r1.data.data);
-      setReservas(r2.data.data);
-      setSolicitudes(r3.data.data);
-    } catch (err) {
-      setError(getErrorMessage(err, 'No se pudo cargar el panel'));
-    } finally {
-      setCargando(false);
-    }
-  }
-
+  // El cliente de la API avisa cuando el servidor deja de reconocer la sesión (venció o el servidor se reinició).
   useEffect(() => {
-    cargar();
+    const alExpirar = () => {
+      setSesion(null);
+      setResumen(null);
+      setAviso(AVISO_SESION_TERMINADA);
+    };
+    window.addEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
+    return () => window.removeEventListener(EVENTO_SESION_EXPIRADA, alExpirar);
   }, []);
 
-  async function avanzarReserva(id) {
-    await reservasApi.avanzar(id);
-    cargar();
+  const cargarResumen = useCallback(() => {
+    adminApi
+      .resumen()
+      .then((res) => setResumen(res.data.data))
+      .catch(() => setResumen(null)); // un resumen que no carga no debe tapar el panel; si la sesión venció, el aviso la cierra
+  }, []);
+
+  useEffect(() => {
+    if (sesion) cargarResumen();
+  }, [sesion, cargarResumen]);
+
+  function alEntrar(nueva) {
+    guardarSesion(nueva);
+    setAviso('');
+    setSeccion(null);
+    setSesion(nueva);
   }
 
-  async function cancelarReserva(id) {
-    await reservasApi.cancelar(id);
-    cargar();
+  async function cerrarSesion() {
+    try {
+      await authApi.logout();
+    } catch {
+      // si el servidor ya no la reconoce, igual se cierra aquí
+    }
+    borrarSesion();
+    setSesion(null);
+    setResumen(null);
+    setAviso('');
   }
 
-  async function avanzarSolicitud(id) {
-    await solvenciaApi.avanzar(id);
-    cargar();
-  }
-
-  async function rechazarSolicitud(id) {
-    await solvenciaApi.rechazar(id);
-    cargar();
-  }
-
-  if (cargando) {
+  if (!sesion) {
     return (
-      <div className="flex items-center gap-2 text-slate-400">
-        <Loader2 className="animate-spin" size={18} />
-        Cargando panel...
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          crumbs={[{ label: 'Inicio', to: '/' }, { label: 'Panel del personal' }]}
+          title="Panel del personal"
+          subtitle="Reservas, solicitudes, tesis digitales, códigos QR y estadísticas. Se necesita una cuenta autorizada."
+        />
+        <LoginForm aviso={aviso} onEntrar={alEntrar} />
       </div>
     );
   }
 
+  const permitidas = SECCIONES.filter((s) => s.roles.includes(sesion.rol));
+  const activa = permitidas.find((s) => s.clave === seccion) ?? permitidas[0];
+
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
-        crumbs={[{ label: 'Inicio', to: '/' }, { label: 'Panel administrativo' }]}
-        title="Panel administrativo"
-        subtitle="Lo que el circulante ve en tiempo real: reservas de cubículos y espacios, y solicitudes de solvencia por revisar."
+        crumbs={[{ label: 'Inicio', to: '/' }, { label: 'Panel del personal' }]}
+        title="Panel del personal"
+        subtitle={`Secciones disponibles para tu rol: ${permitidas.map((s) => s.etiqueta).join(', ')}.`}
       />
 
-      <AlertBanner>{error}</AlertBanner>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-surface px-4 py-2.5">
+        <p className="flex items-center gap-2 text-sm text-slate-700">
+          <ShieldCheck size={16} className="text-primary" />
+          <span>
+            <b>{sesion.nombre}</b> · {sesion.rolNombre}
+          </span>
+        </p>
+        <button
+          type="button"
+          onClick={cerrarSesion}
+          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+        >
+          <LogOut size={15} />
+          Cerrar sesión
+        </button>
+      </div>
 
       {resumen ? (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <StatTile label="Tesis registradas" value={resumen.tesis.total} icon={BookMarked} />
+          <StatTile label="Con documento digital" value={resumen.tesis.conDocumentoDigital} icon={FileText} />
           <StatTile label="Reservas activas" value={resumen.reservas.activas} icon={Clock} />
           <StatTile label="Reservas hoy" value={resumen.reservas.hoy} icon={CalendarCheck} />
           <StatTile label="Solvencias pendientes" value={resumen.solvencia.pendientes} icon={FileCheck2} />
         </div>
       ) : null}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="font-heading text-base font-semibold text-primary-dark">Reservas de cubículos y espacios</h2>
-        <div className="overflow-x-auto rounded-xl border border-border bg-white">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                {['Código', 'Tipo', 'Recurso', 'Solicitante', 'Fecha', 'Hora', 'Estado', 'Acción'].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {reservas.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-3 py-6 text-center text-slate-400">
-                    Aún no hay reservas registradas.
-                  </td>
-                </tr>
-              ) : (
-                reservas.map((r) => {
-                  const estado = ESTADO_RESERVA[r.estado];
-                  const siguiente = SIGUIENTE_RESERVA[r.estado];
-                  return (
-                    <tr key={r.id}>
-                      <td className="px-3 py-2.5 font-mono">{r.id}</td>
-                      <td className="px-3 py-2.5">
-                        {TIPO_RESERVA[r.tipo] ?? r.tipo}
-                        {r.modalidadNombre ? <span className="block text-xs text-slate-500">{r.modalidadNombre}</span> : null}
-                      </td>
-                      <td className="px-3 py-2.5">{r.recursoNombre}</td>
-                      <td className="px-3 py-2.5">
-                        {r.solicitante}
-                        {r.identificacion ? <span className="block font-mono text-xs text-slate-500">{r.identificacion}</span> : null}
-                      </td>
-                      <td className="px-3 py-2.5">{r.fecha}</td>
-                      <td className="whitespace-nowrap px-3 py-2.5 font-mono">
-                        {r.hora}–{r.horaFin}
-                        {r.duracion > 1 ? <span className="block text-xs text-slate-500">{r.duracion} horas</span> : null}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <Badge tone={estado.tone}>{estado.label}</Badge>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex gap-2">
-                          {siguiente ? (
-                            <button
-                              onClick={() => avanzarReserva(r.id)}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-                            >
-                              <Stamp size={13} />
-                              {siguiente}
-                            </button>
-                          ) : null}
-                          {r.estado === 'reservado' ? (
-                            <button
-                              onClick={() => cancelarReserva(r.id)}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-secondary hover:underline"
-                            >
-                              <X size={13} />
-                              Cancelar
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+      <div>
+        <div role="tablist" aria-label="Secciones del panel" className="flex flex-wrap gap-1 border-b border-border">
+          {permitidas.map((s) => (
+            <button
+              key={s.clave}
+              role="tab"
+              aria-selected={activa.clave === s.clave}
+              onClick={() => setSeccion(s.clave)}
+              className={`-mb-px inline-flex items-center gap-2 rounded-t-md border px-4 py-2.5 text-sm transition-colors ${
+                activa.clave === s.clave
+                  ? 'border-border border-b-white border-t-2 border-t-action bg-white font-semibold text-slate-900'
+                  : 'border-transparent text-primary hover:bg-surface'
+              }`}
+            >
+              <s.icono size={16} />
+              {s.etiqueta}
+            </button>
+          ))}
         </div>
-      </section>
-
-      <section className="flex flex-col gap-2">
-        <h2 className="font-heading text-base font-semibold text-primary-dark">Solicitudes de solvencia</h2>
-        <div className="overflow-x-auto rounded-xl border border-border bg-white">
-          <table className="w-full min-w-[680px] text-left text-sm">
-            <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
-              <tr>
-                {['Radicado', 'Solicitante', 'Programa', 'Motivo', 'Estado', 'Acción'].map((h) => (
-                  <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {solicitudes.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
-                    Aún no hay solicitudes registradas.
-                  </td>
-                </tr>
-              ) : (
-                solicitudes.map((s) => {
-                  const estado = ESTADO_SOLVENCIA[s.estado];
-                  const siguiente = SIGUIENTE_SOLVENCIA[s.estado];
-                  return (
-                    <tr key={s.id}>
-                      <td className="px-3 py-2.5 font-mono">{s.id}</td>
-                      <td className="px-3 py-2.5">{s.solicitante}</td>
-                      <td className="px-3 py-2.5">{s.programa}</td>
-                      <td className="px-3 py-2.5">{s.motivo}</td>
-                      <td className="px-3 py-2.5">
-                        <Badge tone={estado.tone}>{estado.label}</Badge>
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex gap-2">
-                          {siguiente ? (
-                            <button
-                              onClick={() => avanzarSolicitud(s.id)}
-                              className="text-xs font-medium text-primary hover:underline"
-                            >
-                              {siguiente}
-                            </button>
-                          ) : null}
-                          {['pendiente', 'en_revision'].includes(s.estado) ? (
-                            <button
-                              onClick={() => rechazarSolicitud(s.id)}
-                              className="text-xs font-medium text-secondary hover:underline"
-                            >
-                              Rechazar
-                            </button>
-                          ) : null}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+        <div role="tabpanel" className="pt-5">
+          <activa.Panel key={activa.clave} onCambio={cargarResumen} />
         </div>
-      </section>
+      </div>
     </div>
   );
 }

@@ -12,6 +12,11 @@ const REGLAS_CUBICULO = {
   regular: { nombre: 'Estudio regular', cubiculos: [5, 6], minHoras: 2, maxHoras: 2, maxDiarias: 4 },
 };
 
+// Condiciones generales de uso (propuesta, sección 4.5.2): si quien reserva no se presenta dentro de la
+// tolerancia, la reserva se libera y el lugar vuelve a estar disponible. Las estaciones y las sillas
+// de la sala se reservan por una hora.
+const CONDICIONES = { toleranciaMinutos: 15, duracionEspaciosHoras: 1 };
+
 function modalidadesDelCubiculo(numero) {
   return Object.keys(REGLAS_CUBICULO).filter((clave) => REGLAS_CUBICULO[clave].cubiculos.includes(numero));
 }
@@ -38,4 +43,4 @@ const RECURSOS = {
 // Horas de inicio disponibles, una por hora seguida: una reserva de varias horas ocupa franjas consecutivas.
 const FRANJAS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
 
-module.exports = { RECURSOS, FRANJAS, REGLAS_CUBICULO };
+module.exports = { RECURSOS, FRANJAS, REGLAS_CUBICULO, CONDICIONES };

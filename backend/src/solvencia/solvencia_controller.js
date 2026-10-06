@@ -1,4 +1,5 @@
 const { MOTIVOS, crear, listar, avanzarEstado, rechazar, resumen } = require('./solvencia_data');
+const { correoValido } = require('../../utils/codigos');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 function getMotivos(req, res) {
@@ -6,14 +7,18 @@ function getMotivos(req, res) {
 }
 
 function postSolicitud(req, res) {
-  const { solicitante, identificacion, programa, motivo } = req.body;
+  const { solicitante, identificacion, programa, motivo, correo, kiosco } = req.body;
   if (!solicitante || !identificacion || !programa || !motivo) {
     return fail(res, 'Faltan datos del formulario');
   }
   if (!MOTIVOS.includes(motivo)) {
     return fail(res, 'Motivo invalido');
   }
-  const solicitud = crear({ solicitante, identificacion, programa, motivo });
+  const correoLimpio = String(correo || '').trim();
+  if (correoLimpio && !correoValido(correoLimpio)) {
+    return fail(res, 'El correo no es válido');
+  }
+  const solicitud = crear({ solicitante, identificacion, programa, motivo, correo: correoLimpio, kiosco });
   return ok(res, solicitud, 'Solicitud registrada');
 }
 

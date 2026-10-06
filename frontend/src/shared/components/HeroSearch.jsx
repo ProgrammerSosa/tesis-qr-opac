@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search } from 'lucide-react';
+import { useKiosco } from '../kiosco/KioscoContext';
 
 const CAMPOS = [
   { value: 'tema', label: 'Tema o palabra clave' },
@@ -11,11 +12,13 @@ const CAMPOS = [
 
 export default function HeroSearch() {
   const navigate = useNavigate();
+  const { registrarEvento } = useKiosco();
   const [campo, setCampo] = useState('tema');
   const [texto, setTexto] = useState('');
 
   function handleSubmit(e) {
     e.preventDefault();
+    registrarEvento('busqueda_opac');
     navigate(`/catalogo?${campo}=${encodeURIComponent(texto.trim())}`);
   }
 

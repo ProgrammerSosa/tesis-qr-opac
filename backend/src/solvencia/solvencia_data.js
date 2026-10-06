@@ -1,3 +1,5 @@
+const { generarCodigoConfirmacion } = require('../../utils/codigos');
+
 const solicitudes = [];
 let contador = 0;
 
@@ -8,13 +10,20 @@ function siguienteCodigo() {
 
 const MOTIVOS = ['Grado', 'Certificado de paz y salvo', 'Retiro del programa', 'Otro'];
 
-function crear({ solicitante, identificacion, programa, motivo }) {
+function kioscoValido(kiosco) {
+  return typeof kiosco === 'string' && /^[0-9A-Za-z_-]{1,10}$/.test(kiosco) ? kiosco : null;
+}
+
+function crear({ solicitante, identificacion, programa, motivo, correo, kiosco }) {
   const solicitud = {
     id: siguienteCodigo(),
     solicitante,
     identificacion,
     programa,
     motivo,
+    ...(correo ? { correo } : {}),
+    ...(kioscoValido(kiosco) ? { kiosco: kioscoValido(kiosco) } : {}),
+    codigoConfirmacion: generarCodigoConfirmacion(),
     estado: 'pendiente',
     creadoEn: new Date().toISOString(),
   };
@@ -26,10 +35,14 @@ function listar() {
   return solicitudes.slice().sort((a, b) => b.creadoEn.localeCompare(a.creadoEn));
 }
 
+function buscarSolicitud(id) {
+  return solicitudes.find((s) => s.id === id) || null;
+}
+
 const SIGUIENTE_ESTADO = { pendiente: 'en_revision', en_revision: 'aprobada' };
 
 function avanzarEstado(id) {
-  const solicitud = solicitudes.find((s) => s.id === id);
+  const solicitud = buscarSolicitud(id);
   if (!solicitud) return null;
   const siguiente = SIGUIENTE_ESTADO[solicitud.estado];
   if (!siguiente) return solicitud;
@@ -38,7 +51,7 @@ function avanzarEstado(id) {
 }
 
 function rechazar(id) {
-  const solicitud = solicitudes.find((s) => s.id === id);
+  const solicitud = buscarSolicitud(id);
   if (!solicitud) return null;
   solicitud.estado = 'rechazada';
   return solicitud;
@@ -51,4 +64,4 @@ function resumen() {
   };
 }
 
-module.exports = { MOTIVOS, crear, listar, avanzarEstado, rechazar, resumen };
+module.exports = { MOTIVOS, crear, listar, buscarSolicitud, avanzarEstado, rechazar, resumen };

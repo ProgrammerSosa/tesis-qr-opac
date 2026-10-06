@@ -1,26 +1,41 @@
-import { enlaceDeTesis } from './ThesisQr';
+import { enlaceCanonico, enlaceDeDocumento } from './ThesisQr';
+import { ACCESOS, TIPOS_DOCUMENTO } from './tiposDocumento';
+import { LIBRARY } from '../../shared/config/library';
+
+function tipoDeDocumento(t) {
+  return TIPOS_DOCUMENTO[t.tipoDocumento] ?? t.modalidad;
+}
 
 // Campos MARC 21 derivados de la ficha. '#' en un indicador equivale a "sin definir".
 export function marcFields(t) {
-  return [
+  const campos = [
     { tag: '100', ind: '1#', sub: [['a', t.autor]] },
     { tag: '245', ind: '10', sub: [['a', t.titulo]] },
-    { tag: '260', ind: '##', sub: [['b', t.facultad], ['c', t.anio]] },
+    { tag: '260', ind: '##', sub: [['a', LIBRARY.ciudad], ['b', `${t.institucion}, ${t.facultad}`], ['c', t.anio]] },
     { tag: '300', ind: '##', sub: [['a', `${t.paginas} p.`]] },
-    { tag: '502', ind: '##', sub: [['a', `${t.modalidad} — ${t.programa}`]] },
+    { tag: '502', ind: '##', sub: [['a', `${tipoDeDocumento(t)} — ${t.programa}`]] },
     { tag: '520', ind: '##', sub: [['a', t.resumen]] },
     ...t.temas.map((tema) => ({ tag: '650', ind: '#4', sub: [['a', tema]] })),
     { tag: '700', ind: '1#', sub: [['a', t.director], ['e', 'director']] },
-    { tag: '852', ind: '##', sub: [['b', t.ubicacion], ['c', t.coleccion], ['h', t.signatura]] },
+    {
+      tag: '852',
+      ind: '##',
+      sub: [['b', t.ubicacion], ['c', t.coleccion], ['h', t.signatura], ['z', `${t.modalidadAcceso}. ${t.consultaFisica}.`]],
+    },
   ];
+  // Solo si la versión digital está disponible: el campo 856 es el enlace de acceso al recurso en línea.
+  if (t.documentoDigital?.disponible) {
+    campos.push({ tag: '856', ind: '40', sub: [['u', enlaceDeDocumento(t.id)], ['y', 'Consultar documento digital']] });
+  }
+  return campos;
 }
 
 export function isbdText(t) {
   return [
     `${t.titulo} / ${t.autor}.`,
-    `${t.facultad}, ${t.anio}.`,
+    `${LIBRARY.ciudad} : ${t.institucion}, ${t.facultad}, ${t.anio}.`,
     `${t.paginas} p.`,
-    `(${t.modalidad} — ${t.programa}). Director(a): ${t.director}.`,
+    `(${tipoDeDocumento(t)} — ${t.programa}). Director(a): ${t.director}.`,
   ].join(' — ');
 }
 
@@ -32,16 +47,19 @@ function escapeXml(valor) {
     .replace(/"/g, '&quot;');
 }
 
+// BibTeX solo distingue tesis de maestría y de doctorado: las de grado y posgrado van como maestría.
 function bibtex(t) {
-  return `@mastersthesis{${t.id},
+  const tipo = t.tipoDocumento === 'tesis_doctoral' ? 'phdthesis' : 'mastersthesis';
+  return `@${tipo}{${t.id},
   author = {${t.autor}},
   title = {${t.titulo}},
-  school = {${t.facultad}},
+  school = {${t.institucion}},
+  address = {${LIBRARY.ciudad}},
   year = {${t.anio}},
-  type = {${t.modalidad}},
+  type = {${tipoDeDocumento(t)}},
   note = {Director(a): ${t.director}},
   keywords = {${t.temas.join(', ')}},
-  url = {${enlaceDeTesis(t.id)}}
+  url = {${enlaceCanonico(t.id)}}
 }
 `;
 }
@@ -52,11 +70,12 @@ function ris(t) {
     `AU  - ${t.autor}`,
     `TI  - ${t.titulo}`,
     `PY  - ${t.anio}`,
-    `PB  - ${t.facultad}`,
+    `PB  - ${t.institucion}, ${t.facultad}`,
+    `CY  - ${LIBRARY.ciudad}`,
     `AB  - ${t.resumen}`,
     ...t.temas.map((tema) => `KW  - ${tema}`),
     `ID  - ${t.id}`,
-    `UR  - ${enlaceDeTesis(t.id)}`,
+    `UR  - ${enlaceCanonico(t.id)}`,
     'ER  - ',
     '',
   ].join('\n');
@@ -67,13 +86,15 @@ function dublinCore(t) {
     ['dc:title', t.titulo],
     ['dc:creator', t.autor],
     ['dc:contributor', t.director],
-    ['dc:publisher', t.facultad],
+    ['dc:publisher', `${t.institucion}, ${t.facultad}`],
     ['dc:date', t.anio],
-    ['dc:type', 'Tesis de grado'],
+    ['dc:type', tipoDeDocumento(t)],
     ...t.temas.map((tema) => ['dc:subject', tema]),
     ['dc:description', t.resumen],
     ['dc:identifier', t.id],
+    ['dc:identifier', enlaceCanonico(t.id)],
     ['dc:language', 'es'],
+    ['dc:rights', ACCESOS[t.documentoDigital?.acceso]?.etiqueta ?? 'Sin acceso digital'],
   ];
   const cuerpo = lineas.map(([tag, valor]) => `  <${tag}>${escapeXml(valor)}</${tag}>`).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>\n<metadata xmlns:dc="http://purl.org/dc/elements/1.1/">\n${cuerpo}\n</metadata>\n`;

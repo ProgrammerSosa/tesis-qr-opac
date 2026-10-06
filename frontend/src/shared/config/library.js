@@ -1,10 +1,12 @@
-// Datos institucionales que se muestran en el encabezado y el pie de página.
-// Ajusta aquí el nombre, el lema y los horarios reales de la biblioteca.
+// Datos institucionales que se muestran en el encabezado, el pie de página y las etiquetas.
+// Salen de la propuesta de modernización de la biblioteca (capítulo I).
 export const LIBRARY = {
-  nombre: 'Biblioteca universitaria',
-  lema: 'Conocimiento al alcance de toda la comunidad universitaria',
-  horarios: [
-    { dias: 'Lunes a viernes', horas: '7:00 a.m. a 7:00 p.m.' },
-    { dias: 'Sábados', horas: '8:00 a.m. a 1:00 p.m.' },
-  ],
+  nombre: 'Biblioteca «Francisco Rolando Velázquez González»',
+  nombreCorto: 'Biblioteca Francisco Rolando Velázquez González',
+  facultad: 'Facultad de Ciencias Jurídicas y Sociales',
+  universidad: 'Universidad de San Carlos de Guatemala',
+  lema: 'Del anaquel cerrado al acceso inteligente',
+  ubicacion: 'Edificio S-5, primer nivel · Campus central',
+  sitioWeb: 'https://www.biblioderechousac.info/inicio',
+  ciudad: 'Guatemala',
 };

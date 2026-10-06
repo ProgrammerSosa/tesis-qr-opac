@@ -1,7 +1,8 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Armchair, BookOpen, FileCheck2, Home, LayoutDashboard, Search } from 'lucide-react';
+import { Armchair, BookOpen, FileCheck2, Home, LayoutDashboard, MonitorSmartphone, Search } from 'lucide-react';
 import HeroSearch from './HeroSearch';
 import { LIBRARY } from '../config/library';
+import { useKiosco } from '../kiosco/KioscoContext';
 
 const TOP_LINKS = [
   { to: '/', label: 'Inicio', icon: Home },
@@ -22,6 +23,7 @@ const SERVICIOS = [
 
 export default function SiteHeader() {
   const { pathname } = useLocation();
+  const { kiosco, esKiosco } = useKiosco();
   const esInicio = pathname === '/';
 
   return (
@@ -36,10 +38,21 @@ export default function SiteHeader() {
               </Link>
             ))}
           </nav>
-          <Link to="/admin" className="flex items-center gap-1.5 text-white/85 transition-colors hover:text-white">
-            <LayoutDashboard size={16} />
-            Panel administrativo
-          </Link>
+          <div className="flex items-center gap-4">
+            {esKiosco ? (
+              <span className="flex items-center gap-1.5 rounded bg-white/15 px-2 py-0.5 text-xs font-semibold">
+                <MonitorSmartphone size={14} />
+                Kiosco {kiosco}
+              </span>
+            ) : null}
+            {/* El panel es independiente de lo que ve el público (propuesta, 4.5.6): en un kiosco no se ofrece el enlace. */}
+            {esKiosco ? null : (
+              <Link to="/admin" className="flex items-center gap-1.5 text-white/85 transition-colors hover:text-white">
+                <LayoutDashboard size={16} />
+                Panel del personal
+              </Link>
+            )}
+          </div>
         </div>
       </div>
 
@@ -51,7 +64,7 @@ export default function SiteHeader() {
                 B
               </span>
               <span className="leading-tight">
-                <span className="block text-sm text-white/70">{LIBRARY.nombre}</span>
+                <span className="block max-w-[17rem] text-xs text-white/75 sm:text-sm">{LIBRARY.nombreCorto}</span>
                 <span className="block text-2xl font-bold">Catálogo</span>
               </span>
             </Link>
@@ -78,9 +91,10 @@ export default function SiteHeader() {
               <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
                 Repositorio de <span className="text-red-500">Tesis</span>
               </h1>
-              <p className="mx-auto mt-4 max-w-2xl text-base text-white/80 sm:text-lg">
-                Catálogo de Acceso Público en Línea (OPAC). Busca una tesis, reserva un espacio o inicia tu solicitud de
-                solvencia desde esta pantalla.
+              <p className="mt-3 text-lg font-semibold italic text-blue-200 sm:text-xl">“{LIBRARY.lema}”</p>
+              <p className="mx-auto mt-3 max-w-2xl text-base text-white/80 sm:text-lg">
+                {LIBRARY.facultad} · USAC. Busca una tesis, reserva un espacio de estudio o inicia tu solicitud de solvencia
+                desde esta pantalla.
               </p>
             </div>
           ) : null}
@@ -90,7 +104,13 @@ export default function SiteHeader() {
           </div>
 
           {esInicio ? (
-            <ul className="mt-12 flex flex-wrap justify-center gap-5 sm:gap-8">
+            <h2 className="mt-10 text-center text-sm font-bold uppercase tracking-[0.25em] text-white/70">
+              Servicios de la biblioteca
+            </h2>
+          ) : null}
+
+          {esInicio ? (
+            <ul className="mt-6 flex flex-wrap justify-center gap-5 sm:gap-8">
               {SERVICIOS.map((item) => (
                 <li key={item.to}>
                   <Link
