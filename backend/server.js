@@ -26,6 +26,7 @@ const eventosRoutes = require('./src/eventos/eventos_routes');
 const authRoutes = require('./src/auth/auth_routes');
 const comprobantesRoutes = require('./src/comprobantes/comprobantes_routes');
 const portadaRoutes = require('./src/portada/portada_routes');
+const seguimientoRoutes = require('./src/seguimiento/seguimiento_routes');
 const { retirarClavesTemporales } = require('./src/auth/cuentas_data');
 const { correoConfigurado } = require('./utils/correo');
 const { limitar, soloEscrituras } = require('./utils/limitador');
@@ -68,6 +69,8 @@ app.use('/api/solvencia', soloEscrituras(limitar({ maximo: porMinuto })));
 app.use('/api/tramites', soloEscrituras(limitar({ maximo: porMinuto })));
 app.use('/api/comprobantes', soloEscrituras(limitar({ maximo: Math.max(Math.floor(porMinuto / 3), 1) }))); // cada una manda un correo
 app.use('/api/eventos', soloEscrituras(limitar({ maximo: porMinuto * 4 })));
+// El seguimiento pide un código de confirmación: el límite es bajo para que nadie pueda ir probando códigos.
+app.use('/api/seguimiento', soloEscrituras(limitar({ maximo: 12, mensaje: 'Demasiadas consultas seguidas. Espera un minuto e inténtalo de nuevo.' })));
 
 app.get('/health', (req, res) => res.json({ success: true, data: 'ok' }));
 
@@ -79,6 +82,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/comprobantes', comprobantesRoutes);
+app.use('/api/seguimiento', seguimientoRoutes);
 app.use('/api', portadaRoutes);
 
 app.use('/api', (req, res) => fail(res, 'Ruta no encontrada', 404));

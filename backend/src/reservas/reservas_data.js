@@ -288,6 +288,7 @@ function resumen() {
 
 module.exports = {
   recursosDe,
+  liberarVencidas,
   disponibilidad,
   crearReserva,
   listarReservas,
