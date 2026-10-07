@@ -1,20 +1,25 @@
+const almacen = require('../../utils/almacen');
 const { rechazo } = require('../../utils/errores');
 const { CONDICIONES } = require('../reservas/recursos_data');
 
 // Ajustes generales que el administrador puede cambiar sin tocar el código (propuesta, sección 4.5.6:
-// "configuración general"). Arrancan con los valores de recursos_data.js y viven en memoria.
+// "configuración general"). Arrancan con los valores de recursos_data.js y se guardan en el almacén de datos.
 const TIPOS_DE_RESERVA = ['cubiculo', 'estacion', 'sala_lectura'];
 const TOLERANCIA_MINIMA = 5;
 const TOLERANCIA_MAXIMA = 60;
 
 const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'la sala de lectura' };
 
-const estado = {
+const INICIAL = {
   toleranciaMinutos: CONDICIONES.toleranciaMinutos,
   reservasPausadas: Object.fromEntries(TIPOS_DE_RESERVA.map((tipo) => [tipo, false])),
   actualizadaEn: null,
   actualizadaPor: null,
 };
+
+// Lo guardado manda; lo que falte (por ejemplo un tipo de lugar nuevo) se completa con los valores iniciales.
+const guardado = almacen.cargar('configuracion', INICIAL);
+const estado = { ...INICIAL, ...guardado, reservasPausadas: { ...INICIAL.reservasPausadas, ...guardado.reservasPausadas } };
 
 function obtener() {
   return {
@@ -81,6 +86,7 @@ function actualizar({ toleranciaMinutos: tolerancia, reservasPausadas: pausas } 
     estado.reservasPausadas = nuevasPausas;
     estado.actualizadaEn = new Date().toISOString();
     estado.actualizadaPor = sesion?.usuario ?? null;
+    almacen.guardar('configuracion', estado);
   }
   return { configuracion: obtener(), cambios };
 }

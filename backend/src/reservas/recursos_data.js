@@ -40,7 +40,7 @@ const RECURSOS = {
   ).flat(),
 };
 
-// Horas de inicio disponibles, una por hora seguida: una reserva de varias horas ocupa franjas consecutivas.
-const FRANJAS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00'];
+// Las horas en las que se puede reservar dependen del día de la semana y de los cierres: las define el administrador
+// en los horarios (ver horarios/horarios_data.js).
 
-module.exports = { RECURSOS, FRANJAS, REGLAS_CUBICULO, CONDICIONES };
+module.exports = { RECURSOS, REGLAS_CUBICULO, CONDICIONES };

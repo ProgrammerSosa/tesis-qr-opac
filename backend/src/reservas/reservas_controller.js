@@ -10,6 +10,7 @@ const {
 } = require('./reservas_data');
 const { REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
+const notificaciones = require('../notificaciones/notificaciones');
 const { registrar } = require('../actividad/actividad_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
@@ -52,6 +53,7 @@ function postReserva(req, res) {
       modalidad,
       duracion,
     });
+    notificaciones.reservaConfirmada(reserva); // si dejó un correo, recibe la confirmación; si el correo falla, la reserva sigue en pie
     return ok(res, reserva, 'Reserva creada');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);

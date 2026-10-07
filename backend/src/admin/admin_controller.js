@@ -7,11 +7,17 @@ const {
   actualizarDocumento,
   actualizarQr,
   verificarQr,
+  crearTesis,
+  actualizarTesis,
+  eliminarTesis,
+  importarTesis,
 } = require('../catalog/catalog_data');
 const reservasData = require('../reservas/reservas_data');
 const solvenciaData = require('../solvencia/solvencia_data');
+const tramitesData = require('../tramites/tramites_data');
 const { registrar } = require('../actividad/actividad_data');
 const { calcular } = require('./estadisticas');
+const { bandeja, correoConfigurado } = require('../../utils/correo');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
@@ -37,6 +43,7 @@ function getResumen(req, res) {
     tesis: { total: TESIS.length, conDocumentoDigital: TESIS.filter(digitalDisponible).length },
     reservas: reservasData.resumen(),
     solvencia: solvenciaData.resumen(),
+    tramites: tramitesData.resumen(),
   });
 }
 
@@ -71,6 +78,19 @@ function getUsuarios(req, res) {
       creadoEn: s.creadoEn,
     })
   );
+  // Las solicitudes de tesis y de referencias solo cuentan si la persona dejó su carné o documento.
+  tramitesData
+    .listar()
+    .filter((t) => t.identificacion)
+    .forEach((t) =>
+      agregar(t.identificacion, t.solicitante, {
+        tipo: t.tipo,
+        id: t.id,
+        detalle: t.tipo === 'tesis_digital' ? t.titulo : t.tema,
+        estado: t.estado,
+        creadoEn: t.creadoEn,
+      })
+    );
 
   const personas = [...porPersona.values()]
     .map((p) => {
@@ -79,7 +99,7 @@ function getUsuarios(req, res) {
         ...p,
         operaciones,
         totalReservas: operaciones.filter((o) => o.tipo === 'reserva').length,
-        totalSolicitudes: operaciones.filter((o) => o.tipo === 'solvencia').length,
+        totalSolicitudes: operaciones.filter((o) => o.tipo !== 'reserva').length,
         ultimaActividad: operaciones[0].creadoEn,
       };
     })
@@ -90,8 +110,59 @@ function getUsuarios(req, res) {
 }
 
 // Tesis con su documento digital y su código QR, para que el personal de tesis los gestione.
+// Con búsqueda (q), filtro por documento (con o sin) y por páginas.
 function getTesis(req, res) {
-  return ok(res, listarParaAdmin());
+  const { q, pagina, porPagina, documento } = req.query;
+  return ok(res, listarParaAdmin({ q, pagina, porPagina, documento }));
+}
+
+// --- Catálogo: alta, cambios, baja e importación ---
+
+function postTesis(req, res) {
+  try {
+    const tesis = crearTesis(req.body);
+    registrar(req.sesion, 'catalogo.creada', `${tesis.id}: ${tesis.titulo}`);
+    return ok(res, tesis, 'Tesis agregada', 201);
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
+}
+
+function patchTesis(req, res) {
+  try {
+    const tesis = actualizarTesis(req.params.id, req.body);
+    if (!tesis) return notFound(res, 'Tesis no encontrada');
+    registrar(req.sesion, 'catalogo.actualizada', `${tesis.id}: ${tesis.titulo}`);
+    return ok(res, tesis, 'Tesis actualizada');
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
+}
+
+function deleteTesis(req, res) {
+  const tesis = eliminarTesis(req.params.id);
+  if (!tesis) return notFound(res, 'Tesis no encontrada');
+  registrar(req.sesion, 'catalogo.eliminada', `${tesis.id}: ${tesis.titulo}`);
+  return ok(res, { eliminada: true });
+}
+
+// Importa filas del catálogo. Vaciar el catálogo antes de importar solo lo puede pedir el administrador.
+function postImportar(req, res) {
+  try {
+    const { filas, existentes, reemplazar } = req.body;
+    if (reemplazar === true && req.sesion.rol !== 'administrador') {
+      return fail(res, 'Solo el administrador puede reemplazar todo el catálogo', 403);
+    }
+    const resultado = importarTesis(filas, { existentes, reemplazar: reemplazar === true });
+    registrar(
+      req.sesion,
+      'catalogo.importado',
+      `${resultado.creadas} nuevas, ${resultado.actualizadas} actualizadas, ${resultado.omitidas} omitidas, ${resultado.totalErrores} con errores${reemplazar === true ? ' (reemplazó el catálogo)' : ''}`
+    );
+    return ok(res, resultado, 'Importación terminada');
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
 }
 
 function patchDocumento(req, res) {
@@ -131,4 +202,22 @@ function getEstadisticas(req, res) {
   return ok(res, calcular());
 }
 
-module.exports = { getResumen, getUsuarios, getTesis, patchDocumento, patchQr, postVerificarQr, getEstadisticas };
+// Los últimos correos que mandó el sistema (reales o simulados), para comprobar que los avisos salen bien.
+function getCorreos(req, res) {
+  return ok(res, { configurado: correoConfigurado(), correos: bandeja.slice(0, 50) });
+}
+
+module.exports = {
+  getResumen,
+  getCorreos,
+  getUsuarios,
+  getTesis,
+  postTesis,
+  patchTesis,
+  deleteTesis,
+  postImportar,
+  patchDocumento,
+  patchQr,
+  postVerificarQr,
+  getEstadisticas,
+};

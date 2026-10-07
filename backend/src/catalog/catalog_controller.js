@@ -3,10 +3,20 @@ const { pdfDeTesis } = require('./pdf_ejemplo');
 const { registrar } = require('../eventos/eventos_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
+// Resultados de la búsqueda, por páginas (el catálogo real tiene miles de tesis): 20 por página, hasta 100.
 function listItems(req, res) {
-  const { autor, titulo, anio, tema, tipo, digital } = req.query;
+  const { autor, titulo, anio, tema, tipo, digital, pagina, porPagina } = req.query;
   const registros = buscarTesis({ autor, titulo, anio, tema, tipo, digital });
-  return ok(res, registros.map(vistaPublica));
+  const tamano = Math.min(Math.max(Number(porPagina) || 20, 1), 100);
+  const paginas = Math.max(Math.ceil(registros.length / tamano), 1);
+  const actual = Math.min(Math.max(Number(pagina) || 1, 1), paginas);
+  return ok(res, {
+    items: registros.slice((actual - 1) * tamano, actual * tamano).map(vistaPublica),
+    total: registros.length,
+    pagina: actual,
+    porPagina: tamano,
+    paginas,
+  });
 }
 
 function getItem(req, res) {

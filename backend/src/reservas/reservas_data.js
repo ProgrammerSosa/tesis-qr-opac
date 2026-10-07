@@ -1,27 +1,26 @@
-const { RECURSOS, FRANJAS, REGLAS_CUBICULO } = require('./recursos_data');
+const { RECURSOS, REGLAS_CUBICULO } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
+const horarios = require('../horarios/horarios_data');
+const almacen = require('../../utils/almacen');
+const { rechazo } = require('../../utils/errores');
+const { fechaLocal } = require('../../utils/fechas');
 const { generarCodigoConfirmacion, correoValido } = require('../../utils/codigos');
 
-// Almacenamiento en memoria: suficiente para esta propuesta de diseño (Anexo 3).
-// Un backend definitivo cambiaria estas funciones por consultas a una base de datos,
-// sin que las rutas ni el frontend tengan que cambiar.
-const reservas = [];
-let contador = 0;
+// Las reservas se guardan en el almacén de datos (ver utils/almacen.js): no se pierden al reiniciar el servidor.
+const estado = almacen.cargar('reservas', { reservas: [], contador: 0 });
+const reservas = estado.reservas;
+
+function guardar() {
+  almacen.guardar('reservas', estado);
+}
 
 function siguienteCodigo() {
-  contador += 1;
-  return String(contador).padStart(3, '0');
+  estado.contador += 1;
+  return String(estado.contador).padStart(3, '0');
 }
 
 function recursosDe(tipo) {
   return RECURSOS[tipo] || [];
-}
-
-// Error con el código HTTP que debe devolver el controlador.
-function rechazo(mensaje, estado = 400) {
-  const error = new Error(mensaje);
-  error.estado = estado;
-  return error;
 }
 
 // Una reserva cancelada o liberada (por no presentarse o por decisión del personal) ya no ocupa el lugar
@@ -29,19 +28,30 @@ function rechazo(mensaje, estado = 400) {
 const ESTADOS_SIN_OCUPAR = ['cancelado', 'liberada'];
 const vigente = (r) => !ESTADOS_SIN_OCUPAR.includes(r.estado);
 
-// Franjas que cubre una reserva: `duracion` horas seguidas a partir de `hora`.
-function franjasCubiertas(hora, duracion) {
-  const inicio = FRANJAS.indexOf(hora);
-  return inicio === -1 ? [] : FRANJAS.slice(inicio, inicio + duracion);
+const horaEntera = (numero) => `${String(numero).padStart(2, '0')}:00`;
+
+// Horas que ocupa una reserva ya hecha: `duracion` horas seguidas desde `hora`. Se calcula sin mirar los horarios
+// de hoy, porque el administrador puede cambiarlos después y una reserva existente no debe dejar de ocupar su lugar.
+function franjasDeReserva(reserva) {
+  const inicio = Number(reserva.hora.slice(0, 2));
+  return Array.from({ length: reserva.duracion }, (_, i) => horaEntera(inicio + i));
 }
 
-function franjasDeReserva(reserva) {
-  return franjasCubiertas(reserva.hora, reserva.duracion);
+// Horas que cubriría una reserva nueva si cabe en el horario de ese día: `duracion` horas seguidas desde `hora`, todas
+// dentro de las horas reservables (las que dejan fuera, por ejemplo, el cierre del mediodía). Si no cabe, devuelve menos.
+function franjasCubiertas(fecha, hora, duracion) {
+  const delDia = horarios.franjasDeReserva(fecha);
+  if (!delDia.includes(hora)) return [];
+  const inicio = Number(hora.slice(0, 2));
+  const cubiertas = [];
+  for (let i = 0; i < duracion && delDia.includes(horaEntera(inicio + i)); i += 1) {
+    cubiertas.push(horaEntera(inicio + i));
+  }
+  return cubiertas;
 }
 
 function horaFinal(franjas) {
-  const ultima = Number(franjas[franjas.length - 1].slice(0, 2));
-  return `${String(ultima + 1).padStart(2, '0')}:00`;
+  return horaEntera(Number(franjas[franjas.length - 1].slice(0, 2)) + 1);
 }
 
 function inicioDeReserva(reserva) {
@@ -55,13 +65,16 @@ function inicioDeReserva(reserva) {
 // Los minutos de tolerancia los fija el administrador en la configuración.
 function liberarVencidas(ahora = new Date()) {
   const tolerancia = configuracion.toleranciaMinutos() * 60 * 1000;
+  let huboCambios = false;
   reservas.forEach((reserva) => {
     if (reserva.estado === 'reservado' && ahora.getTime() >= inicioDeReserva(reserva).getTime() + tolerancia) {
       reserva.estado = 'liberada';
       reserva.liberadaEn = ahora.toISOString();
       reserva.motivoLiberacion = 'no_presentado';
+      huboCambios = true;
     }
   });
+  if (huboCambios) guardar();
 }
 
 function horasOcupadas(tipo, recursoId, fecha) {
@@ -77,13 +90,16 @@ function horasDePersona(identificacion, fecha) {
     .flatMap(franjasDeReserva);
 }
 
+// Cada lugar con las horas de ese día y si están libres. Los días de cierre y las horas fuera de las ventanas de reserva
+// no aparecen: si la biblioteca no atiende, la lista de horas viene vacía.
 function disponibilidad(tipo, fecha) {
   liberarVencidas();
+  const delDia = horarios.franjasDeReserva(fecha);
   return recursosDe(tipo).map((recurso) => {
     const ocupadas = horasOcupadas(tipo, recurso.id, fecha);
     return {
       ...recurso,
-      franjas: FRANJAS.map((hora) => ({ hora, disponible: !ocupadas.includes(hora) })),
+      franjas: delDia.map((hora) => ({ hora, disponible: !ocupadas.includes(hora) })),
     };
   });
 }
@@ -137,8 +153,12 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
   if (!recurso) {
     throw rechazo('Ese recurso no existe', 404);
   }
-  if (!FRANJAS.includes(hora)) {
-    throw rechazo('Esa hora no está disponible para reservar');
+  const cierre = horarios.cierreDe(fecha);
+  if (cierre) {
+    throw rechazo(`La biblioteca está cerrada ese día (${cierre.motivo}). Elige otra fecha.`, 409);
+  }
+  if (!horarios.franjasDeReserva(fecha).includes(hora)) {
+    throw rechazo('Esa hora no está dentro del horario de reservas de ese día');
   }
 
   const documento = String(identificacion || '').trim();
@@ -156,9 +176,9 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
     ({ regla, horas } = validarCubiculo({ recurso, fecha, modalidad, duracion, identificacion: documento }));
   }
 
-  const cubiertas = franjasCubiertas(hora, horas);
+  const cubiertas = franjasCubiertas(fecha, hora, horas);
   if (cubiertas.length < horas) {
-    throw rechazo('El horario elegido no alcanza para esa duración');
+    throw rechazo('El horario elegido no alcanza para esa duración: la reserva debe quedar dentro del horario de ese día');
   }
   const ocupadas = horasOcupadas(tipo, recursoId, fecha);
   if (cubiertas.some((franja) => ocupadas.includes(franja))) {
@@ -187,6 +207,7 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
     creadoEn: new Date().toISOString(),
   };
   reservas.push(reserva);
+  guardar();
   return reserva;
 }
 
@@ -211,6 +232,7 @@ function avanzarEstado(id) {
   const siguiente = SIGUIENTE_ESTADO[reserva.estado];
   if (!siguiente) return reserva;
   reserva.estado = siguiente;
+  guardar();
   return reserva;
 }
 
@@ -218,6 +240,7 @@ function cancelarReserva(id) {
   const reserva = buscarReserva(id);
   if (!reserva) return null;
   reserva.estado = 'cancelado';
+  guardar();
   return reserva;
 }
 
@@ -233,19 +256,13 @@ function liberarReserva(id) {
   reserva.estado = 'liberada';
   reserva.liberadaEn = new Date().toISOString();
   reserva.motivoLiberacion = 'manual';
+  guardar();
   return reserva;
-}
-
-// Fecha de hoy (año-mes-día) en la hora del servidor, que es la que usan las reservas: con toISOString() el día
-// cambiaría por la tarde, porque esa fecha va en hora UTC.
-function fechaDeHoy() {
-  const ahora = new Date();
-  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
 }
 
 function resumen() {
   liberarVencidas();
-  const hoy = fechaDeHoy();
+  const hoy = fechaLocal();
   return {
     total: reservas.length,
     hoy: reservas.filter((r) => r.fecha === hoy).length,

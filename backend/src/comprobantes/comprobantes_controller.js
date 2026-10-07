@@ -2,7 +2,7 @@ const { enviarComprobante } = require('./comprobantes_data');
 const { correoValido } = require('../../utils/codigos');
 const { ok, fail } = require('../../utils/httpResponse');
 
-function postEnviar(req, res) {
+async function postEnviar(req, res) {
   const { tipo, id, codigo, correo, kiosco } = req.body;
   if (!tipo || !id || !codigo || !correo) {
     return fail(res, 'Faltan datos para enviar el comprobante');
@@ -10,7 +10,7 @@ function postEnviar(req, res) {
   if (!correoValido(correo)) {
     return fail(res, 'El correo no es válido');
   }
-  const { mensaje, error, estado } = enviarComprobante({ tipo, id, codigo, correo: correo.trim(), kiosco });
+  const { mensaje, error, estado } = await enviarComprobante({ tipo, id, codigo, correo: correo.trim(), kiosco });
   if (error) {
     return fail(res, error, estado);
   }

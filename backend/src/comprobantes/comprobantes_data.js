@@ -1,69 +1,42 @@
-const biblioteca = require('../../utils/biblioteca');
 const { buscarReserva } = require('../reservas/reservas_data');
 const { buscarSolicitud } = require('../solvencia/solvencia_data');
+const { buscar: buscarTramite, TIPOS } = require('../tramites/tramites_data');
+const { textoDeReserva, textoDeSolvencia, textoDeTramiteRecibido } = require('../notificaciones/notificaciones');
+const { enviarCorreo } = require('../../utils/correo');
 const { registrar } = require('../eventos/eventos_data');
 
-// Correos "enviados". Este prototipo no tiene servidor de correo: el mensaje se arma completo y se guarda aquí;
-// con el servidor de correo de la Facultad, `enviarCorreo` sería el único lugar que habría que cambiar.
-const salida = [];
-
-function fechaYHora(iso) {
-  const d = new Date(iso);
-  const dos = (n) => String(n).padStart(2, '0');
-  return { fecha: `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()}`, hora: `${dos(d.getHours())}:${dos(d.getMinutes())}` };
+function buscarRegistro(tipo, id) {
+  if (tipo === 'reserva') return buscarReserva(id);
+  if (tipo === 'solvencia') return buscarSolicitud(id);
+  if (TIPOS[tipo]) {
+    const tramite = buscarTramite(id);
+    return tramite && tramite.tipo === tipo ? tramite : null;
+  }
+  return null;
 }
 
-function textoDeReserva(r) {
-  const { fecha, hora } = fechaYHora(r.creadoEn);
-  const horario = `${r.fecha} de ${r.hora} a ${r.horaFin}${r.duracion > 1 ? ` (${r.duracion} horas)` : ''}`;
-  return [
-    biblioteca.nombre,
-    'Confirmación de reserva',
-    '',
-    `Fecha de la operación: ${fecha}    Hora: ${hora}`,
-    `Número de reserva: ${r.id}`,
-    `Código de confirmación: ${r.codigoConfirmacion}`,
-    `Espacio: ${r.recursoNombre}${r.modalidadNombre ? ` (${r.modalidadNombre})` : ''}`,
-    `Horario de uso: ${horario}`,
-    `A nombre de: ${r.solicitante}`,
-    '',
-    'Presenta el número de reserva o el código de confirmación en el mostrador. Si no te presentas dentro de la tolerancia, la reserva se libera.',
-  ].join('\n');
+function mensajeDe(tipo, registro) {
+  if (tipo === 'reserva') return { asunto: `Confirmación de reserva ${registro.id}`, texto: textoDeReserva(registro) };
+  if (tipo === 'solvencia') return { asunto: `Solicitud de solvencia ${registro.id}`, texto: textoDeSolvencia(registro) };
+  return { asunto: `${TIPOS[tipo].nombre} ${registro.id}`, texto: textoDeTramiteRecibido(registro) };
 }
 
-function textoDeSolicitud(s) {
-  const { fecha, hora } = fechaYHora(s.creadoEn);
-  return [
-    biblioteca.nombre,
-    'Solicitud de solvencia',
-    '',
-    `Fecha de la operación: ${fecha}    Hora: ${hora}`,
-    `Número de solicitud: ${s.id}`,
-    `Código de confirmación: ${s.codigoConfirmacion}`,
-    `Motivo: ${s.motivo}`,
-    `Solicitante: ${s.solicitante}`,
-    '',
-    'Tu solicitud será revisada por el personal de la biblioteca.',
-  ].join('\n');
-}
-
-// Devuelve el correo enviado, o un texto de error. Para pedir el comprobante hay que conocer el código de
-// confirmación: así nadie puede pedir el comprobante de otra persona solo adivinando un número.
-function enviarComprobante({ tipo, id, codigo, correo, kiosco }) {
-  const registro = tipo === 'reserva' ? buscarReserva(id) : tipo === 'solvencia' ? buscarSolicitud(id) : null;
+// Manda el comprobante de una reserva o solicitud al correo que la persona indique. Para pedirlo hay que conocer el
+// código de confirmación: así nadie puede pedir el comprobante de otra persona solo adivinando un número.
+// Devuelve el correo enviado (simulado si el servidor no tiene correo configurado) o un texto de error.
+async function enviarComprobante({ tipo, id, codigo, correo, kiosco }) {
+  const registro = buscarRegistro(tipo, id);
   if (!registro || registro.codigoConfirmacion !== String(codigo || '').trim().toUpperCase()) {
     return { error: 'No encontramos ese comprobante con ese código', estado: 404 };
   }
-  const mensaje = {
-    para: correo,
-    asunto: `${tipo === 'reserva' ? 'Confirmación de reserva' : 'Solicitud de solvencia'} ${registro.id}`,
-    cuerpo: tipo === 'reserva' ? textoDeReserva(registro) : textoDeSolicitud(registro),
-    enviadoEn: new Date().toISOString(),
-    simulado: true,
-  };
-  salida.push(mensaje);
-  registrar('comprobante_correo', { kiosco });
-  return { mensaje };
+  try {
+    const mensaje = await enviarCorreo({ para: correo, ...mensajeDe(tipo, registro) });
+    registrar('comprobante_correo', { kiosco });
+    return { mensaje };
+  } catch (error) {
+    console.error(`No se pudo enviar el comprobante ${id}: ${error.message}`);
+    return { error: 'No se pudo enviar el correo. Inténtalo de nuevo en unos minutos.', estado: 502 };
+  }
 }
 
 module.exports = { enviarComprobante };

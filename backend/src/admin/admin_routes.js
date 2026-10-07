@@ -3,11 +3,18 @@ const {
   getResumen,
   getUsuarios,
   getTesis,
+  postTesis,
+  patchTesis,
+  deleteTesis,
+  postImportar,
   patchDocumento,
   patchQr,
   postVerificarQr,
   getEstadisticas,
+  getCorreos,
 } = require('./admin_controller');
+const { getHorarios, putHorarios, postCierre, deleteCierre } = require('./horarios_controller');
+const { getAvisos, postAviso, patchAviso, deleteAviso } = require('./avisos_controller');
 const { getPersonal, postPersonal, patchPersonal, postClavePersonal } = require('./personal_controller');
 const { getConfiguracion, patchConfiguracion } = require('./configuracion_controller');
 const { getActividad } = require('./actividad_controller');
@@ -24,6 +31,11 @@ const soloAdministrador = [autenticar, requiereRol('administrador')];
 router.get('/resumen', autenticar, getResumen);
 router.get('/usuarios', ...circulacion, getUsuarios);
 router.get('/tesis', ...tesis, getTesis);
+router.get('/catalogo', ...tesis, getTesis);
+router.post('/catalogo/importar', ...tesis, postImportar);
+router.post('/catalogo', ...tesis, postTesis);
+router.patch('/catalogo/:id', ...tesis, patchTesis);
+router.delete('/catalogo/:id', ...soloAdministrador, deleteTesis);
 router.patch('/tesis/:id/documento', ...tesis, patchDocumento);
 router.get('/qr', ...tesis, getTesis);
 router.patch('/qr/:id', ...tesis, patchQr);
@@ -38,5 +50,16 @@ router.post('/personal/:usuario/clave', ...soloAdministrador, postClavePersonal)
 router.get('/configuracion', ...soloAdministrador, getConfiguracion);
 router.patch('/configuracion', ...soloAdministrador, patchConfiguracion);
 router.get('/actividad', ...soloAdministrador, getActividad);
+router.get('/correos', ...soloAdministrador, getCorreos);
+router.get('/horarios', ...soloAdministrador, getHorarios);
+router.put('/horarios', ...soloAdministrador, putHorarios);
+router.post('/horarios/cierres', ...soloAdministrador, postCierre);
+router.delete('/horarios/cierres/:id', ...soloAdministrador, deleteCierre);
+
+// Avisos para el público: los publica el personal de circulación o el administrador.
+router.get('/avisos', ...circulacion, getAvisos);
+router.post('/avisos', ...circulacion, postAviso);
+router.patch('/avisos/:id', ...circulacion, patchAviso);
+router.delete('/avisos/:id', ...circulacion, deleteAviso);
 
 module.exports = router;

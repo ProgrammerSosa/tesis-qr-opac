@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const almacen = require('../../utils/almacen');
 const { rechazo } = require('../../utils/errores');
 
 // Roles del panel del personal (propuesta, sección 4.5.6).
@@ -9,12 +10,12 @@ const ROLES = {
   consulta: 'Consulta',
 };
 
-// Cuentas con las que arranca el sistema; después el administrador puede crear más, cambiarlas o desactivarlas.
-// Aquí solo se definen el usuario, el nombre y el rol: las claves nunca se escriben en el código (el repositorio es
-// público). Cada una viene de una variable de entorno, normalmente desde backend/.env, que no se sube a git (hay un
-// modelo en backend/.env.example). Una cuenta sin clave definida recibe una clave temporal al azar, que vale solo
-// mientras el servidor siga encendido y se muestra únicamente en la consola del servidor.
-// Los datos viven en memoria: antes de usar el sistema en serio, las cuentas deberían guardarse en una base de datos.
+// Cuentas con las que arranca el sistema; después el administrador puede crear más, cambiarlas o desactivarlas, y todo
+// se guarda en el almacén de datos. Aquí solo se definen el usuario, el nombre y el rol de las iniciales: las claves
+// nunca se escriben en el código (el repositorio es público). Cada una viene de una variable de entorno, normalmente
+// desde backend/.env, que no se sube a git (hay un modelo en backend/.env.example), y si está definida manda sobre la
+// clave guardada. Una cuenta inicial sin clave definida recibe una clave temporal al azar, que vale solo mientras el
+// servidor siga encendido y se muestra únicamente en la consola del servidor.
 const CUENTAS_INICIALES = [
   { usuario: 'admin', nombre: 'Administración', rol: 'administrador', variable: 'CLAVE_ADMIN' },
   { usuario: 'circulacion', nombre: 'Circulación y Préstamo', rol: 'circulacion', variable: 'CLAVE_CIRCULACION' },
@@ -49,13 +50,37 @@ function nuevaCuenta({ usuario, nombre, rol, clave }) {
   return { usuario, nombre, rol, activa: true, creadaEn: new Date().toISOString(), ultimoAcceso: null, sal, hash: cifrar(clave, sal) };
 }
 
-const cuentas = CUENTAS_INICIALES.map(({ variable, ...cuenta }) => {
-  let clave = process.env[variable];
-  if (!clave) {
-    clave = claveAlAzar();
-    clavesTemporales.push({ usuario: cuenta.usuario, variable, clave });
+// En el archivo la sal y la clave cifrada van como texto (hexadecimal). Las cuentas con clave temporal no se guardan:
+// su clave cambia en cada arranque. Si alguien las modifica (cambio de rol, de estado o de clave) dejan de ser temporales.
+const cuentas = almacen
+  .cargar('cuentas', { cuentas: [] })
+  .cuentas.map((c) => ({ ...c, sal: Buffer.from(c.sal, 'hex'), hash: Buffer.from(c.hash, 'hex') }));
+
+function guardar() {
+  const guardables = cuentas.filter((c) => !c.temporal).map((c) => ({ ...c, sal: c.sal.toString('hex'), hash: c.hash.toString('hex') }));
+  almacen.guardar('cuentas', { cuentas: guardables });
+}
+
+CUENTAS_INICIALES.forEach(({ variable, ...datos }) => {
+  const claveDelEntorno = process.env[variable];
+  const guardada = cuentas.find((c) => c.usuario === datos.usuario);
+  if (guardada) {
+    // Una clave definida en el entorno manda sobre la guardada (por si se olvidó la clave de una cuenta inicial).
+    if (claveDelEntorno && !crypto.timingSafeEqual(guardada.hash, cifrar(claveDelEntorno, guardada.sal))) {
+      guardada.sal = crypto.randomBytes(16);
+      guardada.hash = cifrar(claveDelEntorno, guardada.sal);
+      guardar();
+    }
+    return;
   }
-  return nuevaCuenta({ ...cuenta, clave });
+  if (claveDelEntorno) {
+    cuentas.push(nuevaCuenta({ ...datos, clave: claveDelEntorno }));
+    guardar();
+  } else {
+    const clave = claveAlAzar();
+    clavesTemporales.push({ usuario: datos.usuario, variable, clave });
+    cuentas.push({ ...nuevaCuenta({ ...datos, clave }), temporal: true });
+  }
 });
 
 // Entrega, una sola vez, las claves temporales para mostrarlas en la consola, y las olvida.
@@ -69,7 +94,7 @@ function buscar(usuario) {
 
 // Lo que se puede mostrar de una cuenta: nunca la sal ni la clave cifrada.
 function vista(cuenta) {
-  const { sal, hash, ...publica } = cuenta;
+  const { sal, hash, temporal, ...publica } = cuenta;
   return { ...publica, rolNombre: ROLES[cuenta.rol] };
 }
 
@@ -93,7 +118,10 @@ function verificar(usuario, clave) {
 
 function registrarAcceso(usuario) {
   const cuenta = buscar(usuario);
-  if (cuenta) cuenta.ultimoAcceso = new Date().toISOString();
+  if (cuenta) {
+    cuenta.ultimoAcceso = new Date().toISOString();
+    guardar();
+  }
 }
 
 function validarNombre(nombre) {
@@ -135,6 +163,7 @@ function crear({ usuario, nombre, rol, clave } = {}) {
   }
   const cuenta = nuevaCuenta({ usuario: id, nombre: validarNombre(nombre), rol: validarRol(rol), clave: validarClave(clave, id) });
   cuentas.push(cuenta);
+  guardar();
   return vista(cuenta);
 }
 
@@ -169,6 +198,10 @@ function actualizar(usuario, { nombre, rol, activa } = {}, actor) {
   cuenta.nombre = nuevoNombre;
   cuenta.rol = nuevoRol;
   cuenta.activa = nuevaActiva;
+  if (Object.keys(cambios).length > 0) {
+    delete cuenta.temporal;
+    guardar();
+  }
   return { cuenta: vista(cuenta), cambios };
 }
 
@@ -179,6 +212,8 @@ function cambiarClave(usuario, clave) {
   const nueva = validarClave(clave, usuario);
   cuenta.sal = crypto.randomBytes(16);
   cuenta.hash = cifrar(nueva, cuenta.sal);
+  delete cuenta.temporal;
+  guardar();
   return vista(cuenta);
 }
 
