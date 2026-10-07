@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Info, Loader2 } from 'lucide-react';
+import { AlertTriangle, Info, Loader2 } from 'lucide-react';
 import { reservasApi } from './reservasApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
@@ -15,6 +15,9 @@ import { ZONAS } from './studyRoomLayout';
 import { sumarHoras, ventanaDesde } from './reglasCubiculo';
 
 const TIPOS = ZONAS.map((z) => z.tipo);
+
+// Cómo se nombra cada servicio en el aviso de pausa.
+const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'la sala de lectura' };
 
 function hoyISO() {
   const d = new Date();
@@ -80,6 +83,11 @@ export default function StudyRoomPage() {
     : 1;
   const esCubiculos = zona === 'cubiculos';
   const duracionActiva = esCubiculos ? duracionCubiculo : 1;
+
+  // La biblioteca puede pausar las reservas de un tipo de lugar (se configura en el panel del personal).
+  const estaPausada = (z) => Boolean(condiciones?.pausadas?.includes(z.tipo));
+  const zonaActual = ZONAS.find((z) => z.key === zona);
+  const zonaPausada = estaPausada(zonaActual);
 
   function horaPasada(h) {
     return fecha === hoyISO() && Number(h.slice(0, 2)) < new Date().getHours();
@@ -197,7 +205,9 @@ export default function StudyRoomPage() {
               <span className="min-w-0">
                 <span className="block text-base font-bold text-slate-900">{z.titulo}</span>
                 <span className="mt-0.5 block text-sm text-slate-500">{z.descripcion}</span>
-                {total > 0 && hora ? (
+                {estaPausada(z) ? (
+                  <span className="mt-1.5 block text-sm font-semibold text-amber-700">Pausado temporalmente</span>
+                ) : total > 0 && hora ? (
                   <span className={`mt-1.5 block text-sm font-semibold ${libres === 0 ? 'text-action' : 'text-primary'}`}>
                     {libres} libres de {total}
                   </span>
@@ -207,6 +217,16 @@ export default function StudyRoomPage() {
           );
         })}
       </div>
+
+      {zonaPausada ? (
+        <div role="status" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            Las reservas de {NOMBRE_DEL_SERVICIO[zonaActual.tipo]} están pausadas temporalmente. Consulta en el mostrador de la
+            biblioteca.
+          </span>
+        </div>
+      ) : null}
 
       <div className="flex gap-3 rounded-lg border border-border bg-surface p-4 text-sm text-slate-700">
         <Info size={18} className="mt-0.5 shrink-0 text-primary" />
@@ -293,9 +313,11 @@ export default function StudyRoomPage() {
             </span>
           ) : null}
           <span className="text-slate-500">
-            {horaFin
-              ? `Disponibilidad de ${hora} a ${horaFin} del ${fecha}${duracionActiva > 1 ? ` (${duracionActiva} horas)` : ''}.`
-              : 'No hay un horario posible hoy con esa duración: elige otra fecha.'}
+            {zonaPausada
+              ? 'Las reservas de este tipo de lugar están pausadas.'
+              : horaFin
+                ? `Disponibilidad de ${hora} a ${horaFin} del ${fecha}${duracionActiva > 1 ? ` (${duracionActiva} horas)` : ''}.`
+                : 'No hay un horario posible hoy con esa duración: elige otra fecha.'}
           </span>
           {cargando ? <Loader2 className="animate-spin text-slate-400" size={16} /> : null}
         </div>
@@ -305,7 +327,7 @@ export default function StudyRoomPage() {
             <StudyRoomMap
               zona={zona}
               onZona={setZona}
-              estados={horaFin ? estados : {}}
+              estados={horaFin && !zonaPausada ? estados : {}}
               seleccionId={seleccion?.recursoId}
               onSeleccionar={elegirLugar}
             />

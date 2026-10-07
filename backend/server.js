@@ -19,7 +19,7 @@ const adminRoutes = require('./src/admin/admin_routes');
 const eventosRoutes = require('./src/eventos/eventos_routes');
 const authRoutes = require('./src/auth/auth_routes');
 const comprobantesRoutes = require('./src/comprobantes/comprobantes_routes');
-const { retirarClavesTemporales } = require('./src/auth/auth_data');
+const { retirarClavesTemporales } = require('./src/auth/cuentas_data');
 
 const app = express();
 

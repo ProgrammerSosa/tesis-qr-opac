@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Armchair, DoorOpen, Download, FileCheck2, FileText, Loader2, Mail, MonitorSmartphone, Printer, QrCode, Receipt, RefreshCw, Search } from 'lucide-react';
-import { adminApi } from './adminApi';
-import { getErrorMessage } from '../../shared/api/axiosClient';
-import AlertBanner from '../../shared/components/AlertBanner';
-import Button from '../../shared/components/Button';
-import StatTile from '../../shared/components/StatTile';
-import { fechaLegible } from './estados';
+import { adminApi } from '../adminApi';
+import { getErrorMessage } from '../../../shared/api/axiosClient';
+import AlertBanner from '../../../shared/components/AlertBanner';
+import Button from '../../../shared/components/Button';
+import StatTile from '../../../shared/components/StatTile';
+import PaginaAdmin from '../componentes/PaginaAdmin';
+import { fechaLegible } from '../estados';
 
 // Barras horizontales hechas con divs: cada fila muestra también el número, así no depende solo del color.
 function Barras({ filas }) {
@@ -39,7 +40,7 @@ function SinDatos({ children }) {
 }
 
 // Estadísticas de uso de los servicios (propuesta, sección 4.5.7).
-export default function EstadisticasPanel() {
+export default function EstadisticasPage() {
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -76,14 +77,15 @@ export default function EstadisticasPanel() {
   const hayReservas = porHora.some((h) => h.total > 0);
 
   return (
-    <section className="flex flex-col gap-4">
-      <AlertBanner>{error}</AlertBanner>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-slate-500">Datos calculados el {fechaLegible(datos.generadoEn)}.</p>
+    <PaginaAdmin
+      descripcion={`Cómo se usan los servicios de la biblioteca. Datos calculados el ${fechaLegible(datos.generadoEn)}.`}
+      acciones={
         <Button variant="secondary" icon={RefreshCw} onClick={cargar} disabled={cargando}>
           {cargando ? 'Actualizando...' : 'Actualizar'}
         </Button>
-      </div>
+      }
+    >
+      <AlertBanner>{error}</AlertBanner>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <StatTile label="Búsquedas en el OPAC" value={totales.busquedasOpac} icon={Search} />
@@ -170,6 +172,6 @@ export default function EstadisticasPanel() {
           )}
         </Tarjeta>
       </div>
-    </section>
+    </PaginaAdmin>
   );
 }

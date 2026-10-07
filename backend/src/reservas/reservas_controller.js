@@ -5,12 +5,18 @@ const {
   avanzarEstado,
   cancelarReserva,
   liberarReserva,
+  buscarReserva,
   resumen,
 } = require('./reservas_data');
 const { REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
+const configuracion = require('../configuracion/configuracion_data');
+const { registrar } = require('../actividad/actividad_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TIPOS_VALIDOS = ['cubiculo', 'estacion', 'sala_lectura'];
+
+const TEXTO_DE_ESTADO = { reservado: 'reservado', en_uso: 'en uso', finalizado: 'finalizado' };
+const ESTADO_SIGUIENTE = { reservado: 'en_uso', en_uso: 'finalizado' };
 
 function validarTipo(req, res) {
   if (!TIPOS_VALIDOS.includes(req.params.tipo)) {
@@ -56,9 +62,14 @@ function getReglas(req, res) {
   return ok(res, REGLAS_CUBICULO);
 }
 
-// Condiciones generales de uso que se muestran antes de reservar.
+// Condiciones generales de uso que se muestran antes de reservar, con los minutos de tolerancia y las reservas
+// pausadas que el administrador tenga en la configuración.
 function getCondiciones(req, res) {
-  return ok(res, CONDICIONES);
+  return ok(res, {
+    ...CONDICIONES,
+    toleranciaMinutos: configuracion.toleranciaMinutos(),
+    pausadas: configuracion.tiposPausados(),
+  });
 }
 
 function getReservas(req, res) {
@@ -66,14 +77,19 @@ function getReservas(req, res) {
 }
 
 function patchAvanzar(req, res) {
+  const antes = buscarReserva(req.params.id)?.estado;
   const reserva = avanzarEstado(req.params.id);
   if (!reserva) return notFound(res, 'Reserva no encontrada');
+  if (reserva.estado === ESTADO_SIGUIENTE[antes]) {
+    registrar(req.sesion, 'reserva.avanzada', `${reserva.id}: ${TEXTO_DE_ESTADO[antes]} → ${TEXTO_DE_ESTADO[reserva.estado]}`);
+  }
   return ok(res, reserva);
 }
 
 function patchCancelar(req, res) {
   const reserva = cancelarReserva(req.params.id);
   if (!reserva) return notFound(res, 'Reserva no encontrada');
+  registrar(req.sesion, 'reserva.cancelada', reserva.id);
   return ok(res, reserva);
 }
 
@@ -81,6 +97,7 @@ function patchLiberar(req, res) {
   try {
     const reserva = liberarReserva(req.params.id);
     if (!reserva) return notFound(res, 'Reserva no encontrada');
+    registrar(req.sesion, 'reserva.liberada', reserva.id);
     return ok(res, reserva, 'Lugar liberado');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);

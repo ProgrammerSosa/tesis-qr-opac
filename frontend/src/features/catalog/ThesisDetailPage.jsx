@@ -291,13 +291,7 @@ export default function ThesisDetailPage() {
                   ) : null}
 
                   {tab === 'comentarios' ? (
-                    <p className="text-sm text-slate-600">
-                      No hay comentarios en este título.{' '}
-                      <Link to="/admin" className="text-primary hover:underline">
-                        Iniciar sesión
-                      </Link>{' '}
-                      para dejar un comentario.
-                    </p>
+                    <p className="text-sm text-slate-600">No hay comentarios en este título.</p>
                   ) : null}
                 </div>
               </div>

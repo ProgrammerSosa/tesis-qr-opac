@@ -1,4 +1,5 @@
-const { RECURSOS, FRANJAS, REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
+const { RECURSOS, FRANJAS, REGLAS_CUBICULO } = require('./recursos_data');
+const configuracion = require('../configuracion/configuracion_data');
 const { generarCodigoConfirmacion, correoValido } = require('../../utils/codigos');
 
 // Almacenamiento en memoria: suficiente para esta propuesta de diseño (Anexo 3).
@@ -51,8 +52,9 @@ function inicioDeReserva(reserva) {
 
 // Si quien reservó no se presenta dentro de la tolerancia (no se "sella el ingreso"), la reserva se libera
 // sola y el lugar vuelve a estar disponible (propuesta, sección 4.5.2). Se revisa cada vez que se consulta.
+// Los minutos de tolerancia los fija el administrador en la configuración.
 function liberarVencidas(ahora = new Date()) {
-  const tolerancia = CONDICIONES.toleranciaMinutos * 60 * 1000;
+  const tolerancia = configuracion.toleranciaMinutos() * 60 * 1000;
   reservas.forEach((reserva) => {
     if (reserva.estado === 'reservado' && ahora.getTime() >= inicioDeReserva(reserva).getTime() + tolerancia) {
       reserva.estado = 'liberada';
@@ -128,6 +130,9 @@ function kioscoValido(kiosco) {
 
 function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacion, correo, kiosco, modalidad, duracion }) {
   liberarVencidas();
+  if (configuracion.reservasPausadas(tipo)) {
+    throw rechazo(configuracion.mensajeDePausa(tipo), 503);
+  }
   const recurso = recursosDe(tipo).find((r) => r.id === recursoId);
   if (!recurso) {
     throw rechazo('Ese recurso no existe', 404);
@@ -231,9 +236,16 @@ function liberarReserva(id) {
   return reserva;
 }
 
+// Fecha de hoy (año-mes-día) en la hora del servidor, que es la que usan las reservas: con toISOString() el día
+// cambiaría por la tarde, porque esa fecha va en hora UTC.
+function fechaDeHoy() {
+  const ahora = new Date();
+  return `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, '0')}-${String(ahora.getDate()).padStart(2, '0')}`;
+}
+
 function resumen() {
   liberarVencidas();
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = fechaDeHoy();
   return {
     total: reservas.length,
     hoy: reservas.filter((r) => r.fecha === hoy).length,

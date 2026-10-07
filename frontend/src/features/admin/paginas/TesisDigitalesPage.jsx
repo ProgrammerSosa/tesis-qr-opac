@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Loader2 } from 'lucide-react';
-import { adminApi } from './adminApi';
-import { ACCESOS } from '../catalog/tiposDocumento';
-import { getErrorMessage } from '../../shared/api/axiosClient';
-import AlertBanner from '../../shared/components/AlertBanner';
-import Badge from '../../shared/components/Badge';
-import { fechaLegible } from './estados';
+import { adminApi } from '../adminApi';
+import { ACCESOS } from '../../catalog/tiposDocumento';
+import { getErrorMessage } from '../../../shared/api/axiosClient';
+import AlertBanner from '../../../shared/components/AlertBanner';
+import Badge from '../../../shared/components/Badge';
+import PaginaAdmin from '../componentes/PaginaAdmin';
+import { fechaLegible } from '../estados';
 
 // Una fila por tesis, con un borrador propio: los cambios solo se guardan al pulsar "Guardar".
 function FilaTesis({ tesis, onGuardada }) {
@@ -111,7 +112,7 @@ function FilaTesis({ tesis, onGuardada }) {
 }
 
 // Documentos digitales de las tesis (propuesta, sección 4.5.6): nivel de acceso, activación y enlace de cada una.
-export default function TesisDigitalesPanel({ onCambio }) {
+export default function TesisDigitalesPage() {
   const [tesis, setTesis] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -126,7 +127,6 @@ export default function TesisDigitalesPanel({ onCambio }) {
 
   function reemplazar(actualizada) {
     setTesis((lista) => lista.map((t) => (t.id === actualizada.id ? actualizada : t)));
-    onCambio?.(); // el resumen de arriba cuenta las tesis con documento digital
   }
 
   if (cargando) {
@@ -139,13 +139,16 @@ export default function TesisDigitalesPanel({ onCambio }) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <PaginaAdmin
+      descripcion={
+        <>
+          El nivel de acceso decide qué ve el público: <b>Acceso y descarga</b> permite ver y bajar el documento,{' '}
+          <b>Consulta digital</b> solo permite verlo en línea y <b>Sin acceso digital</b> deja únicamente el ejemplar físico.
+          Si escribes un enlace, el documento se toma de ahí; si lo dejas vacío, se usa el documento de ejemplo.
+        </>
+      }
+    >
       <AlertBanner>{error}</AlertBanner>
-      <p className="max-w-3xl text-sm text-slate-500">
-        El nivel de acceso decide qué ve el público: <b>Acceso y descarga</b> permite ver y bajar el documento,{' '}
-        <b>Consulta digital</b> solo permite verlo en línea y <b>Sin acceso digital</b> deja únicamente el ejemplar físico. Si
-        escribes un enlace, el documento se toma de ahí; si lo dejas vacío, se usa el documento de ejemplo.
-      </p>
       <div className="overflow-x-auto rounded-xl border border-border bg-white">
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
@@ -164,6 +167,6 @@ export default function TesisDigitalesPanel({ onCambio }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </PaginaAdmin>
   );
 }

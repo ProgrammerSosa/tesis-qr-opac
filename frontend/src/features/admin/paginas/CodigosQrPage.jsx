@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Loader2, Printer, ScanLine } from 'lucide-react';
-import { adminApi } from './adminApi';
-import ThesisQr, { enlaceCanonico } from '../catalog/ThesisQr';
-import ThesisLabel from '../catalog/ThesisLabel';
-import { getErrorMessage } from '../../shared/api/axiosClient';
-import AlertBanner from '../../shared/components/AlertBanner';
-import Badge from '../../shared/components/Badge';
-import Button from '../../shared/components/Button';
-import { fechaLegible } from './estados';
+import { adminApi } from '../adminApi';
+import ThesisQr, { enlaceCanonico } from '../../catalog/ThesisQr';
+import ThesisLabel from '../../catalog/ThesisLabel';
+import { getErrorMessage } from '../../../shared/api/axiosClient';
+import AlertBanner from '../../../shared/components/AlertBanner';
+import Badge from '../../../shared/components/Badge';
+import Button from '../../../shared/components/Button';
+import PaginaAdmin from '../componentes/PaginaAdmin';
+import { fechaLegible } from '../estados';
 
 const RESULTADO = {
   ok: { tone: 'status', label: 'Enlace correcto' },
@@ -18,7 +19,7 @@ const RESULTADO = {
 
 // Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): cuáles están activos, comprobar que sus enlaces
 // respondan e imprimir las etiquetas de contraportada.
-export default function CodigosQrPanel() {
+export default function CodigosQrPage() {
   const [tesis, setTesis] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -102,13 +103,16 @@ export default function CodigosQrPanel() {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <PaginaAdmin
+      descripcion={
+        <>
+          Cada código QR lleva a la ficha de su tesis, una dirección que no cambia aunque cambie el archivo digital. Un código{' '}
+          <b>desactivado</b> avisa a quien lo escanea y deja de contarse en las estadísticas. <b>Verificar</b> comprueba que el
+          enlace responda.
+        </>
+      }
+    >
       <AlertBanner>{error}</AlertBanner>
-      <p className="max-w-3xl text-sm text-slate-500">
-        Cada código QR lleva a la ficha de su tesis, una dirección que no cambia aunque cambie el archivo digital. Un código{' '}
-        <b>desactivado</b> avisa a quien lo escanea y deja de contarse en las estadísticas. <b>Verificar</b> comprueba que el
-        enlace responda.
-      </p>
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" icon={ScanLine} onClick={() => verificar(tesis.map((t) => t.id))} disabled={verificando.size > 0}>
@@ -218,6 +222,6 @@ export default function CodigosQrPanel() {
             document.body
           )
         : null}
-    </section>
+    </PaginaAdmin>
   );
 }

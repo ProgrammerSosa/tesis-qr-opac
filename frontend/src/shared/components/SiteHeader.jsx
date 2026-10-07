@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Armchair, BookOpen, FileCheck2, Home, LayoutDashboard, MonitorSmartphone, Search } from 'lucide-react';
+import { Armchair, BookOpen, FileCheck2, Home, MonitorSmartphone, Search } from 'lucide-react';
 import HeroSearch from './HeroSearch';
 import { LIBRARY } from '../config/library';
 import { useKiosco } from '../kiosco/KioscoContext';
@@ -45,13 +45,6 @@ export default function SiteHeader() {
                 Kiosco {kiosco}
               </span>
             ) : null}
-            {/* El panel es independiente de lo que ve el público (propuesta, 4.5.6): en un kiosco no se ofrece el enlace. */}
-            {esKiosco ? null : (
-              <Link to="/admin" className="flex items-center gap-1.5 text-white/85 transition-colors hover:text-white">
-                <LayoutDashboard size={16} />
-                Panel del personal
-              </Link>
-            )}
           </div>
         </div>
       </div>

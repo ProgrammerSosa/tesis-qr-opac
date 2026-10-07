@@ -8,6 +8,7 @@ import StudyRoomPage from '../features/reservas/StudyRoomPage';
 import SolvenciaPage from '../features/solvencia/SolvenciaPage';
 
 export const router = createBrowserRouter([
+  // Sitio público y kioscos: usuarios de la biblioteca.
   {
     element: <Layout />,
     children: [
@@ -17,8 +18,12 @@ export const router = createBrowserRouter([
       { path: '/tesis/:id/documento', element: <ThesisDocumentPage /> },
       { path: '/sala-de-estudio', element: <StudyRoomPage /> },
       { path: '/solvencia', element: <SolvenciaPage /> },
-      // El panel del personal se descarga solo cuando alguien entra a /admin: el público y los kioscos no cargan ese código.
-      { path: '/admin', lazy: async () => ({ Component: (await import('../features/admin/AdminDashboardPage')).default }) },
     ],
+  },
+  // Consola del personal: otra parte del sistema, sin el diseño público (encabezado, buscador, pie, modo kiosco).
+  // Se descarga solo cuando alguien entra a /admin: el público y los kioscos no cargan ese código.
+  {
+    path: '/admin/*',
+    lazy: async () => ({ Component: (await import('../features/admin/AdminApp')).default }),
   },
 ]);

@@ -3,14 +3,34 @@ const {
   TESIS,
   digitalDisponible,
   listarParaAdmin,
+  obtenerPorId,
   actualizarDocumento,
   actualizarQr,
   verificarQr,
 } = require('../catalog/catalog_data');
 const reservasData = require('../reservas/reservas_data');
 const solvenciaData = require('../solvencia/solvencia_data');
+const { registrar } = require('../actividad/actividad_data');
 const { calcular } = require('./estadisticas');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
+
+const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
+const TEXTO_DE_VERIFICACION = { ok: 'enlace correcto', solo_ficha: 'lleva a la ficha', enlace_roto: 'enlace roto' };
+
+// Qué cambió en el documento digital de una tesis, para la bitácora.
+function describirDocumento(antes, despues) {
+  const cambios = [];
+  if (antes.acceso !== despues.acceso) {
+    cambios.push(`acceso ${TEXTO_DE_ACCESO[antes.acceso]} → ${TEXTO_DE_ACCESO[despues.acceso]}`);
+  }
+  if (antes.activo !== despues.activo) {
+    cambios.push(despues.activo ? 'documento activado' : 'documento desactivado');
+  }
+  if ((antes.urlExterna || null) !== (despues.urlExterna || null)) {
+    cambios.push(despues.urlExterna ? 'enlace actualizado' : 'enlace quitado');
+  }
+  return cambios.length > 0 ? cambios.join(', ') : 'sin cambios';
+}
 
 function getResumen(req, res) {
   return ok(res, {
@@ -82,8 +102,11 @@ function patchDocumento(req, res) {
   if (urlExterna && !/^https?:\/\/\S+$/i.test(urlExterna)) {
     return fail(res, 'El enlace debe empezar con http:// o https://');
   }
+  const existente = obtenerPorId(req.params.id);
+  const documentoAntes = existente ? { ...existente.documentoDigital } : null;
   const tesis = actualizarDocumento(req.params.id, { acceso, activo, urlExterna });
   if (!tesis) return notFound(res, 'Tesis no encontrada');
+  registrar(req.sesion, 'tesis.documento', `${tesis.id}: ${describirDocumento(documentoAntes, tesis.documentoDigital)}`);
   return ok(res, tesis);
 }
 
@@ -93,12 +116,14 @@ function patchQr(req, res) {
   }
   const tesis = actualizarQr(req.params.id, { activo: req.body.activo });
   if (!tesis) return notFound(res, 'Tesis no encontrada');
+  registrar(req.sesion, 'qr.estado', `${tesis.id}: código ${tesis.qr.activo ? 'activado' : 'desactivado'}`);
   return ok(res, tesis);
 }
 
 async function postVerificarQr(req, res) {
   const tesis = await verificarQr(req.params.id);
   if (!tesis) return notFound(res, 'Tesis no encontrada');
+  registrar(req.sesion, 'qr.verificado', `${tesis.id}: ${TEXTO_DE_VERIFICACION[tesis.qr.resultado]}`);
   return ok(res, tesis);
 }
 

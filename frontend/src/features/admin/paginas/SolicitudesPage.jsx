@@ -1,15 +1,21 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { solvenciaApi } from '../solvencia/solvenciaApi';
-import { getErrorMessage } from '../../shared/api/axiosClient';
-import Badge from '../../shared/components/Badge';
-import AlertBanner from '../../shared/components/AlertBanner';
-import { ESTADO_SOLVENCIA, SIGUIENTE_SOLVENCIA } from './estados';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { solvenciaApi } from '../../solvencia/solvenciaApi';
+import { getErrorMessage } from '../../../shared/api/axiosClient';
+import AlertBanner from '../../../shared/components/AlertBanner';
+import Badge from '../../../shared/components/Badge';
+import Button from '../../../shared/components/Button';
+import BarraDeFiltros from '../componentes/BarraDeFiltros';
+import PaginaAdmin from '../componentes/PaginaAdmin';
+import { ESTADO_SOLVENCIA, SIGUIENTE_SOLVENCIA } from '../estados';
 
-export default function SolicitudesPanel({ onCambio }) {
+// Solicitudes de solvencia (paz y salvo bibliotecario): el personal las pasa a revisión y las aprueba o rechaza.
+export default function SolicitudesPage() {
   const [solicitudes, setSolicitudes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const [busqueda, setBusqueda] = useState('');
+  const [estado, setEstado] = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -35,8 +41,19 @@ export default function SolicitudesPanel({ onCambio }) {
       setError(getErrorMessage(err, 'No se pudo completar la acción'));
     }
     await cargar();
-    onCambio?.();
   }
+
+  const visibles = useMemo(() => {
+    const texto = busqueda.trim().toLowerCase();
+    return solicitudes.filter(
+      (s) =>
+        (!estado || s.estado === estado) &&
+        (!texto ||
+          [s.id, s.codigoConfirmacion, s.solicitante, s.identificacion, s.programa, s.motivo].some((v) =>
+            String(v ?? '').toLowerCase().includes(texto)
+          ))
+    );
+  }, [solicitudes, busqueda, estado]);
 
   if (cargando) {
     return (
@@ -48,8 +65,25 @@ export default function SolicitudesPanel({ onCambio }) {
   }
 
   return (
-    <section className="flex flex-col gap-3">
+    <PaginaAdmin
+      descripcion="Solicitudes de solvencia que llegan desde los kioscos y la web. Pásalas a revisión y luego apruébalas o recházalas."
+      acciones={
+        <Button variant="secondary" icon={RefreshCw} onClick={cargar}>
+          Actualizar
+        </Button>
+      }
+    >
       <AlertBanner>{error}</AlertBanner>
+      <BarraDeFiltros
+        busqueda={busqueda}
+        onBusqueda={setBusqueda}
+        placeholder="Radicado, nombre, carné o programa"
+        filtros={[
+          { etiqueta: 'Todos los estados', valor: estado, onCambio: setEstado, opciones: Object.entries(ESTADO_SOLVENCIA).map(([clave, e]) => [clave, e.label]) },
+        ]}
+        resumen={`${visibles.length} de ${solicitudes.length}`}
+      />
+
       <div className="overflow-x-auto rounded-xl border border-border bg-white">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
@@ -62,15 +96,15 @@ export default function SolicitudesPanel({ onCambio }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {solicitudes.length === 0 ? (
+            {visibles.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
-                  Aún no hay solicitudes registradas.
+                  {solicitudes.length === 0 ? 'Aún no hay solicitudes registradas.' : 'Ninguna solicitud coincide con la búsqueda.'}
                 </td>
               </tr>
             ) : (
-              solicitudes.map((s) => {
-                const estado = ESTADO_SOLVENCIA[s.estado] ?? { tone: 'neutral', label: s.estado };
+              visibles.map((s) => {
+                const estadoDeSolicitud = ESTADO_SOLVENCIA[s.estado] ?? { tone: 'neutral', label: s.estado };
                 const siguiente = SIGUIENTE_SOLVENCIA[s.estado];
                 return (
                   <tr key={s.id}>
@@ -86,12 +120,13 @@ export default function SolicitudesPanel({ onCambio }) {
                     <td className="px-3 py-2.5">{s.motivo}</td>
                     <td className="px-3 py-2.5 text-xs text-slate-600">{s.kiosco ? `Kiosco ${s.kiosco}` : 'Web'}</td>
                     <td className="px-3 py-2.5">
-                      <Badge tone={estado.tone}>{estado.label}</Badge>
+                      <Badge tone={estadoDeSolicitud.tone}>{estadoDeSolicitud.label}</Badge>
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex gap-3">
                         {siguiente ? (
                           <button
+                            type="button"
                             onClick={() => accionar(solvenciaApi.avanzar, s.id)}
                             className="text-xs font-medium text-primary hover:underline"
                           >
@@ -100,6 +135,7 @@ export default function SolicitudesPanel({ onCambio }) {
                         ) : null}
                         {['pendiente', 'en_revision'].includes(s.estado) ? (
                           <button
+                            type="button"
                             onClick={() => accionar(solvenciaApi.rechazar, s.id)}
                             className="text-xs font-medium text-secondary hover:underline"
                           >
@@ -115,6 +151,6 @@ export default function SolicitudesPanel({ onCambio }) {
           </tbody>
         </table>
       </div>
-    </section>
+    </PaginaAdmin>
   );
 }

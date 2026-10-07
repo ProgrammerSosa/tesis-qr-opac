@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
 import { ChevronDown, Loader2, Search } from 'lucide-react';
-import { adminApi } from './adminApi';
-import { getErrorMessage } from '../../shared/api/axiosClient';
-import Badge from '../../shared/components/Badge';
-import AlertBanner from '../../shared/components/AlertBanner';
-import { ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from './estados';
+import { adminApi } from '../adminApi';
+import { getErrorMessage } from '../../../shared/api/axiosClient';
+import Badge from '../../../shared/components/Badge';
+import AlertBanner from '../../../shared/components/AlertBanner';
+import PaginaAdmin from '../componentes/PaginaAdmin';
+import { ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from '../estados';
 
 const TIPO_OPERACION = { reserva: 'Reserva', solvencia: 'Solvencia' };
 
-// Operaciones de cada persona, agrupadas por su carné o documento (propuesta, sección 4.5.6).
-export default function UsuariosPanel() {
+// Operaciones de cada persona que usa la biblioteca, agrupadas por su carné o documento (propuesta, sección 4.5.6).
+// No son las cuentas del personal: esas están en "Cuentas del personal".
+export default function UsuariosPage() {
   const [busqueda, setBusqueda] = useState('');
   const [personas, setPersonas] = useState([]);
   const [abierta, setAbierta] = useState(null);
@@ -38,7 +40,7 @@ export default function UsuariosPanel() {
   }, [busqueda]);
 
   return (
-    <section className="flex flex-col gap-3">
+    <PaginaAdmin descripcion="Personas que han reservado o pedido una solvencia, con todas sus operaciones. Se agrupan por carné o documento.">
       <label className="flex max-w-md flex-col gap-1">
         <span className="text-[11px] font-semibold text-slate-500">Buscar por nombre, carné o documento</span>
         <span className="relative">
@@ -128,6 +130,6 @@ export default function UsuariosPanel() {
           })}
         </ul>
       )}
-    </section>
+    </PaginaAdmin>
   );
 }
