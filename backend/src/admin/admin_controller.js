@@ -39,8 +39,15 @@ function describirDocumento(antes, despues) {
 }
 
 function getResumen(req, res) {
+  // Códigos QR que el personal de tesis debería revisar: los activos sin verificar o con el enlace roto.
+  const qrPorRevisar = TESIS.filter((t) => t.qr.activo && (!t.qr.verificadoEn || t.qr.resultado === 'enlace_roto'));
   return ok(res, {
-    tesis: { total: TESIS.length, conDocumentoDigital: TESIS.filter(digitalDisponible).length },
+    tesis: {
+      total: TESIS.length,
+      conDocumentoDigital: TESIS.filter(digitalDisponible).length,
+      qrPorRevisar: qrPorRevisar.length,
+      qrPorRevisarMuestra: qrPorRevisar.slice(0, 6).map((t) => ({ id: t.id, titulo: t.titulo, resultado: t.qr.resultado })),
+    },
     reservas: reservasData.resumen(),
     solvencia: solvenciaData.resumen(),
     tramites: tramitesData.resumen(),

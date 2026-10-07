@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DoorOpen, Loader2, RefreshCw, Stamp, X } from 'lucide-react';
 import { reservasApi } from '../../reservas/reservasApi';
+import { usePaginaLocal } from '../usePaginaLocal';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
+import Paginacion from '../../../shared/components/Paginacion';
+import { hoyISO } from '../../../shared/utils/fechas';
 import BarraDeFiltros from '../componentes/BarraDeFiltros';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { ESTADO_RESERVA, MOTIVO_LIBERACION, SIGUIENTE_RESERVA, TIPO_RESERVA } from '../estados';
@@ -18,6 +21,7 @@ export default function ReservasPage() {
   const [busqueda, setBusqueda] = useState('');
   const [estado, setEstado] = useState('');
   const [tipo, setTipo] = useState('');
+  const [cuando, setCuando] = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -45,18 +49,22 @@ export default function ReservasPage() {
     await cargar();
   }
 
-  const visibles = useMemo(() => {
+  const filtradas = useMemo(() => {
     const texto = busqueda.trim().toLowerCase();
+    const hoy = hoyISO();
     return reservas.filter(
       (r) =>
         (!estado || r.estado === estado) &&
         (!tipo || r.tipo === tipo) &&
+        (!cuando || (cuando === 'hoy' ? r.fecha === hoy : cuando === 'proximas' ? r.fecha >= hoy : r.fecha < hoy)) &&
         (!texto ||
           [r.id, r.codigoConfirmacion, r.solicitante, r.identificacion, r.recursoNombre].some((v) =>
             String(v ?? '').toLowerCase().includes(texto)
           ))
     );
-  }, [reservas, busqueda, estado, tipo]);
+  }, [reservas, busqueda, estado, tipo, cuando]);
+  const pagina = usePaginaLocal(filtradas, 40, [busqueda, estado, tipo, cuando]);
+  const visibles = pagina.visibles;
 
   if (cargando) {
     return (
@@ -84,8 +92,18 @@ export default function ReservasPage() {
         filtros={[
           { etiqueta: 'Todos los estados', valor: estado, onCambio: setEstado, opciones: Object.entries(ESTADO_RESERVA).map(([clave, e]) => [clave, e.label]) },
           { etiqueta: 'Todos los tipos', valor: tipo, onCambio: setTipo, opciones: Object.entries(TIPO_RESERVA) },
+          {
+            etiqueta: 'Todas las fechas',
+            valor: cuando,
+            onCambio: setCuando,
+            opciones: [
+              ['hoy', 'De hoy'],
+              ['proximas', 'De hoy en adelante'],
+              ['pasadas', 'Anteriores a hoy'],
+            ],
+          },
         ]}
-        resumen={`${visibles.length} de ${reservas.length}`}
+        resumen={`${filtradas.length} de ${reservas.length}`}
       />
 
       <div className="overflow-x-auto rounded-xl border border-border bg-white">
@@ -180,6 +198,8 @@ export default function ReservasPage() {
           </tbody>
         </table>
       </div>
+
+      <Paginacion pagina={pagina.pagina} paginas={pagina.paginas} onCambiar={pagina.irAPagina} />
     </PaginaAdmin>
   );
 }

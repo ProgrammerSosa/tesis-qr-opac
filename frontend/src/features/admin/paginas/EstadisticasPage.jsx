@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Armchair, DoorOpen, Download, FileCheck2, FileText, Loader2, Mail, MonitorSmartphone, Printer, QrCode, Receipt, RefreshCw, Search } from 'lucide-react';
+import { Armchair, DoorOpen, Download, FileCheck2, FilePlus2, FileText, Loader2, Mail, MonitorSmartphone, Printer, QrCode, Quote, Receipt, RefreshCw, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
@@ -87,15 +87,17 @@ export default function EstadisticasPage() {
     >
       <AlertBanner>{error}</AlertBanner>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <StatTile label="Búsquedas en el OPAC" value={totales.busquedasOpac} icon={Search} />
         <StatTile label="Consultas de tesis digitales" value={totales.consultasDigitales} icon={FileText} />
         <StatTile label="Descargas de tesis digitales" value={totales.descargasDigitales} icon={Download} />
         <StatTile label="Accesos por código QR" value={totales.accesosQr} icon={QrCode} />
+        <StatTile label="Sesiones en kioscos" value={totales.sesionesKiosco} icon={MonitorSmartphone} />
         <StatTile label="Reservas de cubículos" value={totales.reservasCubiculos} icon={DoorOpen} />
         <StatTile label="Reservas de espacios de estudio" value={totales.reservasEspacios} icon={Armchair} />
         <StatTile label="Solicitudes de solvencia" value={totales.solicitudesSolvencia} icon={FileCheck2} />
-        <StatTile label="Sesiones en kioscos" value={totales.sesionesKiosco} icon={MonitorSmartphone} />
+        <StatTile label="Solicitudes de tesis digitales" value={totales.solicitudesTesisDigital} icon={FilePlus2} />
+        <StatTile label="Solicitudes de referencias" value={totales.solicitudesReferencias} icon={Quote} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">

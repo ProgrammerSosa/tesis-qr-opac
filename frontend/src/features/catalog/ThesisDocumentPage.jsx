@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Download, ExternalLink, FileText, Loader2, Lock, Smartphone } from 'lucide-react';
+import { ArrowLeft, Download, ExternalLink, FileText, Lock, Smartphone } from 'lucide-react';
 import { catalogApi, urlDelDocumento } from './catalogApi';
 import { ACCESOS } from './tiposDocumento';
 import ThesisQr, { enlaceDeDocumento } from './ThesisQr';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import Badge from '../../shared/components/Badge';
-import { Breadcrumb } from '../../shared/components/PageHeader';
+import Page from '../../shared/components/Page';
+import { Cargando, EstadoVacio } from '../../shared/components/Cargando';
 
 // Visor del documento digital de una tesis (propuesta, secciones 3.2 y 4.2). El nivel de acceso lo hace cumplir el
 // servidor: aquí solo se muestran las opciones que corresponden. "Consulta" se ve en línea; "Acceso y descarga" también se baja.
@@ -40,52 +41,56 @@ export default function ThesisDocumentPage() {
 
   if (cargando) {
     return (
-      <div className="flex items-center gap-2 pt-10 text-slate-400">
-        <Loader2 className="animate-spin" size={18} />
-        Cargando...
-      </div>
+      <Page crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Catálogo', to: '/catalogo' }, { etiqueta: 'Documento digital' }]} title="Cargando el documento...">
+        <Cargando texto="Cargando el documento..." />
+      </Page>
     );
   }
 
   if (!tesis) {
     return (
-      <div className="flex flex-col gap-3 pt-10">
-        <p className="text-sm text-slate-500">{error || 'No se encontró esa tesis.'}</p>
-        <Link to="/catalogo" className="inline-flex items-center gap-1 text-sm text-primary">
-          <ArrowLeft size={16} />
-          Volver al buscador
-        </Link>
-      </div>
+      <Page crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Catálogo', to: '/catalogo' }, { etiqueta: 'Documento digital' }]} title="Tesis no encontrada">
+        <EstadoVacio
+          icono={FileText}
+          titulo="No encontramos esa tesis"
+          accion={
+            <Link to="/catalogo" className="inline-flex rounded-lg bg-action px-5 py-2.5 text-sm font-bold text-white hover:bg-action-dark">
+              Volver al catálogo
+            </Link>
+          }
+        >
+          {error || 'La dirección puede estar mal escrita o la ficha ya no existe.'}
+        </EstadoVacio>
+      </Page>
     );
   }
 
   const fichaUrl = `/tesis/${tesis.id}`;
   const migas = [
-    { label: 'Inicio', to: '/' },
-    { label: 'Catálogo', to: '/catalogo' },
-    { label: tesis.titulo, to: fichaUrl },
-    { label: 'Documento digital' },
+    { etiqueta: 'Inicio', to: '/' },
+    { etiqueta: 'Catálogo', to: '/catalogo' },
+    { etiqueta: 'Ficha de la tesis', to: fichaUrl },
+    { etiqueta: 'Documento digital' },
   ];
 
   if (!tesis.documentoDigital?.disponible) {
     return (
-      <div className="flex flex-col gap-5">
-        <Breadcrumb items={migas} />
-        <div className="flex max-w-xl flex-col gap-3 rounded-lg border border-border bg-surface p-5">
-          <h1 className="flex items-center gap-2 text-xl font-bold text-slate-900">
-            <Lock size={20} />
+      <Page crumbs={migas} title={tesis.titulo} subtitle={`${tesis.autor} · ${tesis.anio}`} tituloDocumento="Sin documento digital">
+        <div className="mx-auto flex max-w-xl flex-col gap-4 rounded-2xl border border-border bg-surface p-6">
+          <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-slate-900">
+            <Lock size={20} aria-hidden="true" />
             Sin documento digital
-          </h1>
-          <p className="text-sm text-slate-600">
-            Esta tesis no tiene versión digital disponible. Puedes consultar el ejemplar físico en la biblioteca: {tesis.ubicacion}
-            , {tesis.modalidadAcceso.toLowerCase()} ({tesis.consultaFisica.toLowerCase()}).
+          </h2>
+          <p className="text-sm leading-relaxed text-slate-600">
+            Esta tesis no tiene versión digital disponible. Puedes consultar el ejemplar físico en la biblioteca: {tesis.ubicacion},{' '}
+            {tesis.modalidadAcceso.toLowerCase()} ({tesis.consultaFisica.toLowerCase()}).
           </p>
-          <Link to={fichaUrl} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
-            <ArrowLeft size={16} />
+          <Link to={fichaUrl} className="inline-flex items-center gap-1.5 text-sm font-bold text-primary hover:underline">
+            <ArrowLeft size={16} aria-hidden="true" />
             Volver a la ficha
           </Link>
         </div>
-      </div>
+      </Page>
     );
   }
 
@@ -97,38 +102,25 @@ export default function ThesisDocumentPage() {
   const direccionDelVisor = puedeDescargar ? direccion : `${direccion}#toolbar=0&navpanes=0`;
 
   return (
-    <div className="flex flex-col gap-5">
-      <Breadcrumb items={migas} />
-
-      <div>
-        <h1 className="text-balance text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{tesis.titulo}</h1>
-        <p className="mt-1.5 text-base text-slate-500">
-          {tesis.autor} · {tesis.anio} · <span className="font-mono text-sm">{tesis.id}</span>
-        </p>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
+    <Page crumbs={migas} title={tesis.titulo} subtitle={`${tesis.autor} · ${tesis.anio} · ${tesis.id}`} tituloDocumento={`Documento: ${tesis.titulo}`}>
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_310px]">
         <div className="flex min-w-0 flex-col gap-2">
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <iframe
-              title={`Documento digital: ${tesis.titulo}`}
-              src={direccionDelVisor}
-              className="h-[75vh] min-h-[480px] w-full bg-white"
-            />
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface shadow-card">
+            <iframe title={`Documento digital: ${tesis.titulo}`} src={direccionDelVisor} className="h-[75vh] min-h-[480px] w-full bg-white" />
           </div>
           <p className="text-xs text-slate-500">Si el documento no se muestra en tu dispositivo, ábrelo en una pestaña nueva.</p>
         </div>
 
-        <aside className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2.5 rounded-lg border border-border bg-surface p-4">
+        <aside className="flex flex-col gap-5">
+          <div className="flex flex-col gap-3 rounded-2xl border border-border bg-white p-5 shadow-card">
             <div className="flex flex-wrap items-center gap-2">
-              <FileText size={18} className="text-primary" />
+              <FileText size={18} className="text-primary" aria-hidden="true" />
               <Badge tone="accent">{acceso.etiqueta}</Badge>
             </div>
-            <p className="text-sm text-slate-600">{acceso.detalle}</p>
+            <p className="text-sm leading-relaxed text-slate-600">{acceso.detalle}</p>
             {!puedeDescargar ? (
               <p className="flex items-start gap-1.5 text-xs text-slate-500">
-                <Lock size={14} className="mt-0.5 shrink-0" />
+                <Lock size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
                 La biblioteca no permite descargar este documento.
               </p>
             ) : null}
@@ -136,41 +128,41 @@ export default function ThesisDocumentPage() {
               href={direccion}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-dark"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-dark"
             >
-              <ExternalLink size={16} />
+              <ExternalLink size={16} aria-hidden="true" />
               Abrir en una pestaña nueva
             </a>
             {puedeDescargar ? (
               <a
                 href={urlDelDocumento(tesis.id, { kiosco, descargar: true })}
-                className="inline-flex items-center justify-center gap-2 rounded-md bg-action px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-action-dark"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-action px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-action-dark"
               >
-                <Download size={16} />
+                <Download size={16} aria-hidden="true" />
                 Descargar PDF
               </a>
             ) : null}
             <Link
               to={fichaUrl}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-white px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:border-primary"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 py-3 text-sm font-bold text-primary transition-colors hover:border-primary"
             >
-              <ArrowLeft size={16} />
+              <ArrowLeft size={16} aria-hidden="true" />
               Volver a la ficha
             </Link>
           </div>
 
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-t-4 border-border border-t-action bg-white p-5 text-center shadow-sm">
-            <h2 className="flex items-center gap-2 text-lg font-bold text-slate-900">
-              <Smartphone size={20} />
+          <div className="flex flex-col items-center gap-3 rounded-2xl border border-t-4 border-border border-t-action bg-white p-5 text-center shadow-card">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-900">
+              <Smartphone size={20} aria-hidden="true" />
               Llévalo a tu teléfono
             </h2>
-            <div className="rounded-lg border border-dashed border-border p-2">
+            <div className="rounded-xl border border-dashed border-border p-2">
               <ThesisQr id={tesis.id} size={150} enlace={enlaceDeDocumento(tesis.id)} />
             </div>
             <p className="text-sm text-slate-500">Escanea el código con la cámara de tu teléfono para abrir este documento.</p>
           </div>
         </aside>
       </div>
-    </div>
+    </Page>
   );
 }

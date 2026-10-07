@@ -9,20 +9,18 @@ import { LIBRARY } from '../config/library';
 import { comprobantesApi } from '../api/comprobantesApi';
 import { getErrorMessage } from '../api/axiosClient';
 import { useKiosco } from '../kiosco/KioscoContext';
+import { fechaLarga, fechaYHora } from '../utils/fechas';
 
 // Constancia de una operación (propuesta, sección 4.5.5): se ve en pantalla, se puede imprimir como ticket
-// (impresora térmica del kiosco) y se puede enviar por correo. Sirve para reservas y para solicitudes de solvencia.
+// (impresora térmica del kiosco) y se puede enviar por correo. Sirve para reservas y para solicitudes de solvencia,
+// de tesis en formato digital y de referencias bibliográficas.
 
-const TITULOS = { reserva: 'Confirmación de reserva', solvencia: 'Solicitud de solvencia' };
-
-function fechaYHora(iso) {
-  const d = new Date(iso);
-  const dos = (n) => String(n).padStart(2, '0');
-  return {
-    fecha: `${dos(d.getDate())}/${dos(d.getMonth() + 1)}/${d.getFullYear()}`,
-    hora: `${dos(d.getHours())}:${dos(d.getMinutes())}`,
-  };
-}
+const TITULOS = {
+  reserva: 'Confirmación de reserva',
+  solvencia: 'Solicitud de solvencia',
+  tesis_digital: 'Solicitud de tesis en formato digital',
+  referencias: 'Solicitud de referencias bibliográficas',
+};
 
 function filasDe(tipo, r) {
   if (tipo === 'reserva') {
@@ -35,22 +33,51 @@ function filasDe(tipo, r) {
       ['A nombre de', r.solicitante],
     ];
   }
+  if (tipo === 'solvencia') {
+    return [
+      ['Número de solicitud', r.id],
+      ['Código de confirmación', r.codigoConfirmacion],
+      ['Motivo', r.motivo],
+      ['Solicitante', r.solicitante],
+      ['Carné', r.identificacion],
+      ['Programa', r.programa],
+      ['Orden de pago', r.ordenDePago],
+      ...(r.fechaPapeleria ? [['Presentas tu papelería', fechaLarga(r.fechaPapeleria)]] : []),
+      ...(r.entregaEstimada ? [['Entrega estimada', `${fechaLarga(r.entregaEstimada.fecha)}, ${r.entregaEstimada.hora} h`]] : []),
+    ];
+  }
+  if (tipo === 'tesis_digital') {
+    return [
+      ['Número de solicitud', r.id],
+      ['Código de confirmación', r.codigoConfirmacion],
+      ['Tesis', r.titulo],
+      ['Autor', r.autor],
+      ['Clasificación', `${r.clasificacion} · ${r.nivel === 'grado' ? 'grado' : 'posgrado'}, ${r.anio}`],
+      ['Solicitante', r.solicitante],
+    ];
+  }
   return [
     ['Número de solicitud', r.id],
     ['Código de confirmación', r.codigoConfirmacion],
-    ['Motivo', r.motivo],
+    ['Tema', r.tema],
+    ['Fuente', r.fuente],
     ['Solicitante', r.solicitante],
-    ['Programa', r.programa],
   ];
 }
 
-function instruccionesDe(tipo, toleranciaMinutos) {
+function instruccionesDe(tipo, registro, toleranciaMinutos) {
   if (tipo === 'reserva') {
     return `Presenta el número de reserva o el código de confirmación en el mostrador.${
       toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera.` : ''
     }`;
   }
-  return 'Tu solicitud será revisada por el personal de la biblioteca. Guarda el número de solicitud para darle seguimiento.';
+  if (tipo === 'solvencia') {
+    return 'El personal revisará tu solicitud y te enviará la solvencia en PDF a tu correo, en el horario de entrega indicado. Guarda tu número de solicitud para darle seguimiento.';
+  }
+  if (tipo === 'tesis_digital') {
+    return 'La biblioteca revisará tu solicitud y te avisará por correo cuando la tesis esté disponible en el repositorio. Guarda tu número de solicitud.';
+  }
+  return 'Recibirás la referencia en tu correo en un plazo de 24 horas, en días y horas hábiles. Guarda tu número de solicitud.';
 }
 
 // Lo que sale por la impresora: va aparte de la pantalla, en un ticket angosto de 80 mm.
@@ -82,13 +109,13 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
   const [imprimiendo, setImprimiendo] = useState(false);
   const [correo, setCorreo] = useState(registro.correo || '');
   const [enviando, setEnviando] = useState(false);
-  const [enviado, setEnviado] = useState('');
+  const [enviado, setEnviado] = useState(null);
   const [error, setError] = useState('');
 
   const titulo = TITULOS[tipo];
   const operacion = fechaYHora(registro.creadoEn);
   const filas = filasDe(tipo, registro);
-  const instrucciones = instruccionesDe(tipo, toleranciaMinutos);
+  const instrucciones = instruccionesDe(tipo, registro, toleranciaMinutos);
 
   // El ticket se dibuja solo mientras se imprime; `afterprint` avisa cuando termina o se cancela.
   useEffect(() => {
@@ -112,7 +139,7 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
     e.preventDefault();
     setEnviando(true);
     setError('');
-    setEnviado('');
+    setEnviado(null);
     try {
       const res = await comprobantesApi.enviar({
         tipo,
@@ -121,7 +148,7 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
         correo,
         kiosco,
       });
-      setEnviado(res.data.data.para);
+      setEnviado(res.data.data);
     } catch (err) {
       setError(getErrorMessage(err, 'No se pudo enviar el comprobante'));
     } finally {
@@ -130,13 +157,13 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
   }
 
   return (
-    <div className="rounded-xl border border-primary/30 bg-blue-50 p-5">
-      <div className="mb-3 flex items-center gap-2 text-primary">
-        <CheckCircle2 size={18} />
-        <span className="text-base font-bold">{titulo}</span>
+    <div className="entrar rounded-2xl border border-primary/30 bg-blue-50 p-6 shadow-card">
+      <div className="mb-4 flex items-center gap-2.5 text-primary">
+        <CheckCircle2 size={24} aria-hidden="true" />
+        <h2 className="font-display text-xl font-semibold">{titulo}</h2>
       </div>
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+      <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
         <dt className="text-slate-500">Fecha de la operación</dt>
         <dd>
           {operacion.fecha} · {operacion.hora}
@@ -144,7 +171,7 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
         {filas.map(([etiqueta, valor]) => (
           <div key={etiqueta} className="contents">
             <dt className="text-slate-500">{etiqueta}</dt>
-            <dd className={etiqueta.startsWith('Código') || etiqueta.startsWith('Número') ? 'font-mono font-semibold' : ''}>{valor}</dd>
+            <dd className={`min-w-0 break-words ${etiqueta.startsWith('Código') || etiqueta.startsWith('Número') ? 'font-mono font-semibold' : ''}`}>{valor}</dd>
           </div>
         ))}
         <dt className="text-slate-500">Estado</dt>
@@ -155,22 +182,22 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
         </dd>
       </dl>
 
-      <p className="mt-3 text-xs text-slate-600">{instrucciones}</p>
+      <p className="mt-4 text-sm leading-relaxed text-slate-700">{instrucciones}</p>
 
-      <div className="mt-4 flex flex-col gap-3 border-t border-primary/20 pt-4">
-        <div className="flex flex-wrap items-center gap-2">
+      <div className="mt-5 flex flex-col gap-3 border-t border-primary/20 pt-5">
+        <div className="flex flex-wrap items-center gap-3">
           <Button variant="brand" icon={Printer} onClick={imprimir}>
             Imprimir comprobante
           </Button>
           {onNueva ? (
-            <button type="button" onClick={onNueva} className="text-sm font-semibold text-primary hover:underline">
+            <button type="button" onClick={onNueva} className="text-sm font-bold text-primary hover:underline">
               {textoNueva}
             </button>
           ) : null}
         </div>
 
-        <form onSubmit={enviarPorCorreo} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="sm:w-72">
+        <form onSubmit={enviarPorCorreo} className="campos-grandes flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="sm:w-80">
             <Input
               label="Enviar el comprobante a mi correo"
               type="email"
@@ -180,15 +207,23 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
               placeholder="correo@ejemplo.com"
             />
           </div>
-          <Button type="submit" variant="secondary" icon={Mail} disabled={enviando || !correo.trim()}>
+          <Button type="submit" variant="secondary" icon={Mail} disabled={enviando || !correo.trim()} className="sm:h-12">
             {enviando ? 'Enviando...' : 'Enviar por correo'}
           </Button>
         </form>
         <AlertBanner>{error}</AlertBanner>
         {enviado ? (
           <p className="text-sm text-slate-700">
-            Comprobante enviado a <b>{enviado}</b>. En este prototipo el envío es simulado: no sale un correo real hasta
-            conectar el servidor de correo de la Facultad.
+            {enviado.simulado ? (
+              <>
+                El correo a <b>{enviado.para}</b> no pudo entregarse porque el servicio de correo de la biblioteca todavía no está activo. Imprime este comprobante o
+                guarda tu número de solicitud.
+              </>
+            ) : (
+              <>
+                Comprobante enviado a <b>{enviado.para}</b>. Si no lo ves en unos minutos, revisa la carpeta de correo no deseado.
+              </>
+            )}
           </p>
         ) : null}
       </div>

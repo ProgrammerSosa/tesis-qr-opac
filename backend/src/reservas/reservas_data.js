@@ -1,9 +1,9 @@
-const { RECURSOS, REGLAS_CUBICULO } = require('./recursos_data');
+const { RECURSOS, REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
 const horarios = require('../horarios/horarios_data');
 const almacen = require('../../utils/almacen');
 const { rechazo } = require('../../utils/errores');
-const { fechaLocal } = require('../../utils/fechas');
+const { esFechaISO, fechaLocal, minutosDelDia, sumarDias } = require('../../utils/fechas');
 const { generarCodigoConfirmacion, correoValido } = require('../../utils/codigos');
 
 // Las reservas se guardan en el almacén de datos (ver utils/almacen.js): no se pierden al reiniciar el servidor.
@@ -153,12 +153,27 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
   if (!recurso) {
     throw rechazo('Ese recurso no existe', 404);
   }
+  if (!esFechaISO(fecha)) {
+    throw rechazo('La fecha de la reserva no es válida');
+  }
+  // No se reserva en el pasado ni demasiado adelante. Una hora de hoy se puede reservar mientras no se acabe su tolerancia:
+  // después, la reserva se liberaría sola al instante.
+  const hoy = fechaLocal();
+  if (fecha < hoy) {
+    throw rechazo('No puedes reservar en una fecha que ya pasó');
+  }
+  if (fecha > sumarDias(hoy, CONDICIONES.diasMaximosDeAnticipacion)) {
+    throw rechazo(`Solo puedes reservar hasta ${CONDICIONES.diasMaximosDeAnticipacion} días adelante`);
+  }
   const cierre = horarios.cierreDe(fecha);
   if (cierre) {
     throw rechazo(`La biblioteca está cerrada ese día (${cierre.motivo}). Elige otra fecha.`, 409);
   }
   if (!horarios.franjasDeReserva(fecha).includes(hora)) {
     throw rechazo('Esa hora no está dentro del horario de reservas de ese día');
+  }
+  if (fecha === hoy && minutosDelDia() >= Number(hora.slice(0, 2)) * 60 + configuracion.toleranciaMinutos()) {
+    throw rechazo('Esa hora ya pasó: elige una hora posterior');
   }
 
   const documento = String(identificacion || '').trim();

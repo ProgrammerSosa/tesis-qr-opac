@@ -9,7 +9,7 @@ const router = express.Router();
 // Lo que se muestra en el inicio y en el pie de todas las páginas: los horarios, si la biblioteca está abierta ahora,
 // los próximos cierres y los avisos vigentes. Es información pública, así que no pide sesión.
 router.get('/portada', (req, res) => {
-  res.set('Cache-Control', 'public, max-age=30');
+  res.set('Cache-Control', 'public, max-age=10'); // lo bastante corto para que un aviso nuevo se vea casi de inmediato
   return ok(res, {
     horario: { semana: horarios.semana(), estado: horarios.estadoAhora(), proximosCierres: horarios.proximosCierres() },
     avisos: avisos.listarVigentes(),

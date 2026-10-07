@@ -1,18 +1,22 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, ScrollRestoration } from 'react-router-dom';
 import SiteHeader from './SiteHeader';
 import SiteFooter from './SiteFooter';
 import { KioscoProvider } from '../kiosco/KioscoContext';
+import { PortadaProvider } from '../portada/PortadaContext';
 
 export default function Layout() {
   return (
     <KioscoProvider>
-      <div className="flex min-h-screen flex-col bg-white">
-        <SiteHeader />
-        <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6">
-          <Outlet />
-        </main>
-        <SiteFooter />
-      </div>
+      <PortadaProvider>
+        <div className="flex min-h-screen flex-col bg-white">
+          <SiteHeader />
+          <main id="contenido" tabIndex={-1} className="flex-1 outline-none">
+            <Outlet />
+          </main>
+          <SiteFooter />
+        </div>
+        <ScrollRestoration />
+      </PortadaProvider>
     </KioscoProvider>
   );
 }

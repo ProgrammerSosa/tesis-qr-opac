@@ -4,26 +4,36 @@ import AdminLoginPage from './AdminLoginPage';
 import { SECCIONES, puedeVer } from './secciones';
 import { useSesionAdmin } from './SesionAdmin';
 import ActividadPage from './paginas/ActividadPage';
+import AvisosPage from './paginas/AvisosPage';
+import CatalogoPage from './paginas/CatalogoPage';
 import CodigosQrPage from './paginas/CodigosQrPage';
 import ConfiguracionPage from './paginas/ConfiguracionPage';
+import CorreosPage from './paginas/CorreosPage';
 import EstadisticasPage from './paginas/EstadisticasPage';
+import HorariosPage from './paginas/HorariosPage';
 import PersonalPage from './paginas/PersonalPage';
 import ReservasPage from './paginas/ReservasPage';
 import ResumenPage from './paginas/ResumenPage';
 import SolicitudesPage from './paginas/SolicitudesPage';
 import TesisDigitalesPage from './paginas/TesisDigitalesPage';
+import TramitesPage from './paginas/TramitesPage';
 import UsuariosPage from './paginas/UsuariosPage';
 
 const PAGINAS = {
   resumen: ResumenPage,
   reservas: ReservasPage,
   solicitudes: SolicitudesPage,
+  tramites: TramitesPage,
   usuarios: UsuariosPage,
+  catalogo: CatalogoPage,
   tesis: TesisDigitalesPage,
   qr: CodigosQrPage,
+  avisos: AvisosPage,
+  horarios: HorariosPage,
   estadisticas: EstadisticasPage,
   personal: PersonalPage,
   configuracion: ConfiguracionPage,
+  correos: CorreosPage,
   actividad: ActividadPage,
 };
 

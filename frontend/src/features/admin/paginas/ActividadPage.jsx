@@ -39,7 +39,7 @@ export default function ActividadPage() {
 
   return (
     <PaginaAdmin
-      descripcion="Lo que ha hecho el personal en el panel: quién, cuándo y qué. Se guardan los últimos movimientos mientras el servidor siga encendido."
+      descripcion="Lo que ha hecho el personal en el panel: quién, cuándo y qué. Se conservan los últimos 1000 movimientos."
       acciones={
         <Button variant="secondary" icon={RefreshCw} onClick={cargar} disabled={cargando}>
           {cargando ? 'Actualizando...' : 'Actualizar'}

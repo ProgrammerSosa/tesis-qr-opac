@@ -1,38 +1,30 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookMarked, CalendarCheck, Clock, FileCheck2, FileText, Loader2, MonitorSmartphone, Search } from 'lucide-react';
+import { ArrowRight, BookMarked, CalendarCheck, Clock, FilePlus2, FileCheck2, FileText, Loader2, MonitorSmartphone, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
 import { solvenciaApi } from '../../solvencia/solvenciaApi';
+import { tramitesApi } from '../../tramites/tramitesApi';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { puedeVer } from '../secciones';
 import { useSesionAdmin } from '../SesionAdmin';
-import { ACCIONES_DE_ACTIVIDAD, ESTADO_RESERVA, ESTADO_SOLVENCIA, ROLES_DEL_PERSONAL, fechaLegible } from '../estados';
+import { ACCIONES_DE_ACTIVIDAD, ESTADO_DE_TRAMITE, ESTADO_RESERVA, ESTADO_SOLVENCIA, ROLES_DEL_PERSONAL, TIPO_DE_TRAMITE, fechaLegible } from '../estados';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import StatTile from '../../../shared/components/StatTile';
+import { fechaCorta, fechaLarga, hoyISO } from '../../../shared/utils/fechas';
 
 // Qué datos pide el resumen y qué sección debe poder ver el rol para recibirlos: cada rol ve solo lo suyo.
 const PEDIDOS = {
   resumen: { seccion: 'resumen', pedir: () => adminApi.resumen(), nombre: 'las cifras' },
   reservas: { seccion: 'reservas', pedir: () => reservasApi.listar(), nombre: 'las reservas' },
-  solicitudes: { seccion: 'solicitudes', pedir: () => solvenciaApi.listar(), nombre: 'las solicitudes' },
-  qr: { seccion: 'qr', pedir: () => adminApi.codigosQr(), nombre: 'los códigos QR' },
+  solicitudes: { seccion: 'solicitudes', pedir: () => solvenciaApi.listar(), nombre: 'las solicitudes de solvencia' },
+  tramites: { seccion: 'tramites', pedir: () => tramitesApi.listar(), nombre: 'las solicitudes de tesis y referencias' },
   estadisticas: { seccion: 'estadisticas', pedir: () => adminApi.estadisticas(), nombre: 'las estadísticas' },
   actividad: { seccion: 'actividad', pedir: () => adminApi.actividad({ limite: 6 }), nombre: 'la actividad' },
 };
 
 const MAXIMO_POR_LISTA = 6;
-
-function hoyISO() {
-  const d = new Date();
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function fechaLarga() {
-  const texto = new Date().toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
-  return texto.charAt(0).toUpperCase() + texto.slice(1);
-}
 
 function Bloque({ titulo, enlace, textoEnlace, children }) {
   return (
@@ -91,17 +83,21 @@ export default function ResumenPage() {
   }
 
   const cifras = datos.resumen;
+  const tramitesPorAtender = (datos.tramites ?? []).filter((t) => ['pendiente', 'en_proceso'].includes(t.estado)).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
   const tarjetas = [];
   if (cifras && datos.reservas) {
     tarjetas.push(
       { etiqueta: 'Reservas activas', valor: cifras.reservas.activas, icono: Clock },
       { etiqueta: 'Reservas de hoy', valor: cifras.reservas.hoy, icono: CalendarCheck },
-      { etiqueta: 'Solicitudes pendientes', valor: cifras.solvencia.pendientes, icono: FileCheck2 }
+      { etiqueta: 'Solvencias pendientes', valor: cifras.solvencia.pendientes, icono: FileCheck2 }
     );
   }
-  if (cifras && datos.qr) {
+  if (datos.tramites) {
+    tarjetas.push({ etiqueta: 'Tesis y referencias por atender', valor: tramitesPorAtender.length, icono: FilePlus2 });
+  }
+  if (cifras && puedeVer(rol, 'catalogo')) {
     tarjetas.push(
-      { etiqueta: 'Tesis registradas', valor: cifras.tesis.total, icono: BookMarked },
+      { etiqueta: 'Tesis en el catálogo', valor: cifras.tesis.total, icono: BookMarked },
       { etiqueta: 'Con documento digital', valor: cifras.tesis.conDocumentoDigital, icono: FileText }
     );
   }
@@ -122,12 +118,13 @@ export default function ResumenPage() {
   const solicitudesPorRevisar = (datos.solicitudes ?? [])
     .filter((s) => ['pendiente', 'en_revision'].includes(s.estado))
     .sort((a, b) => a.creadoEn.localeCompare(b.creadoEn)); // las más antiguas primero
-  const codigosPorRevisar = (datos.qr ?? []).filter((t) => t.qr.activo && (!t.qr.verificadoEn || t.qr.resultado === 'enlace_roto'));
+  const codigosPorRevisar = cifras?.tesis?.qrPorRevisarMuestra ?? [];
+  const fechaDeHoy = fechaLarga(hoy);
 
   return (
     <PaginaAdmin>
       <div className="rounded-xl border border-border bg-white p-5">
-        <p className="text-sm text-slate-500">{fechaLarga()}</p>
+        <p className="text-sm text-slate-500 first-letter:uppercase">{fechaDeHoy}</p>
         <h2 className="mt-0.5 text-xl font-bold text-slate-900">Hola, {sesion.nombre}</h2>
         <p className="mt-0.5 text-sm text-slate-600">
           {ROLES_DEL_PERSONAL[rol]?.nombre}: {ROLES_DEL_PERSONAL[rol]?.descripcion.toLowerCase()}.
@@ -137,7 +134,7 @@ export default function ResumenPage() {
       {fallos.length > 0 ? <AlertBanner>{`No se pudieron cargar ${fallos.join(', ')}. Recarga la página para intentarlo de nuevo.`}</AlertBanner> : null}
 
       {tarjetas.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           {tarjetas.map((t) => (
             <StatTile key={t.etiqueta} label={t.etiqueta} value={t.valor} icon={t.icono} />
           ))}
@@ -173,9 +170,9 @@ export default function ResumenPage() {
         ) : null}
 
         {datos.solicitudes ? (
-          <Bloque titulo="Solicitudes por revisar" enlace="/admin/solicitudes" textoEnlace="Ver las solicitudes">
+          <Bloque titulo="Solvencias por revisar" enlace="/admin/solicitudes" textoEnlace="Ver las solvencias">
             {solicitudesPorRevisar.length === 0 ? (
-              <Vacio>No hay solicitudes esperando revisión.</Vacio>
+              <Vacio>No hay solvencias esperando revisión.</Vacio>
             ) : (
               <ul className="divide-y divide-border">
                 {solicitudesPorRevisar.slice(0, MAXIMO_POR_LISTA).map((s) => {
@@ -183,9 +180,11 @@ export default function ResumenPage() {
                   return (
                     <li key={s.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                       <span className="min-w-0">
-                        <span className="font-mono text-slate-700">{s.id}</span>{' '}
-                        <span className="font-semibold text-slate-900">{s.solicitante}</span>
-                        <span className="block truncate text-xs text-slate-500">{s.motivo}</span>
+                        <span className="font-mono text-slate-700">{s.id}</span> <span className="font-semibold text-slate-900">{s.solicitante}</span>
+                        <span className="block truncate text-xs text-slate-500">
+                          {s.motivo}
+                          {s.entregaEstimada ? ` · entrega ${fechaCorta(s.entregaEstimada.fecha)} ${s.entregaEstimada.hora}` : ''}
+                        </span>
                       </span>
                       <Badge tone={estado.tone}>{estado.label}</Badge>
                     </li>
@@ -199,25 +198,54 @@ export default function ResumenPage() {
           </Bloque>
         ) : null}
 
-        {datos.qr ? (
+        {datos.tramites ? (
+          <Bloque titulo="Tesis y referencias por atender" enlace="/admin/tramites" textoEnlace="Ver las solicitudes">
+            {tramitesPorAtender.length === 0 ? (
+              <Vacio>No hay solicitudes de tesis ni de referencias esperando atención.</Vacio>
+            ) : (
+              <ul className="divide-y divide-border">
+                {tramitesPorAtender.slice(0, MAXIMO_POR_LISTA).map((t) => {
+                  const estado = ESTADO_DE_TRAMITE[t.estado];
+                  return (
+                    <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                      <span className="min-w-0">
+                        <span className="font-mono text-slate-700">{t.id}</span> <span className="font-semibold text-slate-900">{t.solicitante}</span>
+                        <span className="block truncate text-xs text-slate-500">
+                          {TIPO_DE_TRAMITE[t.tipo]}: {t.tipo === 'tesis_digital' ? t.titulo : t.tema}
+                        </span>
+                      </span>
+                      <Badge tone={estado.tone}>{estado.label}</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {tramitesPorAtender.length > MAXIMO_POR_LISTA ? (
+              <p className="text-xs text-slate-500">y {tramitesPorAtender.length - MAXIMO_POR_LISTA} más</p>
+            ) : null}
+          </Bloque>
+        ) : null}
+
+        {cifras && puedeVer(rol, 'qr') ? (
           <Bloque titulo="Códigos QR por revisar" enlace="/admin/qr" textoEnlace="Ver los códigos">
             {codigosPorRevisar.length === 0 ? (
               <Vacio>Todos los códigos activos fueron verificados y responden.</Vacio>
             ) : (
               <ul className="divide-y divide-border">
-                {codigosPorRevisar.slice(0, MAXIMO_POR_LISTA).map((t) => (
+                {codigosPorRevisar.map((t) => (
                   <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0">
                       <span className="block truncate font-semibold text-slate-900">{t.titulo}</span>
                       <span className="font-mono text-xs text-slate-500">{t.id}</span>
                     </span>
-                    <Badge tone={t.qr.resultado === 'enlace_roto' ? 'danger' : 'warning'}>
-                      {t.qr.resultado === 'enlace_roto' ? 'Enlace roto' : 'Sin verificar'}
-                    </Badge>
+                    <Badge tone={t.resultado === 'enlace_roto' ? 'danger' : 'warning'}>{t.resultado === 'enlace_roto' ? 'Enlace roto' : 'Sin verificar'}</Badge>
                   </li>
                 ))}
               </ul>
             )}
+            {cifras.tesis.qrPorRevisar > codigosPorRevisar.length ? (
+              <p className="text-xs text-slate-500">y {cifras.tesis.qrPorRevisar - codigosPorRevisar.length} más</p>
+            ) : null}
           </Bloque>
         ) : null}
 

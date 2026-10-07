@@ -15,8 +15,15 @@ export function sumarHoras(hora, horas) {
   return `${String(Number(hora.slice(0, 2)) + horas).padStart(2, '0')}:00`;
 }
 
-// Franjas consecutivas que ocuparía una reserva que empieza en `inicio` y dura `duracion` horas.
+// Franjas consecutivas que ocuparía una reserva que empieza en `inicio` y dura `duracion` horas. Los horarios de reserva
+// pueden tener huecos (la pausa del mediodía, por ejemplo), así que cada hora debe seguir exactamente a la anterior: si
+// alguna falta, la reserva no cabe y la ventana que se devuelve es más corta que `duracion`.
 export function ventanaDesde(horas, inicio, duracion) {
-  const i = horas.indexOf(inicio);
-  return i === -1 ? [] : horas.slice(i, i + duracion);
+  const ventana = [];
+  let actual = inicio;
+  for (let i = 0; i < duracion && horas.includes(actual); i += 1) {
+    ventana.push(actual);
+    actual = sumarHoras(actual, 1);
+  }
+  return ventana;
 }

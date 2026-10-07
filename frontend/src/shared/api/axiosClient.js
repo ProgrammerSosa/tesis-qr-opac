@@ -1,7 +1,9 @@
 import axios from 'axios';
 import { borrarSesion, leerSesion } from '../auth/sesion';
 
-const baseURL = import.meta.env.VITE_API_URL || 'http://localhost:4001/api';
+// La API se pide con una dirección relativa (/api): en desarrollo la reenvía el servidor de Vite y al publicar la
+// entrega el mismo servidor que entrega el sitio. VITE_API_URL sirve para el caso de una API en otro dominio.
+const baseURL = import.meta.env.VITE_API_URL || '/api';
 
 // El panel del personal escucha este aviso para volver a mostrar el inicio de sesión.
 export const EVENTO_SESION_EXPIRADA = 'sesion-expirada';

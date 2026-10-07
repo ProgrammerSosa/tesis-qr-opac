@@ -11,7 +11,7 @@ export const ZONAS = [
     key: 'cubiculos',
     tipo: 'cubiculo',
     titulo: 'Cubículos',
-    descripcion: 'Salas cerradas para trabajo en grupo, hasta 5 personas.',
+    descripcion: 'Salas cerradas con internet para trabajar en grupo.',
     icon: DoorOpen,
     etiqueta: { x: 600, y: 196 },
   },

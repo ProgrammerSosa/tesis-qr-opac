@@ -25,6 +25,7 @@ export default function AdminLayout() {
   const location = useLocation();
   const [sesion, setSesion] = useState(leerSesion);
   const [motivoDeSalida, setMotivoDeSalida] = useState('');
+  const [salioAMano, setSalioAMano] = useState(false);
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [miCuentaAbierta, setMiCuentaAbierta] = useState(false);
   const tituloOriginal = useRef(document.title);
@@ -32,6 +33,7 @@ export default function AdminLayout() {
   const cerrarEnEsteNavegador = useCallback((motivo = '') => {
     borrarSesion();
     setMotivoDeSalida(motivo);
+    setSalioAMano(!motivo); // quien cierra su sesión a propósito no vuelve a la página donde estaba: otra persona puede entrar después
     setSesion(null);
   }, []);
 
@@ -98,7 +100,9 @@ export default function AdminLayout() {
   );
 
   if (!sesion) {
-    return <Navigate to="/admin/acceso" replace state={{ desde: `${location.pathname}${location.search}`, aviso: motivoDeSalida }} />;
+    return (
+      <Navigate to="/admin/acceso" replace state={{ desde: salioAMano ? undefined : `${location.pathname}${location.search}`, aviso: motivoDeSalida }} />
+    );
   }
 
   return (

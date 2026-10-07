@@ -4,14 +4,18 @@ import { LogIn } from 'lucide-react';
 import { authApi } from './authApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { guardarSesion, leerSesion } from '../../shared/auth/sesion';
+import { puedeVer } from './secciones';
 import { LIBRARY } from '../../shared/config/library';
 import AlertBanner from '../../shared/components/AlertBanner';
 import Button from '../../shared/components/Button';
+import MarcaBiblioteca from '../../shared/components/MarcaBiblioteca';
 import { Input } from '../../shared/components/FormField';
 
-// A dónde ir después de entrar: a la página que se quería ver, si era del panel; si no, al inicio del panel.
-function destinoTras(desde) {
-  return typeof desde === 'string' && desde.startsWith('/admin') && !desde.startsWith('/admin/acceso') ? desde : '/admin';
+// A dónde ir después de entrar: a la página que se quería ver, si era del panel y el rol puede verla; si no, al inicio del panel.
+function destinoTras(desde, rol) {
+  if (typeof desde !== 'string' || !desde.startsWith('/admin/') || desde.startsWith('/admin/acceso')) return '/admin';
+  const seccion = desde.split(/[/?#]/)[2];
+  return puedeVer(rol, seccion) ? desde : '/admin';
 }
 
 // Inicio de sesión del personal (propuesta, sección 4.5.6): pantalla propia, sin el diseño del sitio público.
@@ -46,7 +50,7 @@ export default function AdminLoginPage() {
     try {
       const res = await authApi.login(usuario.trim(), clave);
       guardarSesion(res.data.data);
-      navigate(destinoTras(location.state?.desde), { replace: true });
+      navigate(destinoTras(location.state?.desde, res.data.data.rol), { replace: true });
     } catch (err) {
       setClave('');
       setError(getErrorMessage(err, 'No se pudo iniciar sesión'));
@@ -57,9 +61,7 @@ export default function AdminLoginPage() {
   return (
     <main className="hero-bg flex min-h-screen flex-col items-center justify-center px-4 py-10 text-white">
       <div className="mb-8 flex flex-col items-center gap-3 text-center">
-        <span className="flex h-16 w-16 items-center justify-center rounded-full bg-white font-heading text-3xl font-extrabold text-primary shadow-lg shadow-black/30 ring-4 ring-primary/40">
-          B
-        </span>
+        <MarcaBiblioteca tamano={84} />
         <h1 className="text-3xl font-extrabold tracking-tight">Panel del personal</h1>
         <p className="max-w-xs text-sm text-white/70">{LIBRARY.nombre}</p>
       </div>

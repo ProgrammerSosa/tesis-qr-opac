@@ -1,3 +1,5 @@
+import { fechaYHora } from '../../shared/utils/fechas';
+
 // Textos y colores de los estados que muestra el panel.
 export const ESTADO_RESERVA = {
   reservado: { tone: 'warning', label: 'Reservado' },
@@ -25,6 +27,32 @@ export const ESTADO_SOLVENCIA = {
 
 export const SIGUIENTE_SOLVENCIA = { pendiente: 'Pasar a revisión', en_revision: 'Aprobar' };
 
+// Solicitudes de tesis en formato digital y de referencias bibliográficas.
+export const TIPO_DE_TRAMITE = { tesis_digital: 'Tesis en formato digital', referencias: 'Referencias bibliográficas' };
+
+export const ESTADO_DE_TRAMITE = {
+  pendiente: { tone: 'warning', label: 'Pendiente' },
+  en_proceso: { tone: 'accent', label: 'En proceso' },
+  publicada: { tone: 'status', label: 'Publicada' },
+  respondida: { tone: 'status', label: 'Respondida' },
+  rechazada: { tone: 'danger', label: 'Rechazada' },
+};
+
+// A qué estados puede pasar cada solicitud desde cada estado (el servidor repite la regla).
+export const PASOS_DE_TRAMITE = {
+  tesis_digital: { pendiente: ['en_proceso', 'publicada', 'rechazada'], en_proceso: ['publicada', 'rechazada'] },
+  referencias: { pendiente: ['respondida', 'rechazada'] },
+};
+
+export const ACCION_DE_TRAMITE = {
+  en_proceso: 'Empezar a trabajarla',
+  publicada: 'Marcar como publicada',
+  respondida: 'Responder',
+  rechazada: 'Rechazar',
+};
+
+export const TIPO_DE_AVISO = { info: 'Informativo', importante: 'Importante' };
+
 // Roles del personal, con lo que puede hacer cada uno (propuesta, sección 4.5.6).
 export const ROLES_DEL_PERSONAL = {
   administrador: { nombre: 'Administrador', descripcion: 'Gestión completa y configuración general' },
@@ -42,9 +70,20 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'reserva.liberada': 'Liberó un lugar reservado',
   'solicitud.avanzada': 'Avanzó una solicitud de solvencia',
   'solicitud.rechazada': 'Rechazó una solicitud de solvencia',
+  'tramite.estado': 'Atendió una solicitud de tesis o de referencias',
   'tesis.documento': 'Cambió el documento digital de una tesis',
   'qr.estado': 'Cambió el estado de un código QR',
   'qr.verificado': 'Verificó un código QR',
+  'catalogo.creada': 'Agregó una tesis al catálogo',
+  'catalogo.actualizada': 'Modificó una tesis del catálogo',
+  'catalogo.eliminada': 'Eliminó una tesis del catálogo',
+  'catalogo.importado': 'Importó tesis al catálogo',
+  'aviso.creado': 'Publicó un aviso',
+  'aviso.actualizado': 'Modificó un aviso',
+  'aviso.eliminado': 'Eliminó un aviso',
+  'horarios.actualizados': 'Cambió los horarios',
+  'horarios.cierre_agregado': 'Registró un día de cierre',
+  'horarios.cierre_quitado': 'Quitó un día de cierre',
   'personal.creada': 'Creó una cuenta del personal',
   'personal.actualizada': 'Modificó una cuenta del personal',
   'personal.clave': 'Restableció la clave de una cuenta',
@@ -55,16 +94,21 @@ export const ACCIONES_DE_ACTIVIDAD = {
 export const CATEGORIAS_DE_ACTIVIDAD = {
   acceso: 'Acceso',
   reserva: 'Reservas',
-  solicitud: 'Solicitudes',
+  solicitud: 'Solvencias',
+  tramite: 'Tesis y referencias',
   tesis: 'Tesis digitales',
   qr: 'Códigos QR',
+  catalogo: 'Catálogo',
+  aviso: 'Avisos',
+  horarios: 'Horarios',
   personal: 'Cuentas del personal',
   cuenta: 'Cuenta propia',
   configuracion: 'Configuración',
 };
 
-// Fecha y hora legibles para una marca de tiempo ISO.
+// Fecha y hora legibles para una marca de tiempo ISO, en hora de la biblioteca.
 export function fechaLegible(iso) {
   if (!iso) return '—';
-  return new Date(iso).toLocaleString('es-GT', { dateStyle: 'short', timeStyle: 'short' });
+  const { fecha, hora } = fechaYHora(iso);
+  return `${fecha} ${hora}`;
 }

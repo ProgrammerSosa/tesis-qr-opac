@@ -14,8 +14,8 @@ const REGLAS_CUBICULO = {
 
 // Condiciones generales de uso (propuesta, sección 4.5.2): si quien reserva no se presenta dentro de la
 // tolerancia, la reserva se libera y el lugar vuelve a estar disponible. Las estaciones y las sillas
-// de la sala se reservan por una hora.
-const CONDICIONES = { toleranciaMinutos: 15, duracionEspaciosHoras: 1 };
+// de la sala se reservan por una hora. `diasMaximosDeAnticipacion` es hasta cuántos días adelante se puede reservar.
+const CONDICIONES = { toleranciaMinutos: 15, duracionEspaciosHoras: 1, diasMaximosDeAnticipacion: 30 };
 
 function modalidadesDelCubiculo(numero) {
   return Object.keys(REGLAS_CUBICULO).filter((clave) => REGLAS_CUBICULO[clave].cubiculos.includes(numero));

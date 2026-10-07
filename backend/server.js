@@ -43,6 +43,8 @@ if (process.env.TRUST_PROXY) {
 app.use((req, res, next) => {
   res.set('X-Content-Type-Options', 'nosniff');
   res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.set('X-Frame-Options', 'SAMEORIGIN'); // ningún otro sitio puede mostrar este dentro de un marco (clickjacking)
+  res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
   next();
 });
 
@@ -94,10 +96,12 @@ if ((process.env.NODE_ENV === 'production' || process.env.SERVE_FRONTEND === '1'
       },
     })
   );
-  // Cualquier otra dirección es una página del sitio: la resuelve el navegador (React Router).
+  // Cualquier otra dirección es una página del sitio: la resuelve el navegador (React Router). Una dirección con extensión
+  // (/logo.png, /favicon.ico) es un archivo que no existe, no una página: esa se responde como no encontrada.
   app.get(/^(?!\/health).*/, (req, res) => {
+    if (path.extname(req.path)) return fail(res, 'Ruta no encontrada', 404);
     res.set('Cache-Control', 'no-cache');
-    res.sendFile(path.join(carpetaDelSitio, 'index.html'));
+    return res.sendFile(path.join(carpetaDelSitio, 'index.html'));
   });
 }
 

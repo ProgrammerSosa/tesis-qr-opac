@@ -5,9 +5,16 @@ import { getErrorMessage } from '../../../shared/api/axiosClient';
 import Badge from '../../../shared/components/Badge';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import PaginaAdmin from '../componentes/PaginaAdmin';
-import { ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from '../estados';
+import { ESTADO_DE_TRAMITE, ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from '../estados';
 
-const TIPO_OPERACION = { reserva: 'Reserva', solvencia: 'Solvencia' };
+const TIPO_OPERACION = { reserva: 'Reserva', solvencia: 'Solvencia', tesis_digital: 'Tesis digital', referencias: 'Referencias' };
+
+// Cada tipo de operación tiene sus propios estados.
+function estadosDe(tipo) {
+  if (tipo === 'reserva') return ESTADO_RESERVA;
+  if (tipo === 'solvencia') return ESTADO_SOLVENCIA;
+  return ESTADO_DE_TRAMITE;
+}
 
 // Operaciones de cada persona que usa la biblioteca, agrupadas por su carné o documento (propuesta, sección 4.5.6).
 // No son las cuentas del personal: esas están en "Cuentas del personal".
@@ -40,7 +47,7 @@ export default function UsuariosPage() {
   }, [busqueda]);
 
   return (
-    <PaginaAdmin descripcion="Personas que han reservado o pedido una solvencia, con todas sus operaciones. Se agrupan por carné o documento.">
+    <PaginaAdmin descripcion="Personas que han reservado o hecho una solicitud, con todas sus operaciones. Se agrupan por carné o documento (las solicitudes de tesis y de referencias solo cuentan si la persona dejó su carné).">
       <label className="flex max-w-md flex-col gap-1">
         <span className="text-[11px] font-semibold text-slate-500">Buscar por nombre, carné o documento</span>
         <span className="relative">
@@ -107,11 +114,10 @@ export default function UsuariosPage() {
                       </thead>
                       <tbody className="divide-y divide-border">
                         {p.operaciones.map((o) => {
-                          const estados = o.tipo === 'reserva' ? ESTADO_RESERVA : ESTADO_SOLVENCIA;
-                          const estado = estados[o.estado] ?? { tone: 'neutral', label: o.estado };
+                          const estado = estadosDe(o.tipo)[o.estado] ?? { tone: 'neutral', label: o.estado };
                           return (
                             <tr key={`${o.tipo}-${o.id}`}>
-                              <td className="px-3 py-2">{TIPO_OPERACION[o.tipo]}</td>
+                              <td className="px-3 py-2">{TIPO_OPERACION[o.tipo] ?? o.tipo}</td>
                               <td className="px-3 py-2 font-mono">{o.id}</td>
                               <td className="px-3 py-2">{o.detalle}</td>
                               <td className="px-3 py-2">

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { useKiosco } from '../kiosco/KioscoContext';
 
 const CAMPOS = [
@@ -10,6 +10,7 @@ const CAMPOS = [
   { value: 'anio', label: 'Año' },
 ];
 
+// El buscador grande del inicio: se elige por qué campo buscar, se escribe y se pasa al catálogo con esos criterios.
 export default function HeroSearch() {
   const navigate = useNavigate();
   const { registrarEvento } = useKiosco();
@@ -26,20 +27,23 @@ export default function HeroSearch() {
     <form
       onSubmit={handleSubmit}
       role="search"
-      className="flex flex-col overflow-hidden rounded-xl bg-white shadow-2xl shadow-black/40 ring-1 ring-white/20 focus-within:ring-2 focus-within:ring-blue-400 sm:flex-row"
+      className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-2xl shadow-black/40 ring-1 ring-white/20 focus-within:ring-2 focus-within:ring-blue-400 sm:flex-row"
     >
-      <select
-        aria-label="Buscar por"
-        value={campo}
-        onChange={(e) => setCampo(e.target.value)}
-        className="h-14 cursor-pointer border-b border-border bg-surface px-5 text-base font-semibold text-slate-800 outline-none sm:w-64 sm:border-b-0 sm:border-r"
-      >
-        {CAMPOS.map((c) => (
-          <option key={c.value} value={c.value}>
-            {c.label}
-          </option>
-        ))}
-      </select>
+      <div className="relative border-b border-border bg-surface sm:w-60 sm:border-b-0 sm:border-r">
+        <select
+          aria-label="Buscar por"
+          value={campo}
+          onChange={(e) => setCampo(e.target.value)}
+          className="h-14 w-full cursor-pointer appearance-none bg-transparent pl-5 pr-10 text-base font-semibold text-slate-800 outline-none"
+        >
+          {CAMPOS.map((c) => (
+            <option key={c.value} value={c.value}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <ChevronDown size={18} className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-slate-500" aria-hidden="true" />
+      </div>
       <input
         type="search"
         aria-label="Buscar en el catálogo"
@@ -50,11 +54,10 @@ export default function HeroSearch() {
       />
       <button
         type="submit"
-        aria-label="Buscar"
-        className="flex h-14 items-center justify-center gap-2 bg-action px-8 font-semibold text-white transition-colors hover:bg-action-dark focus:outline-none"
+        className="flex h-14 items-center justify-center gap-2 bg-action px-8 text-base font-bold text-white transition-colors hover:bg-action-dark focus:outline-none focus-visible:bg-action-dark"
       >
-        <Search size={22} />
-        <span className="sm:hidden">Buscar</span>
+        <Search size={20} aria-hidden="true" />
+        Buscar
       </button>
     </form>
   );

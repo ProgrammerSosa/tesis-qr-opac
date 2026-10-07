@@ -1,25 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import {
-  AlertTriangle,
-  ArrowLeft,
-  BookOpen,
-  Bookmark,
-  Download,
-  FileText,
-  List,
-  Loader2,
-  Printer,
-  Search,
-  ShoppingCart,
-  Smartphone,
-} from 'lucide-react';
+import { BookOpen, Check, Copy, Download, FilePlus2, FileText, List, Printer, Search, Smartphone, TriangleAlert } from 'lucide-react';
 import { catalogApi } from './catalogApi';
+import { tramitesApi } from '../tramites/tramitesApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import { LIBRARY } from '../../shared/config/library';
 import ThesisQr from './ThesisQr';
-import ThesisLabel from './ThesisLabel';
 import ThesisCard from './ThesisCard';
 import { ACCESOS, TIPOS_DOCUMENTO } from './tiposDocumento';
 import { IsbdView, MarcView } from './ThesisRecordViews';
@@ -27,13 +14,14 @@ import { FORMATOS, descargarRegistro } from './recordExport';
 import Badge from '../../shared/components/Badge';
 import Button from '../../shared/components/Button';
 import Dropdown, { DropdownItem } from '../../shared/components/Dropdown';
-import { Breadcrumb } from '../../shared/components/PageHeader';
-import SectionTitle from '../../shared/components/SectionTitle';
+import Nota from '../../shared/components/Nota';
+import Page from '../../shared/components/Page';
+import SectionHeading from '../../shared/components/SectionHeading';
+import { Cargando, EstadoVacio } from '../../shared/components/Cargando';
 
 const TABS = [
-  { key: 'existencias', label: 'Existencias (1)' },
-  { key: 'notas', label: 'Notas de título (1)' },
-  { key: 'comentarios', label: 'Comentarios (0)' },
+  { key: 'existencias', label: 'Existencias' },
+  { key: 'notas', label: 'Notas del título' },
 ];
 
 const VISTAS = [
@@ -42,17 +30,26 @@ const VISTAS = [
   { key: 'isbd', label: 'Vista ISBD', icon: List },
 ];
 
+function Dato({ etiqueta, children }) {
+  return (
+    <div className="grid gap-x-4 gap-y-0.5 border-b border-border py-3 last:border-0 sm:grid-cols-[10rem_minmax(0,1fr)]">
+      <dt className="text-sm font-semibold text-slate-500">{etiqueta}</dt>
+      <dd className="min-w-0 text-[15px] leading-relaxed text-slate-800">{children}</dd>
+    </div>
+  );
+}
+
 export default function ThesisDetailPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const { registrarEvento } = useKiosco();
+  const { registrarEvento, esKiosco } = useKiosco();
   const [tesis, setTesis] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('existencias');
   const [vista, setVista] = useState('normal');
-  const [enLista, setEnLista] = useState(false);
-  const [reservada, setReservada] = useState(false);
+  const [copiado, setCopiado] = useState(false);
+  const [anios, setAnios] = useState({ anioMinimoGrado: 2010, anioMinimoPosgrado: 2016 });
   const accesoContado = useRef(null);
 
   const llegoPorQr = searchParams.get('origen') === 'qr';
@@ -61,12 +58,20 @@ export default function ThesisDetailPage() {
     setCargando(true);
     setError('');
     setVista('normal');
+    setTesis(null);
     catalogApi
       .getById(id)
       .then((res) => setTesis(res.data.data))
       .catch((err) => setError(getErrorMessage(err, 'No se pudo cargar la tesis')))
       .finally(() => setCargando(false));
   }, [id]);
+
+  useEffect(() => {
+    tramitesApi
+      .reglas()
+      .then((res) => setAnios(res.data.data))
+      .catch(() => {});
+  }, []);
 
   // Cuenta una vez cada llegada por el código QR de la etiqueta (solo si ese código sigue activo).
   useEffect(() => {
@@ -75,24 +80,45 @@ export default function ThesisDetailPage() {
     registrarEvento('acceso_qr', { tesisId: tesis.id });
   }, [tesis, llegoPorQr, registrarEvento]);
 
+  async function copiarEnlace() {
+    const enlace = `${window.location.origin}/tesis/${tesis.id}`;
+    try {
+      await navigator.clipboard.writeText(enlace);
+    } catch {
+      const auxiliar = document.createElement('textarea');
+      auxiliar.value = enlace;
+      document.body.appendChild(auxiliar);
+      auxiliar.select();
+      document.execCommand('copy');
+      auxiliar.remove();
+    }
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2500);
+  }
+
   if (cargando) {
     return (
-      <div className="flex items-center gap-2 pt-10 text-slate-400">
-        <Loader2 className="animate-spin" size={18} />
-        Cargando...
-      </div>
+      <Page crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Catálogo', to: '/catalogo' }, { etiqueta: 'Ficha de la tesis' }]} title="Cargando la ficha...">
+        <Cargando texto="Cargando la ficha de la tesis..." />
+      </Page>
     );
   }
 
   if (!tesis) {
     return (
-      <div className="flex flex-col gap-3 pt-10">
-        <p className="text-sm text-slate-500">{error || 'No se encontró esa tesis.'}</p>
-        <Link to="/catalogo" className="inline-flex items-center gap-1 text-sm text-primary">
-          <ArrowLeft size={16} />
-          Volver al buscador
-        </Link>
-      </div>
+      <Page crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Catálogo', to: '/catalogo' }, { etiqueta: 'Tesis no encontrada' }]} title="Tesis no encontrada">
+        <EstadoVacio
+          icono={BookOpen}
+          titulo="No encontramos esa tesis"
+          accion={
+            <Link to="/catalogo" className="inline-flex rounded-lg bg-action px-5 py-2.5 text-sm font-bold text-white hover:bg-action-dark">
+              Volver al catálogo
+            </Link>
+          }
+        >
+          {error || 'La dirección puede estar mal escrita o la ficha ya no existe.'}
+        </EstadoVacio>
+      </Page>
     );
   }
 
@@ -101,288 +127,268 @@ export default function ThesisDetailPage() {
   const acceso = ACCESOS[tesis.documentoDigital?.acceso] ?? ACCESOS.sin_acceso;
   const hayDigital = Boolean(tesis.documentoDigital?.disponible);
   const qrDesactivado = llegoPorQr && !tesis.qr?.activo;
+  const nivel = tesis.tipoDocumento === 'tesis_grado' ? 'grado' : 'posgrado';
+  const anioMinimo = nivel === 'grado' ? anios.anioMinimoGrado : anios.anioMinimoPosgrado;
+  const sePuedePedirDigital = !hayDigital && Number(tesis.anio) >= anioMinimo;
 
   return (
-    <div className="flex flex-col gap-5">
-      <Breadcrumb
-        items={[
-          { label: 'Inicio', to: '/' },
-          { label: 'Catálogo', to: '/catalogo' },
-          { label: `Detalles para: ${tesis.titulo}` },
-        ]}
-      />
+    <Page
+      crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Catálogo', to: '/catalogo' }, { etiqueta: 'Ficha de la tesis' }]}
+      title={tesis.titulo}
+      subtitle={`${tesis.autor} · ${tesis.programa}`}
+      tituloDocumento={tesis.titulo}
+    >
+      <div className="flex flex-col gap-8">
+        {qrDesactivado ? (
+          <Nota tono="aviso">
+            El código QR que escaneaste está desactivado. Esta es la ficha de la tesis en el catálogo de la biblioteca; si tienes dudas sobre el código,
+            consulta al personal.
+          </Nota>
+        ) : null}
 
-      {qrDesactivado ? (
-        <div role="status" className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
-          <AlertTriangle size={16} className="mt-0.5 shrink-0" />
-          <span>
-            El código QR que escaneaste está desactivado. Esta es la ficha de la tesis en el catálogo de la biblioteca; si
-            tienes dudas sobre el código, consulta al personal.
-          </span>
-        </div>
-      ) : null}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_330px]">
+          <article className="flex min-w-0 flex-col gap-6">
+            <div role="tablist" aria-label="Vista de la ficha" className="flex flex-wrap gap-2 print:hidden">
+              {VISTAS.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={vista === v.key}
+                  onClick={() => setVista(v.key)}
+                  className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                    vista === v.key ? 'bg-ink text-white shadow-sm' : 'border border-border bg-white text-slate-600 hover:border-primary hover:text-primary'
+                  }`}
+                >
+                  <v.icon size={16} aria-hidden="true" />
+                  {v.label}
+                </button>
+              ))}
+            </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <article className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap gap-2 border-b border-border pb-3 print:hidden">
-            {VISTAS.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                onClick={() => setVista(v.key)}
-                aria-pressed={vista === v.key}
-                className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-semibold transition-colors ${
-                  vista === v.key ? 'bg-primary text-white shadow-sm' : 'border border-border bg-white text-slate-600 hover:border-primary hover:text-primary'
-                }`}
-              >
-                <v.icon size={16} />
-                {v.label}
-              </button>
-            ))}
-          </div>
+            {vista === 'marc' ? <MarcView tesis={tesis} /> : null}
+            {vista === 'isbd' ? <IsbdView tesis={tesis} /> : null}
 
-          <div>
-            <h1 className="text-balance text-2xl font-bold leading-snug text-slate-900 sm:text-3xl">{tesis.titulo}</h1>
-            <p className="mt-1.5 text-base text-slate-500">
-              {tesis.autor} · {tesis.programa}
-            </p>
-          </div>
+            {vista === 'normal' ? (
+              <>
+                <section className="rounded-2xl border border-border bg-white px-5 shadow-card sm:px-7" aria-label="Datos de la tesis">
+                  <dl>
+                    <Dato etiqueta="Tipo de material">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <Badge tone="neutral">{tipoDocumento}</Badge>
+                        <Badge tone="status" dot>
+                          {tesis.estado} para consulta
+                        </Badge>
+                      </span>
+                    </Dato>
+                    <Dato etiqueta="Publicación">
+                      {LIBRARY.ciudad} : {tesis.institucion}, {tesis.facultad}, {tesis.anio}.
+                    </Dato>
+                    {tesis.paginas ? <Dato etiqueta="Descripción">{tesis.paginas} p.</Dato> : null}
+                    {tesis.director ? <Dato etiqueta="Director(a)">{tesis.director}</Dato> : null}
+                    <Dato etiqueta="Código">
+                      <span className="font-mono">{tesis.id}</span>
+                    </Dato>
+                    {tesis.temas.length > 0 ? (
+                      <Dato etiqueta="Temas">
+                        {tesis.temas.map((tema, i) => (
+                          <span key={tema}>
+                            {i > 0 ? <span className="text-slate-300"> · </span> : null}
+                            <Link to={`/catalogo?tema=${encodeURIComponent(tema)}`} className="font-medium text-primary hover:underline">
+                              {tema}
+                            </Link>
+                          </span>
+                        ))}
+                      </Dato>
+                    ) : null}
+                    {tesis.resumen ? <Dato etiqueta="Resumen">{tesis.resumen}</Dato> : null}
+                  </dl>
+                </section>
 
-          {vista === 'marc' ? <MarcView tesis={tesis} /> : null}
-          {vista === 'isbd' ? <IsbdView tesis={tesis} /> : null}
-
-          {vista === 'normal' ? (
-            <>
-              <div className="flex flex-col gap-2.5 text-[15px] leading-relaxed text-slate-700">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-slate-500">Tipo de material:</span>
-                  <Badge tone="neutral">{tipoDocumento}</Badge>
-                  <Badge tone="status" dot>
-                    {tesis.estado} para consulta
-                  </Badge>
-                </div>
-                <p>
-                  <span className="text-slate-500">Publicación:</span> {LIBRARY.ciudad} : {tesis.institucion}, {tesis.facultad},{' '}
-                  {tesis.anio}.
-                </p>
-                <p>
-                  <span className="text-slate-500">Descripción:</span> {tesis.paginas} p.
-                </p>
-                <p>
-                  <span className="text-slate-500">Director(a):</span> {tesis.director}
-                </p>
-                <p>
-                  <span className="text-slate-500">Código:</span> <span className="font-mono">{tesis.id}</span>
-                </p>
-                <p>
-                  <span className="text-slate-500">Tema(s):</span>{' '}
-                  {tesis.temas.map((tema, i) => (
-                    <span key={tema}>
-                      {i > 0 ? <span className="text-slate-400"> · </span> : null}
-                      <Link to={`/catalogo?tema=${encodeURIComponent(tema)}`} className="text-primary hover:underline">
-                        {tema}
-                      </Link>
-                    </span>
-                  ))}
-                </p>
-                <p className="border-l-2 border-border pl-3 text-slate-600">
-                  <b className="font-semibold text-slate-700">Resumen — </b>
-                  {tesis.resumen}
-                </p>
-              </div>
-
-              <section aria-labelledby="como-consultar" className="rounded-lg border border-border border-l-4 border-l-primary bg-surface p-4">
-                <h2 id="como-consultar" className="text-base font-bold text-slate-900">
-                  ¿Cómo consultar esta tesis?
-                </h2>
-                <dl className="mt-3 grid gap-x-6 gap-y-2.5 text-sm sm:grid-cols-2">
-                  <div>
-                    <dt className="text-xs font-semibold text-slate-500">Ubicación</dt>
-                    <dd className="font-semibold text-slate-800">{tesis.ubicacion}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold text-slate-500">Modalidad</dt>
-                    <dd className="font-semibold text-slate-800">{tesis.modalidadAcceso}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold text-slate-500">Consulta física</dt>
-                    <dd className="font-semibold text-slate-800">{tesis.consultaFisica}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold text-slate-500">Documento digital</dt>
-                    <dd className="font-semibold text-slate-800">{acceso.etiqueta}</dd>
-                  </div>
-                </dl>
-                <p className="mt-2.5 text-xs text-slate-500">
-                  {hayDigital
-                    ? acceso.detalle
-                    : 'Esta tesis no tiene documento digital disponible: se consulta el ejemplar físico en la biblioteca.'}
-                </p>
-                {hayDigital ? (
-                  <Link
-                    to={`/tesis/${tesis.id}/documento`}
-                    className="mt-3 inline-flex items-center gap-2 rounded-md bg-action px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-action-dark"
-                  >
-                    <FileText size={16} />
-                    Consultar documento digital
-                  </Link>
-                ) : null}
-              </section>
-
-              <div>
-                <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
-                  {TABS.map((t) => (
-                    <button
-                      key={t.key}
-                      role="tab"
-                      aria-selected={tab === t.key}
-                      onClick={() => setTab(t.key)}
-                      className={`-mb-px rounded-t-md border px-5 py-3 text-base transition-colors ${
-                        tab === t.key
-                          ? 'border-border border-b-white border-t-2 border-t-action bg-white font-semibold text-slate-900'
-                          : 'border-transparent text-primary hover:bg-surface'
-                      }`}
+                <section aria-labelledby="como-consultar" className="rounded-2xl border border-border border-l-4 border-l-primary bg-surface p-5 sm:p-6">
+                  <h2 id="como-consultar" className="font-display text-xl font-semibold text-slate-900">
+                    ¿Cómo consultar esta tesis?
+                  </h2>
+                  <dl className="mt-4 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Ubicación</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-800">{tesis.ubicacion}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Modalidad</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-800">{tesis.modalidadAcceso}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Consulta física</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-800">{tesis.consultaFisica}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">Documento digital</dt>
+                      <dd className="mt-0.5 font-semibold text-slate-800">{acceso.etiqueta}</dd>
+                    </div>
+                  </dl>
+                  <p className="mt-4 text-sm leading-relaxed text-slate-600">
+                    {hayDigital
+                      ? acceso.detalle
+                      : 'Esta tesis no tiene documento digital disponible: se consulta el ejemplar impreso en la biblioteca.'}
+                  </p>
+                  {hayDigital ? (
+                    <Link
+                      to={`/tesis/${tesis.id}/documento`}
+                      className="mt-4 inline-flex items-center gap-2 rounded-lg bg-action px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-action-dark"
                     >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
+                      <FileText size={17} aria-hidden="true" />
+                      Consultar documento digital
+                    </Link>
+                  ) : null}
+                </section>
 
-                <div className="pt-4">
-                  {tab === 'existencias' ? (
-                    <div className="overflow-x-auto rounded-lg border border-border">
-                      <table className="w-full min-w-[640px] text-left text-sm">
-                        <thead className="bg-surface text-slate-600">
-                          <tr>
-                            {['Tipo de ítem', 'Biblioteca actual', 'Colección', 'Signatura topográfica', 'Copia número', 'Estado', 'Código de barras'].map(
-                              (h) => (
-                                <th key={h} className="px-3 py-3 font-semibold">
+                <div>
+                  <div role="tablist" className="flex flex-wrap gap-1 border-b border-border">
+                    {TABS.map((t) => (
+                      <button
+                        key={t.key}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === t.key}
+                        onClick={() => setTab(t.key)}
+                        className={`-mb-px rounded-t-lg border px-5 py-3 text-base transition-colors ${
+                          tab === t.key
+                            ? 'border-border border-b-white border-t-2 border-t-action bg-white font-semibold text-slate-900'
+                            : 'border-transparent text-primary hover:bg-surface'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-4">
+                    {tab === 'existencias' ? (
+                      <div className="overflow-x-auto rounded-xl border border-border">
+                        <table className="w-full min-w-[640px] text-left text-sm">
+                          <thead className="bg-surface text-slate-600">
+                            <tr>
+                              {['Tipo de ítem', 'Biblioteca actual', 'Colección', 'Signatura topográfica', 'Copia', 'Estado', 'Código de barras'].map((h) => (
+                                <th key={h} scope="col" className="px-3 py-3 font-semibold">
                                   {h}
                                 </th>
-                              )
-                            )}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="align-top">
-                            <td className="px-3 py-3">
-                              <span className="flex items-center gap-2">
-                                <BookOpen size={22} className="shrink-0 text-primary" />
-                                Tesis impresa + QR
-                              </span>
-                            </td>
-                            <td className="px-3 py-3">{tesis.ubicacion}</td>
-                            <td className="px-3 py-3">{tesis.coleccion}</td>
-                            <td className="px-3 py-3 font-mono">{tesis.signatura}</td>
-                            <td className="px-3 py-3">1</td>
-                            <td className="px-3 py-3 font-semibold text-primary">{tesis.estado}</td>
-                            <td className="px-3 py-3 font-mono">{tesis.id}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : null}
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="align-top">
+                              <td className="px-3 py-3">
+                                <span className="flex items-center gap-2">
+                                  <BookOpen size={22} className="shrink-0 text-primary" aria-hidden="true" />
+                                  Tesis impresa + QR
+                                </span>
+                              </td>
+                              <td className="px-3 py-3">{tesis.ubicacion}</td>
+                              <td className="px-3 py-3">{tesis.coleccion}</td>
+                              <td className="px-3 py-3 font-mono">{tesis.signatura || '—'}</td>
+                              <td className="px-3 py-3">1</td>
+                              <td className="px-3 py-3 font-semibold text-primary">{tesis.estado}</td>
+                              <td className="px-3 py-3 font-mono">{tesis.id}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
 
-                  {tab === 'notas' ? (
-                    <p className="text-sm text-slate-600">
-                      Tipo documental: {tipoDocumento.toLowerCase()}. Idioma: español. Versión digital:{' '}
-                      {hayDigital ? `${acceso.etiqueta.toLowerCase()} (PDF).` : 'no disponible.'}
-                    </p>
-                  ) : null}
-
-                  {tab === 'comentarios' ? (
-                    <p className="text-sm text-slate-600">No hay comentarios en este título.</p>
-                  ) : null}
+                    {tab === 'notas' ? (
+                      <p className="text-sm leading-relaxed text-slate-600">
+                        Tipo documental: {tipoDocumento.toLowerCase()}. Idioma: español. Versión digital:{' '}
+                        {hayDigital ? `${acceso.etiqueta.toLowerCase()} (PDF).` : 'no disponible.'}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            </>
-          ) : null}
-        </article>
-
-        <aside className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2.5 rounded-lg bg-surface p-3.5 print:hidden">
-            {hayDigital ? (
-              <Link
-                to={`/tesis/${tesis.id}/documento`}
-                className="inline-flex w-full items-center justify-start gap-2 rounded-md bg-action px-4 py-3 text-base font-semibold text-white shadow-sm transition-colors hover:bg-action-dark"
-              >
-                <FileText size={16} />
-                Consultar documento digital
-              </Link>
+              </>
             ) : null}
-            <Button
-              variant={hayDigital ? 'brand' : 'primary'}
-              icon={Bookmark}
-              className="w-full justify-start px-4 py-3 text-base"
-              disabled={reservada}
-              onClick={() => setReservada(true)}
-            >
-              {reservada ? 'Solicitud registrada' : 'Hacer reserva'}
-            </Button>
-            <Button variant="brand" icon={Printer} className="w-full justify-start px-4 py-3 text-base" onClick={() => window.print()}>
-              Imprimir
-            </Button>
-            <Button
-              variant="brand"
-              icon={ShoppingCart}
-              className="w-full justify-start px-4 py-3 text-base"
-              onClick={() => setEnLista((v) => !v)}
-            >
-              {enLista ? 'En lista de consulta ✓' : 'Agregar a lista de consulta'}
-            </Button>
-            <Dropdown label="Guardar registro" icon={Download}>
-              {FORMATOS.map((f) => (
-                <DropdownItem key={f.key} onClick={() => descargarRegistro(tesis, f)}>
-                  {f.label}
-                </DropdownItem>
-              ))}
-            </Dropdown>
-            <Dropdown label="Más búsquedas" icon={Search}>
-              <DropdownItem to={`/catalogo?autor=${encodeURIComponent(tesis.autor)}`}>Otras tesis de este autor</DropdownItem>
-              <DropdownItem href={`https://search.worldcat.org/search?q=${encodeURIComponent(tesis.titulo)}`}>
-                Otras bibliotecas (WorldCat)
-              </DropdownItem>
-              <DropdownItem href={`https://scholar.google.com/scholar?q=${encodeURIComponent(tesis.titulo)}`}>
-                Google Scholar
-              </DropdownItem>
-            </Dropdown>
-          </div>
+          </article>
 
-          <div className="flex flex-col items-center gap-3 rounded-lg border border-t-4 border-border border-t-action bg-white p-5 text-center shadow-sm">
-            <h2 className="flex items-center gap-2 text-xl font-bold text-slate-900">
-              <Smartphone size={22} />
-              Versión móvil QR
-            </h2>
-            <div className="rounded-lg border border-dashed border-border p-2">
-              <ThesisQr id={tesis.id} size={180} />
+          <aside className="flex flex-col gap-5 print:hidden">
+            <div className="flex flex-col gap-2.5 rounded-2xl border border-border bg-white p-4 shadow-card">
+              {hayDigital ? (
+                <Link
+                  to={`/tesis/${tesis.id}/documento`}
+                  className="inline-flex w-full items-center justify-start gap-2 rounded-lg bg-action px-4 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-action-dark"
+                >
+                  <FileText size={18} aria-hidden="true" />
+                  Consultar documento digital
+                </Link>
+              ) : null}
+              {sePuedePedirDigital ? (
+                <Link
+                  to={`/tesis-digital?tesis=${encodeURIComponent(tesis.id)}`}
+                  className="inline-flex w-full items-center justify-start gap-2 rounded-lg bg-action px-4 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-action-dark"
+                >
+                  <FilePlus2 size={18} aria-hidden="true" />
+                  Solicitar en formato digital
+                </Link>
+              ) : null}
+              {!hayDigital && !sePuedePedirDigital ? (
+                <p className="flex gap-2 rounded-lg bg-surface px-3 py-2.5 text-xs leading-relaxed text-slate-600">
+                  <TriangleAlert size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
+                  Las tesis de {nivel} anteriores a {anioMinimo} solo se consultan en su ejemplar impreso.
+                </p>
+              ) : null}
+              <Button variant="brand" icon={Printer} className="w-full justify-start px-4 py-3 text-base" onClick={() => window.print()}>
+                Imprimir
+              </Button>
+              {!esKiosco ? (
+                <Button variant="secondary" icon={copiado ? Check : Copy} className="w-full justify-start px-4 py-3 text-base" onClick={copiarEnlace}>
+                  {copiado ? 'Enlace copiado' : 'Copiar enlace de la ficha'}
+                </Button>
+              ) : null}
+              <Dropdown label="Guardar registro" icon={Download}>
+                {FORMATOS.map((f) => (
+                  <DropdownItem key={f.key} onClick={() => descargarRegistro(tesis, f)}>
+                    {f.label}
+                  </DropdownItem>
+                ))}
+              </Dropdown>
+              <Dropdown label="Más búsquedas" icon={Search}>
+                <DropdownItem to={`/catalogo?autor=${encodeURIComponent(tesis.autor)}`}>Otras tesis de este autor</DropdownItem>
+                {!esKiosco ? (
+                  <>
+                    <DropdownItem href={`https://search.worldcat.org/search?q=${encodeURIComponent(tesis.titulo)}`}>Otras bibliotecas (WorldCat)</DropdownItem>
+                    <DropdownItem href={`https://scholar.google.com/scholar?q=${encodeURIComponent(tesis.titulo)}`}>Google Scholar</DropdownItem>
+                  </>
+                ) : null}
+              </Dropdown>
             </div>
-            <p className="text-sm text-slate-500">
-              Escanea para llevar este registro a tu dispositivo. Es el mismo código impreso en la etiqueta de la contraportada:
-              no es necesario pedir el ejemplar físico para consultarlo.
-            </p>
-          </div>
-        </aside>
+
+            <div className="flex flex-col items-center gap-3 rounded-2xl border border-t-4 border-border border-t-action bg-white p-5 text-center shadow-card">
+              <h2 className="flex items-center gap-2 font-display text-xl font-semibold text-slate-900">
+                <Smartphone size={22} aria-hidden="true" />
+                Versión móvil QR
+              </h2>
+              <div className="rounded-xl border border-dashed border-border p-2">
+                <ThesisQr id={tesis.id} size={180} />
+              </div>
+              <p className="text-sm leading-relaxed text-slate-500">
+                Escanea para llevar este registro a tu dispositivo. Es el mismo código impreso en la etiqueta de la contraportada: no es necesario pedir el
+                ejemplar físico para consultarlo.
+              </p>
+            </div>
+          </aside>
+        </div>
+
+        {relacionadas.length > 0 ? (
+          <section className="flex flex-col gap-5 print:hidden" aria-labelledby="relacionadas-titulo">
+            <SectionHeading etiqueta="Sigue explorando">
+              <span id="relacionadas-titulo">También te puede interesar</span>
+            </SectionHeading>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              {relacionadas.map((rel) => (
+                <ThesisCard key={rel.id} tesis={rel} />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
-
-      {relacionadas.length > 0 ? (
-        <section className="flex flex-col gap-3">
-          <SectionTitle>También te puede interesar</SectionTitle>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {relacionadas.map((rel) => (
-              <ThesisCard key={rel.id} tesis={rel} />
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <section className="flex flex-col gap-3 print:hidden">
-        <SectionTitle>Propuesta de etiqueta para contraportada</SectionTitle>
-        <ThesisLabel tesis={tesis} />
-      </section>
-
-      <p className="text-center text-xs text-slate-400 print:hidden">
-        Anexo 1 — Propuesta de etiqueta QR y ficha en el catálogo (OPAC) para tesis de grado.
-      </p>
-    </div>
+    </Page>
   );
 }

@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Check, Loader2 } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { ACCESOS } from '../../catalog/tiposDocumento';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
+import { useListaPaginada } from '../useListaPaginada';
+import BarraDeFiltros from '../componentes/BarraDeFiltros';
+import Paginacion from '../../../shared/components/Paginacion';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import PaginaAdmin from '../componentes/PaginaAdmin';
@@ -113,30 +116,7 @@ function FilaTesis({ tesis, onGuardada }) {
 
 // Documentos digitales de las tesis (propuesta, sección 4.5.6): nivel de acceso, activación y enlace de cada una.
 export default function TesisDigitalesPage() {
-  const [tesis, setTesis] = useState([]);
-  const [cargando, setCargando] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    adminApi
-      .tesis()
-      .then((res) => setTesis(res.data.data))
-      .catch((err) => setError(getErrorMessage(err, 'No se pudieron cargar las tesis')))
-      .finally(() => setCargando(false));
-  }, []);
-
-  function reemplazar(actualizada) {
-    setTesis((lista) => lista.map((t) => (t.id === actualizada.id ? actualizada : t)));
-  }
-
-  if (cargando) {
-    return (
-      <div className="flex items-center gap-2 text-slate-400">
-        <Loader2 className="animate-spin" size={18} />
-        Cargando tesis...
-      </div>
-    );
-  }
+  const lista = useListaPaginada(adminApi.tesis, { porPagina: 15 });
 
   return (
     <PaginaAdmin
@@ -148,8 +128,25 @@ export default function TesisDigitalesPage() {
         </>
       }
     >
-      <AlertBanner>{error}</AlertBanner>
-      <div className="overflow-x-auto rounded-xl border border-border bg-white">
+      <AlertBanner>{lista.error}</AlertBanner>
+      <BarraDeFiltros
+        busqueda={lista.texto}
+        onBusqueda={lista.setTexto}
+        placeholder="Código, título o autor"
+        filtros={[
+          {
+            etiqueta: 'Con y sin documento',
+            valor: lista.documento,
+            onCambio: lista.cambiarDocumento,
+            opciones: [
+              ['con', 'Con documento digital'],
+              ['sin', 'Sin documento digital'],
+            ],
+          },
+        ]}
+        resumen={lista.primeraCarga ? '' : `${lista.total.toLocaleString('es-GT')} tesis`}
+      />
+      <div className={`overflow-x-auto rounded-xl border border-border bg-white transition-opacity ${lista.cargando && !lista.primeraCarga ? 'opacity-60' : ''}`}>
         <table className="w-full min-w-[900px] text-left text-sm">
           <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
             <tr>
@@ -161,12 +158,26 @@ export default function TesisDigitalesPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {tesis.map((t) => (
-              <FilaTesis key={t.id} tesis={t} onGuardada={reemplazar} />
-            ))}
+            {lista.primeraCarga ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                  <Loader2 className="mr-2 inline animate-spin" size={16} />
+                  Cargando tesis...
+                </td>
+              </tr>
+            ) : lista.items.length === 0 ? (
+              <tr>
+                <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                  Ninguna tesis coincide con la búsqueda.
+                </td>
+              </tr>
+            ) : (
+              lista.items.map((t) => <FilaTesis key={t.id} tesis={t} onGuardada={lista.reemplazar} />)
+            )}
           </tbody>
         </table>
       </div>
+      <Paginacion pagina={lista.pagina} paginas={lista.paginas} onCambiar={lista.irAPagina} />
     </PaginaAdmin>
   );
 }

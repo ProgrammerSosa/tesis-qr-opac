@@ -15,10 +15,20 @@
   --font-sans: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --font-heading: "Public Sans", "Segoe UI", system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  /* Títulos del sitio público: una serif le da el tono institucional que le corresponde a una biblioteca de Derecho. */
+  --font-display: "Source Serif 4", "Iowan Old Style", Georgia, "Times New Roman", serif;
+
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 8px 24px -10px rgb(15 23 42 / 0.16);
+  --shadow-lift: 0 2px 4px rgb(15 23 42 / 0.06), 0 18px 36px -14px rgb(15 23 42 / 0.28);
 }
 
 :root {
   color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -26,6 +36,79 @@ body {
   font-family: var(--font-sans);
   background: #ffffff;
   color: #0f172a;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* El foco del teclado siempre se ve (navegación sin ratón, lectores de pantalla y botones de los kioscos). */
+:focus-visible {
+  outline: 3px solid rgb(59 130 246 / 0.6);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes entrar {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.entrar {
+  animation: entrar 0.35s ease-out both;
+}
+
+@keyframes girar {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes brillo {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.esqueleto {
+  background: linear-gradient(90deg, #eef1f6 25%, #e3e8f0 37%, #eef1f6 63%);
+  background-size: 400% 100%;
+  animation: esqueleto 1.4s ease infinite;
+  border-radius: 0.5rem;
+}
+
+@keyframes esqueleto {
+  0% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0 50%;
+  }
 }
 
 #root {
@@ -83,4 +166,22 @@ body {
     linear-gradient(90deg, rgb(255 255 255 / 0.05) 1px, transparent 1px),
     linear-gradient(135deg, #1e40af 0%, #12297a 30%, #0a1233 62%, #070b16 100%);
   background-size: auto, 44px 44px, 44px 44px, auto;
+}
+
+/* Campos de formulario del sitio público: más grandes y con letra de 16 px (los celulares no hacen zoom al escribir
+   y los kioscos se tocan con el dedo). Se activa envolviendo el formulario en un elemento con esta clase. */
+.campos-grandes input:not([type="checkbox"]):not([type="radio"]),
+.campos-grandes select,
+.campos-grandes textarea {
+  min-height: 3rem;
+  padding: 0.625rem 0.875rem;
+  font-size: 1rem;
+}
+
+.campos-grandes textarea {
+  min-height: 7rem;
+}
+
+.campos-grandes label > span:first-child {
+  font-size: 0.8125rem;
 }

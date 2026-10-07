@@ -1,8 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { KeyRound, LogOut } from 'lucide-react';
+import { Globe, KeyRound, LogOut } from 'lucide-react';
 import { GRUPOS, seccionesDe } from '../secciones';
 import { ROLES_DEL_PERSONAL } from '../estados';
 import { LIBRARY } from '../../../shared/config/library';
+import MarcaBiblioteca from '../../../shared/components/MarcaBiblioteca';
 
 // Navegación de la consola del personal: las secciones agrupadas (solo las que el rol puede ver),
 // y abajo quién tiene la sesión abierta con sus acciones.
@@ -12,9 +13,7 @@ export default function BarraLateral({ sesion, onNavegar, onMiCuenta, onSalir })
   return (
     <div className="flex h-full flex-col bg-ink text-white">
       <div className="flex items-center gap-3 border-b border-white/10 px-5 py-5">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white font-heading text-xl font-extrabold text-primary ring-4 ring-primary/40">
-          B
-        </span>
+        <MarcaBiblioteca tamano={44} />
         <span className="min-w-0 leading-tight">
           <span className="block text-base font-bold">Panel del personal</span>
           <span className="block truncate text-xs text-white/60">{LIBRARY.nombreCorto}</span>
@@ -57,6 +56,15 @@ export default function BarraLateral({ sesion, onNavegar, onMiCuenta, onSalir })
         <p className="truncate text-sm font-semibold">{sesion.nombre}</p>
         <p className="text-xs text-white/60">{ROLES_DEL_PERSONAL[sesion.rol]?.nombre ?? sesion.rolNombre}</p>
         <div className="mt-3 flex flex-col gap-0.5">
+          <a
+            href="/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-white/80 transition-colors hover:bg-white/10 hover:text-white"
+          >
+            <Globe size={15} />
+            Ver el sitio público
+          </a>
           <button
             type="button"
             onClick={onMiCuenta}
