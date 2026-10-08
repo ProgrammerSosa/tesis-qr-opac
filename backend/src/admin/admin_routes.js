@@ -11,10 +11,8 @@ const {
   patchQr,
   postVerificarQr,
   getEstadisticas,
-  getCorreos,
 } = require('./admin_controller');
 const { getHorarios, putHorarios, postCierre, deleteCierre } = require('./horarios_controller');
-const { getAvisos, postAviso, patchAviso, deleteAviso } = require('./avisos_controller');
 const { getPersonal, postPersonal, patchPersonal, postClavePersonal } = require('./personal_controller');
 const { getConfiguracion, patchConfiguracion } = require('./configuracion_controller');
 const { getActividad } = require('./actividad_controller');
@@ -50,16 +48,10 @@ router.post('/personal/:usuario/clave', ...soloAdministrador, postClavePersonal)
 router.get('/configuracion', ...soloAdministrador, getConfiguracion);
 router.patch('/configuracion', ...soloAdministrador, patchConfiguracion);
 router.get('/actividad', ...soloAdministrador, getActividad);
-router.get('/correos', ...soloAdministrador, getCorreos);
 router.get('/horarios', ...soloAdministrador, getHorarios);
 router.put('/horarios', ...soloAdministrador, putHorarios);
 router.post('/horarios/cierres', ...soloAdministrador, postCierre);
 router.delete('/horarios/cierres/:id', ...soloAdministrador, deleteCierre);
 
-// Avisos para el público: los publica el personal de circulación o el administrador.
-router.get('/avisos', ...circulacion, getAvisos);
-router.post('/avisos', ...circulacion, postAviso);
-router.patch('/avisos/:id', ...circulacion, patchAviso);
-router.delete('/avisos/:id', ...circulacion, deleteAviso);
 
 module.exports = router;

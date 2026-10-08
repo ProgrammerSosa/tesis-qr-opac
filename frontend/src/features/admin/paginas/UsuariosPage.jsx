@@ -5,15 +5,14 @@ import { getErrorMessage } from '../../../shared/api/axiosClient';
 import Badge from '../../../shared/components/Badge';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import PaginaAdmin from '../componentes/PaginaAdmin';
-import { ESTADO_DE_TRAMITE, ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from '../estados';
+import { ESTADO_RESERVA, ESTADO_SOLVENCIA, fechaLegible } from '../estados';
 
-const TIPO_OPERACION = { reserva: 'Reserva', solvencia: 'Solvencia', tesis_digital: 'Tesis digital', referencias: 'Referencias' };
+const TIPO_OPERACION = { reserva: 'Reserva', solvencia: 'Solvencia' };
 
 // Cada tipo de operación tiene sus propios estados.
 function estadosDe(tipo) {
   if (tipo === 'reserva') return ESTADO_RESERVA;
-  if (tipo === 'solvencia') return ESTADO_SOLVENCIA;
-  return ESTADO_DE_TRAMITE;
+  return ESTADO_SOLVENCIA;
 }
 
 // Operaciones de cada persona que usa la biblioteca, agrupadas por su carné o documento (propuesta, sección 4.5.6).
@@ -47,7 +46,7 @@ export default function UsuariosPage() {
   }, [busqueda]);
 
   return (
-    <PaginaAdmin descripcion="Personas que han reservado o hecho una solicitud, con todas sus operaciones. Se agrupan por carné o documento (las solicitudes de tesis y de referencias solo cuentan si la persona dejó su carné).">
+    <PaginaAdmin descripcion="Personas que han reservado o pedido una solvencia, con todas sus operaciones. Se agrupan por carné o documento.">
       <label className="flex max-w-md flex-col gap-1">
         <span className="text-[11px] font-semibold text-slate-500">Buscar por nombre, carné o documento</span>
         <span className="relative">

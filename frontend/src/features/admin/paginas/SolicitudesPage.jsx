@@ -16,7 +16,7 @@ import { ESTADO_SOLVENCIA, SIGUIENTE_SOLVENCIA, fechaLegible } from '../estados'
 
 const ENCABEZADOS = ['Solicitud', 'Solicitante', 'Trámite', 'Papelería y entrega', 'Origen', 'Estado', 'Acción'];
 
-// Pide el motivo del rechazo: la persona lo recibe por correo y, si fue un error de datos, sabe que debe enviar otra solicitud.
+// Rechaza una solicitud y, si se quiere, deja anotado el motivo para el resto del personal.
 function ModalDeRechazo({ solicitud, onCerrar, onHecho }) {
   const [motivo, setMotivo] = useState('');
   const [trabajando, setTrabajando] = useState(false);
@@ -45,7 +45,7 @@ function ModalDeRechazo({ solicitud, onCerrar, onHecho }) {
           <Button variant="secondary" onClick={onCerrar} disabled={trabajando}>
             Cancelar
           </Button>
-          <Button variant="primary" type="submit" form="form-rechazo" disabled={trabajando || motivo.trim().length < 3}>
+          <Button variant="primary" type="submit" form="form-rechazo" disabled={trabajando || (motivo.trim().length > 0 && motivo.trim().length < 3)}>
             {trabajando ? 'Rechazando...' : 'Rechazar solicitud'}
           </Button>
         </>
@@ -53,18 +53,17 @@ function ModalDeRechazo({ solicitud, onCerrar, onHecho }) {
     >
       <form id="form-rechazo" onSubmit={rechazar} className="flex flex-col gap-3">
         <p className="text-sm text-slate-700">
-          Solicitud de <b>{solicitud.solicitante}</b> ({solicitud.motivo}). Se le enviará un correo con el motivo.
+          Solicitud de <b>{solicitud.solicitante}</b> ({solicitud.motivo}). El motivo queda anotado en la solicitud.
         </p>
         <AlertBanner>{error}</AlertBanner>
         <Textarea
-          label="Motivo del rechazo"
-          required
+          label="Motivo del rechazo (opcional)"
           autoFocus
           rows={4}
           maxLength={500}
           value={motivo}
           onChange={(e) => setMotivo(e.target.value)}
-          hint="Por ejemplo: «El número de orden de pago no coincide con la boleta de depósito». Dile qué debe corregir en la nueva solicitud."
+          hint="Por ejemplo: «El número de orden de pago no coincide con la boleta de depósito»."
         />
       </form>
     </Modal>
@@ -130,7 +129,7 @@ export default function SolicitudesPage() {
 
   return (
     <PaginaAdmin
-      descripcion="Solicitudes de solvencia que llegan desde los kioscos y el sitio. Revisa que la orden de pago coincida con la boleta; pásalas a revisión y luego apruébalas o recházalas con el motivo. La persona recibe un correo en cada paso."
+      descripcion="Solicitudes de solvencia que llegan desde los kioscos y el sitio. Revisa que la orden de pago coincida con la boleta; pásalas a revisión y luego apruébalas o recházalas."
       acciones={
         <Button variant="secondary" icon={RefreshCw} onClick={cargar}>
           Actualizar

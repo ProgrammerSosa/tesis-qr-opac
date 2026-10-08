@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarX, Clock, Info, Loader2 } from 'lucide-react';
 import { reservasApi } from './reservasApi';
-import { portadaApi } from '../../shared/api/portadaApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import AlertBanner from '../../shared/components/AlertBanner';
@@ -26,7 +26,15 @@ const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sa
 export default function StudyRoomPage() {
   const { kiosco } = useKiosco();
   const [condiciones, setCondiciones] = useState(null);
-  const [zona, setZona] = useState(ZONAS[0].key);
+  const [parametros] = useSearchParams();
+  // /sala-de-estudio?zona=cubiculos | estaciones | sala abre directo en ese tipo de lugar (las opciones del menú inicial).
+  const zonaDeLaUrl = parametros.get('zona');
+  const [zona, setZona] = useState(() => (ZONAS.some((z) => z.key === zonaDeLaUrl) ? zonaDeLaUrl : ZONAS[0].key));
+
+  // Si ya estás en la sala y eliges otra opción del menú, la zona cambia con la dirección.
+  useEffect(() => {
+    if (ZONAS.some((z) => z.key === zonaDeLaUrl)) setZona(zonaDeLaUrl);
+  }, [zonaDeLaUrl]);
   const [fecha, setFecha] = useState(hoyISO());
   const [hora, setHora] = useState('');
   const [porTipo, setPorTipo] = useState({});
@@ -56,7 +64,7 @@ export default function StudyRoomPage() {
     try {
       const [respuestas, dia] = await Promise.all([
         Promise.all(TIPOS.map((tipo) => reservasApi.disponibilidad(tipo, fecha))),
-        portadaApi.diaDeHorario(fecha),
+        reservasApi.diaDeHorario(fecha),
       ]);
       setPorTipo(Object.fromEntries(TIPOS.map((tipo, i) => [tipo, respuestas[i].data.data])));
       setDiaInfo(dia.data.data);

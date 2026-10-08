@@ -12,15 +12,9 @@ import { useKiosco } from '../kiosco/KioscoContext';
 import { fechaLarga, fechaYHora } from '../utils/fechas';
 
 // Constancia de una operación (propuesta, sección 4.5.5): se ve en pantalla, se puede imprimir como ticket
-// (impresora térmica del kiosco) y se puede enviar por correo. Sirve para reservas y para solicitudes de solvencia,
-// de tesis en formato digital y de referencias bibliográficas.
+// (impresora térmica del kiosco) y se puede enviar por correo. Sirve para reservas y para solicitudes de solvencia.
 
-const TITULOS = {
-  reserva: 'Confirmación de reserva',
-  solvencia: 'Solicitud de solvencia',
-  tesis_digital: 'Solicitud de tesis en formato digital',
-  referencias: 'Solicitud de referencias bibliográficas',
-};
+const TITULOS = { reserva: 'Confirmación de reserva', solvencia: 'Solicitud de solvencia' };
 
 function filasDe(tipo, r) {
   if (tipo === 'reserva') {
@@ -46,23 +40,7 @@ function filasDe(tipo, r) {
       ...(r.entregaEstimada ? [['Entrega estimada', `${fechaLarga(r.entregaEstimada.fecha)}, ${r.entregaEstimada.hora} h`]] : []),
     ];
   }
-  if (tipo === 'tesis_digital') {
-    return [
-      ['Número de solicitud', r.id],
-      ['Código de confirmación', r.codigoConfirmacion],
-      ['Tesis', r.titulo],
-      ['Autor', r.autor],
-      ['Clasificación', `${r.clasificacion} · ${r.nivel === 'grado' ? 'grado' : 'posgrado'}, ${r.anio}`],
-      ['Solicitante', r.solicitante],
-    ];
-  }
-  return [
-    ['Número de solicitud', r.id],
-    ['Código de confirmación', r.codigoConfirmacion],
-    ['Tema', r.tema],
-    ['Fuente', r.fuente],
-    ['Solicitante', r.solicitante],
-  ];
+  return [];
 }
 
 function instruccionesDe(tipo, registro, toleranciaMinutos) {
@@ -71,13 +49,7 @@ function instruccionesDe(tipo, registro, toleranciaMinutos) {
       toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera.` : ''
     }`;
   }
-  if (tipo === 'solvencia') {
-    return 'El personal revisará tu solicitud y te enviará la solvencia en PDF a tu correo, en el horario de entrega indicado. Guarda tu número de solicitud para darle seguimiento.';
-  }
-  if (tipo === 'tesis_digital') {
-    return 'La biblioteca revisará tu solicitud y te avisará por correo cuando la tesis esté disponible en el repositorio. Guarda tu número de solicitud.';
-  }
-  return 'Recibirás la referencia en tu correo en un plazo de 24 horas, en días y horas hábiles. Guarda tu número de solicitud.';
+  return 'El personal de la biblioteca revisará tu solicitud y te hará llegar tu solvencia en el horario de entrega indicado. Guarda este comprobante: lleva tu número de solicitud y tu código de confirmación.';
 }
 
 // Lo que sale por la impresora: va aparte de la pantalla, en un ticket angosto de 80 mm.

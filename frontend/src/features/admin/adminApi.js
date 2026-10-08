@@ -17,11 +17,6 @@ export const adminApi = {
   eliminarTesis: (id) => axiosClient.delete(`/admin/catalogo/${encodeURIComponent(id)}`),
   importarCatalogo: (datos) => axiosClient.post('/admin/catalogo/importar', datos),
 
-  // Avisos para el público (administrador y circulación)
-  avisos: () => axiosClient.get('/admin/avisos'),
-  crearAviso: (datos) => axiosClient.post('/admin/avisos', datos),
-  actualizarAviso: (id, datos) => axiosClient.patch(`/admin/avisos/${id}`, datos),
-  eliminarAviso: (id) => axiosClient.delete(`/admin/avisos/${id}`),
 
   // Solo administrador
   personal: () => axiosClient.get('/admin/personal'),
@@ -35,5 +30,4 @@ export const adminApi = {
   guardarHorarios: (datos) => axiosClient.put('/admin/horarios', datos),
   agregarCierre: (datos) => axiosClient.post('/admin/horarios/cierres', datos),
   quitarCierre: (id) => axiosClient.delete(`/admin/horarios/cierres/${id}`),
-  correos: () => axiosClient.get('/admin/correos'),
 };

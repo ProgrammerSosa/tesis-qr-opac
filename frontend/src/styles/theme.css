@@ -168,6 +168,28 @@ body {
   background-size: auto, 44px 44px, 44px 44px, auto;
 }
 
+/* Modo kiosco (pantalla táctil de la biblioteca): sin selección de texto, sin zoom con los dedos y sin "tirar para recargar".
+   Los campos de texto siguen permitiendo escribir y seleccionar. */
+html.modo-kiosco,
+html.modo-kiosco body {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: pan-x pan-y;
+  overscroll-behavior: none;
+}
+
+html.modo-kiosco input,
+html.modo-kiosco textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+html.modo-kiosco img,
+html.modo-kiosco a {
+  -webkit-user-drag: none;
+}
+
 /* Campos de formulario del sitio público: más grandes y con letra de 16 px (los celulares no hacen zoom al escribir
    y los kioscos se tocan con el dedo). Se activa envolviendo el formulario en un elemento con esta clase. */
 .campos-grandes input:not([type="checkbox"]):not([type="radio"]),

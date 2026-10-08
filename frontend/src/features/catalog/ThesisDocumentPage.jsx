@@ -15,7 +15,7 @@ import { Cargando, EstadoVacio } from '../../shared/components/Cargando';
 export default function ThesisDocumentPage() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
-  const { kiosco, registrarEvento } = useKiosco();
+  const { kiosco, esKiosco, registrarEvento } = useKiosco();
   const [tesis, setTesis] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -95,7 +95,8 @@ export default function ThesisDocumentPage() {
   }
 
   const acceso = ACCESOS[tesis.documentoDigital.acceso];
-  const puedeDescargar = tesis.documentoDigital.acceso === 'acceso_descarga';
+  // En un kiosco no se descarga ni se abre otra pestaña: para llevarse el documento se escanea el código QR con el teléfono.
+  const puedeDescargar = tesis.documentoDigital.acceso === 'acceso_descarga' && !esKiosco;
   const direccion = urlDelDocumento(tesis.id, { kiosco });
   // Para "solo consulta" se oculta la barra del visor de PDF del navegador (que trae el botón de guardar). Es una ayuda
   // de presentación: lo que realmente impide la descarga es que el servidor rechaza ?descargar=1 en ese nivel.
@@ -121,18 +122,20 @@ export default function ThesisDocumentPage() {
             {!puedeDescargar ? (
               <p className="flex items-start gap-1.5 text-xs text-slate-500">
                 <Lock size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-                La biblioteca no permite descargar este documento.
+                {esKiosco ? 'Para llevarte el documento, escanea el código QR con tu teléfono.' : 'La biblioteca no permite descargar este documento.'}
               </p>
             ) : null}
-            <a
-              href={direccion}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-dark"
-            >
-              <ExternalLink size={16} aria-hidden="true" />
-              Abrir en una pestaña nueva
-            </a>
+            {!esKiosco ? (
+              <a
+                href={direccion}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-primary-dark"
+              >
+                <ExternalLink size={16} aria-hidden="true" />
+                Abrir en una pestaña nueva
+              </a>
+            ) : null}
             {puedeDescargar ? (
               <a
                 href={urlDelDocumento(tesis.id, { kiosco, descargar: true })}

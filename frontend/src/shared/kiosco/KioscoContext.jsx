@@ -3,31 +3,18 @@ import { useSearchParams } from 'react-router-dom';
 import { ShieldCheck } from 'lucide-react';
 import axiosClient from '../api/axiosClient';
 import { borrarSesion, leerSesion } from '../auth/sesion';
+import { FORMATO_DE_KIOSCO, borrarKiosco, guardarKiosco, leerKiosco } from './kiosco';
+import PantallaDeBienvenida from './PantallaDeBienvenida';
+import { useBloqueoDeKiosco } from './useBloqueoDeKiosco';
 
-// Modo kiosco (propuesta, secciones 4.5 y 4.6). Un kiosco se abre con la dirección `/?kiosco=1` (o 2, 3...):
-// el número se recuerda mientras la pestaña siga abierta. En modo kiosco, si nadie toca la pantalla
-// se avisa y luego se cierra la sesión recargando la página, lo que borra lo que la persona anterior escribió.
-const CLAVE = 'kiosco_id';
+// Modo kiosco (propuesta, secciones 4.5 y 4.6). Un kiosco se abre con la dirección `/?kiosco=1` (o 2, 3...): el número se
+// recuerda mientras la pestaña siga abierta. En modo kiosco: la pantalla queda bloqueada (pantalla completa, sin atajos del
+// navegador ni enlaces a otros sitios; ver useBloqueoDeKiosco) y, si nadie toca la pantalla, se avisa y luego se cierra la
+// sesión recargando la página, lo que borra lo que la persona anterior escribió.
 const SEGUNDOS_DE_INACTIVIDAD = 90;
 const SEGUNDOS_DE_AVISO = 15;
 
 const KioscoContext = createContext({ kiosco: null, esKiosco: false, registrarEvento: () => {} });
-
-function leerKiosco() {
-  try {
-    return sessionStorage.getItem(CLAVE);
-  } catch {
-    return null;
-  }
-}
-
-function guardarKiosco(id) {
-  try {
-    sessionStorage.setItem(CLAVE, id);
-  } catch {
-    // sin almacenamiento: el kiosco se reconoce solo mientras no se recargue la página
-  }
-}
 
 // Un kiosco no cierra su pestaña, así que la sesión del personal no se borra sola: si alguien dejó abierto el panel,
 // se cierra aquí, en el navegador y en el servidor. `keepalive` deja que la petición termine aunque la página se recargue.
@@ -42,20 +29,32 @@ function cerrarSesionDelPersonal() {
   borrarSesion();
 }
 
+// Borra la sesión y vuelve al inicio: la misma salida para la inactividad y para quien se ausentó de la pantalla.
+function reiniciarElKiosco() {
+  cerrarSesionDelPersonal();
+  window.location.replace('/');
+}
+
 export function KioscoProvider({ children }) {
   const [params] = useSearchParams();
   const delParametro = params.get('kiosco');
-  const [kiosco, setKiosco] = useState(leerKiosco);
+  // `?kiosco=salir` es la salida del personal: quita el modo kiosco de esta pestaña.
+  const [kiosco, setKiosco] = useState(() => (FORMATO_DE_KIOSCO.test(delParametro ?? '') && delParametro !== 'salir' ? delParametro : leerKiosco()));
   const [restante, setRestante] = useState(null);
   const sesionIniciada = useRef(false);
   const ultimaActividad = useRef(Date.now());
 
   useEffect(() => {
-    if (delParametro && /^[0-9A-Za-z_-]{1,10}$/.test(delParametro)) {
+    if (delParametro === 'salir') {
+      borrarKiosco();
+      setKiosco(null);
+    } else if (delParametro && FORMATO_DE_KIOSCO.test(delParametro)) {
       guardarKiosco(delParametro);
       setKiosco(delParametro);
     }
   }, [delParametro]);
+
+  const { esperandoToque, entrarEnPantallaCompleta } = useBloqueoDeKiosco(Boolean(kiosco), reiniciarElKiosco);
 
   // Avisa al backend de algo que solo el navegador sabe (una búsqueda, un acceso por QR...).
   // Si falla no se interrumpe nada: las estadísticas no deben estorbar al usuario.
@@ -84,8 +83,7 @@ export function KioscoProvider({ children }) {
       if (!sesionIniciada.current) return;
       const inactivo = (Date.now() - ultimaActividad.current) / 1000;
       if (inactivo >= SEGUNDOS_DE_INACTIVIDAD + SEGUNDOS_DE_AVISO) {
-        cerrarSesionDelPersonal();
-        window.location.replace('/');
+        reiniciarElKiosco();
       } else if (inactivo >= SEGUNDOS_DE_INACTIVIDAD) {
         setRestante(Math.ceil(SEGUNDOS_DE_INACTIVIDAD + SEGUNDOS_DE_AVISO - inactivo));
       }
@@ -102,7 +100,8 @@ export function KioscoProvider({ children }) {
   return (
     <KioscoContext.Provider value={valor}>
       {children}
-      {restante !== null ? (
+      {esperandoToque ? <PantallaDeBienvenida kiosco={kiosco} onComenzar={entrarEnPantallaCompleta} /> : null}
+      {restante !== null && !esperandoToque ? (
         <div
           role="alertdialog"
           aria-labelledby="aviso-inactividad"

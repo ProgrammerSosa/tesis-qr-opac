@@ -2,7 +2,7 @@ const horarios = require('../horarios/horarios_data');
 const { registrar } = require('../actividad/actividad_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
-// Horarios y cierres de la biblioteca (solo el administrador).
+// Horarios de reserva y días de cierre (solo el administrador).
 
 function getHorarios(req, res) {
   return ok(res, horarios.obtener());
@@ -10,13 +10,8 @@ function getHorarios(req, res) {
 
 function putHorarios(req, res) {
   try {
-    const { atencion, reservas } = req.body;
-    if (atencion === undefined && reservas === undefined) {
-      return fail(res, 'Indica los horarios que quieres cambiar');
-    }
-    const nuevos = horarios.actualizar({ atencion, reservas });
-    const secciones = [atencion !== undefined ? 'atención' : null, reservas !== undefined ? 'reservas' : null].filter(Boolean);
-    registrar(req.sesion, 'horarios.actualizados', `Cambió los horarios de ${secciones.join(' y ')}`);
+    const nuevos = horarios.actualizar({ reservas: req.body?.reservas });
+    registrar(req.sesion, 'horarios.actualizados', 'Cambió los horarios de reserva');
     return ok(res, nuevos, 'Horarios guardados');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);

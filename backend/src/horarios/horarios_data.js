@@ -1,12 +1,11 @@
 const almacen = require('../../utils/almacen');
 const { rechazo } = require('../../utils/errores');
-const { aMinutos, diaDeLaSemana, esFechaISO, fechaLocal, minutosDelDia, sumarDias } = require('../../utils/fechas');
+const { aMinutos, diaDeLaSemana, esFechaISO, sumarDias } = require('../../utils/fechas');
 
-// Horarios de la biblioteca: la atención al público, las ventanas en las que se pueden reservar lugares de estudio y los
-// días de cierre (asuetos, vacaciones, inventario). El administrador los cambia desde el panel; aquí solo se guardan y se
-// consultan. Cada tramo es [desde, hasta] en hora y minutos ("08:10").
+// Horarios del servicio de reservas: las ventanas en las que se pueden reservar lugares de estudio (cubículos, estaciones y
+// sala de lectura) y los días de cierre (asuetos, vacaciones, inventario). El administrador los cambia desde el panel; aquí
+// solo se guardan y se consultan. Cada tramo es [desde, hasta] en hora y minutos ("08:00").
 const DIAS = ['domingo', 'lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado']; // la posición es Date.getDay()
-const ORDEN_DE_LA_SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
 const NOMBRE_DEL_DIA = {
   domingo: 'Domingo',
   lunes: 'Lunes',
@@ -21,15 +20,10 @@ const FORMATO_DE_HORA = /^([01]\d|2[0-3]):[0-5]\d$/;
 const MAXIMO_DE_TRAMOS = 3;
 const MAXIMO_DE_CIERRES = 300;
 
-// Con lo que arranca el sistema: los horarios que la biblioteca publica en su sitio web (secciones "Servicios" y "Reservas").
+// Con lo que arranca el sistema: los horarios de reserva que publica la biblioteca en su sitio web.
 const entreSemana = (tramos) =>
   Object.fromEntries(['lunes', 'martes', 'miercoles', 'jueves', 'viernes'].map((dia) => [dia, tramos.map((tramo) => [...tramo])]));
 const INICIAL = {
-  atencion: {
-    ...entreSemana([['08:10', '19:30']]),
-    sabado: [['08:10', '18:00']],
-    domingo: [['08:10', '13:00']],
-  },
   reservas: {
     ...entreSemana([
       ['08:00', '12:50'],
@@ -46,6 +40,7 @@ const INICIAL = {
 };
 
 const estado = almacen.cargar('horarios', INICIAL);
+delete estado.atencion; // los datos guardados por versiones anteriores traían también el horario de atención: ya no se usa
 
 // --- Cierres ---------------------------------------------------------------------------------------------------------
 
@@ -118,25 +113,19 @@ function validarSemana(semana, seccion) {
   return Object.fromEntries(DIAS.map((dia) => [dia, validarTramos(dia, semana[dia] ?? [])]));
 }
 
-// Reemplaza los horarios de atención y/o de reservas. Valida todo antes de cambiar nada.
-function actualizar({ atencion, reservas } = {}) {
-  const nuevaAtencion = atencion === undefined ? estado.atencion : validarSemana(atencion, 'atención');
-  const nuevasReservas = reservas === undefined ? estado.reservas : validarSemana(reservas, 'reservas');
-  estado.atencion = nuevaAtencion;
+// Reemplaza los horarios de reservas. Valida todo antes de cambiar nada.
+function actualizar({ reservas } = {}) {
+  const nuevasReservas = validarSemana(reservas, 'reservas');
   estado.reservas = nuevasReservas;
   almacen.guardar('horarios', estado);
   return obtener();
 }
 
 function obtener() {
-  return { atencion: estado.atencion, reservas: estado.reservas, cierres: listarCierres() };
+  return { reservas: estado.reservas, cierres: listarCierres() };
 }
 
 // --- Consultas -------------------------------------------------------------------------------------------------------
-
-function tramosDeAtencion(fecha) {
-  return cierreDe(fecha) ? [] : estado.atencion[DIAS[diaDeLaSemana(fecha)]] ?? [];
-}
 
 function ventanasDeReserva(fecha) {
   return cierreDe(fecha) ? [] : estado.reservas[DIAS[diaDeLaSemana(fecha)]] ?? [];
@@ -179,49 +168,7 @@ function siguienteDiaHabil(fecha) {
   return candidato;
 }
 
-// Si la biblioteca atiende en este momento y, si no, cuándo vuelve a abrir.
-function estadoAhora(ahora = new Date()) {
-  const hoy = fechaLocal(ahora);
-  const minutos = minutosDelDia(ahora);
-  const tramos = tramosDeAtencion(hoy);
-  const actual = tramos.find(([desde, hasta]) => aMinutos(desde) <= minutos && minutos < aMinutos(hasta));
-  const cierreHoy = cierreDe(hoy);
-
-  if (actual) return { abierto: true, hasta: actual[1], cierreHoy: null, proxima: null };
-
-  const masTarde = tramos.find(([desde]) => aMinutos(desde) > minutos);
-  if (masTarde) {
-    return { abierto: false, hasta: null, cierreHoy, proxima: { fecha: hoy, dia: NOMBRE_DEL_DIA[DIAS[diaDeLaSemana(hoy)]], hora: masTarde[0], esHoy: true, esManana: false } };
-  }
-
-  for (let adelante = 1; adelante <= 30; adelante += 1) {
-    const fecha = sumarDias(hoy, adelante);
-    const delDia = tramosDeAtencion(fecha);
-    if (delDia.length > 0) {
-      return {
-        abierto: false,
-        hasta: null,
-        cierreHoy,
-        proxima: { fecha, dia: NOMBRE_DEL_DIA[DIAS[diaDeLaSemana(fecha)]], hora: delDia[0][0], esHoy: false, esManana: adelante === 1 },
-      };
-    }
-  }
-  return { abierto: false, hasta: null, cierreHoy, proxima: null };
-}
-
-// La semana para mostrarla (de lunes a domingo), con el día de hoy marcado.
-function semana(ahora = new Date()) {
-  const hoy = DIAS[ahora.getDay()];
-  return ORDEN_DE_LA_SEMANA.map((dia) => ({
-    clave: dia,
-    nombre: NOMBRE_DEL_DIA[dia],
-    atencion: estado.atencion[dia] ?? [],
-    reservas: estado.reservas[dia] ?? [],
-    esHoy: dia === hoy,
-  }));
-}
-
-// Lo que se necesita saber de un día concreto para reservar: si hay atención, por qué no, y a qué horas se puede reservar.
+// Lo que se necesita saber de un día concreto para reservar: si hay servicio, por qué no, y a qué horas se puede reservar.
 function resumenDelDia(fecha) {
   const cierre = cierreDe(fecha);
   return {
@@ -229,18 +176,9 @@ function resumenDelDia(fecha) {
     dia: NOMBRE_DEL_DIA[DIAS[diaDeLaSemana(fecha)]],
     cerrado: Boolean(cierre),
     motivo: cierre ? cierre.motivo : null,
-    atencion: tramosDeAtencion(fecha),
     ventanasDeReserva: ventanasDeReserva(fecha),
     franjas: franjasDeReserva(fecha),
   };
-}
-
-// Cierres que todavía no pasaron, para avisarlos con tiempo.
-function proximosCierres(ahora = new Date(), limite = 5) {
-  const hoy = fechaLocal(ahora);
-  return listarCierres()
-    .filter((c) => c.hasta >= hoy)
-    .slice(0, limite);
 }
 
 module.exports = {
@@ -256,8 +194,5 @@ module.exports = {
   todasLasFranjas,
   esDiaHabil,
   siguienteDiaHabil,
-  estadoAhora,
-  semana,
   resumenDelDia,
-  proximosCierres,
 };

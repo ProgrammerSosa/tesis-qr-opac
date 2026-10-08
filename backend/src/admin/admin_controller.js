@@ -14,10 +14,8 @@ const {
 } = require('../catalog/catalog_data');
 const reservasData = require('../reservas/reservas_data');
 const solvenciaData = require('../solvencia/solvencia_data');
-const tramitesData = require('../tramites/tramites_data');
 const { registrar } = require('../actividad/actividad_data');
 const { calcular } = require('./estadisticas');
-const { bandeja, correoConfigurado } = require('../../utils/correo');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
@@ -50,7 +48,6 @@ function getResumen(req, res) {
     },
     reservas: reservasData.resumen(),
     solvencia: solvenciaData.resumen(),
-    tramites: tramitesData.resumen(),
   });
 }
 
@@ -85,19 +82,6 @@ function getUsuarios(req, res) {
       creadoEn: s.creadoEn,
     })
   );
-  // Las solicitudes de tesis y de referencias solo cuentan si la persona dejó su carné o documento.
-  tramitesData
-    .listar()
-    .filter((t) => t.identificacion)
-    .forEach((t) =>
-      agregar(t.identificacion, t.solicitante, {
-        tipo: t.tipo,
-        id: t.id,
-        detalle: t.tipo === 'tesis_digital' ? t.titulo : t.tema,
-        estado: t.estado,
-        creadoEn: t.creadoEn,
-      })
-    );
 
   const personas = [...porPersona.values()]
     .map((p) => {
@@ -209,14 +193,8 @@ function getEstadisticas(req, res) {
   return ok(res, calcular());
 }
 
-// Los últimos correos que mandó el sistema (reales o simulados), para comprobar que los avisos salen bien.
-function getCorreos(req, res) {
-  return ok(res, { configurado: correoConfigurado(), correos: bandeja.slice(0, 50) });
-}
-
 module.exports = {
   getResumen,
-  getCorreos,
   getUsuarios,
   getTesis,
   postTesis,

@@ -20,17 +20,16 @@ const cors = require('cors');
 const catalogRoutes = require('./src/catalog/catalog_routes');
 const reservasRoutes = require('./src/reservas/reservas_routes');
 const solvenciaRoutes = require('./src/solvencia/solvencia_routes');
-const tramitesRoutes = require('./src/tramites/tramites_routes');
 const adminRoutes = require('./src/admin/admin_routes');
 const eventosRoutes = require('./src/eventos/eventos_routes');
 const authRoutes = require('./src/auth/auth_routes');
 const comprobantesRoutes = require('./src/comprobantes/comprobantes_routes');
-const portadaRoutes = require('./src/portada/portada_routes');
-const seguimientoRoutes = require('./src/seguimiento/seguimiento_routes');
+const horariosRoutes = require('./src/horarios/horarios_routes');
 const { retirarClavesTemporales } = require('./src/auth/cuentas_data');
 const { correoConfigurado } = require('./utils/correo');
 const { limitar, soloEscrituras } = require('./utils/limitador');
 const { fail } = require('./utils/httpResponse');
+const { crearComprobadorDeDirecciones } = require('./utils/redes');
 
 const app = express();
 app.disable('x-powered-by');
@@ -49,6 +48,22 @@ app.use((req, res, next) => {
   next();
 });
 
+// Candado de red para los kioscos: las computadoras del público no deben poder llegar al panel del personal, aunque alguien
+// escriba la dirección a mano. Con KIOSCOS_IP (direcciones o rangos separados por coma) a esos equipos se les niega la entrada
+// al panel (/admin), a su API (/api/admin) y al inicio de sesión del personal (/api/auth). El resto del sitio funciona igual.
+// Detrás de un proxy hay que indicar TRUST_PROXY para que la dirección sea la del equipo y no la del proxy.
+const esKiosco = crearComprobadorDeDirecciones(process.env.KIOSCOS_IP);
+if (esKiosco.hayLista) {
+  app.use((req, res, next) => {
+    if (!esKiosco(req.ip)) return next();
+    if (req.path === '/admin' || req.path.startsWith('/admin/')) return res.redirect('/');
+    if (req.path.startsWith('/api/admin') || req.path.startsWith('/api/auth')) {
+      return fail(res, 'Este equipo no tiene acceso al panel del personal', 403);
+    }
+    return next();
+  });
+}
+
 // CORS: con CORS_ORIGIN (una o varias direcciones separadas por coma) solo esos sitios pueden usar la API desde un
 // navegador. Si el frontend se sirve desde este mismo servidor no hace falta. Sin la variable se acepta cualquier origen,
 // que es cómodo para desarrollar pero no para publicar.
@@ -66,24 +81,19 @@ const porMinuto = Number(process.env.LIMITE_ESCRITURAS) || 30;
 app.use('/api/auth/login', soloEscrituras(limitar({ ventanaMs: 5 * 60 * 1000, maximo: 30, mensaje: 'Demasiados intentos de inicio de sesión. Espera unos minutos.' })));
 app.use('/api/reservas', soloEscrituras(limitar({ maximo: porMinuto })));
 app.use('/api/solvencia', soloEscrituras(limitar({ maximo: porMinuto })));
-app.use('/api/tramites', soloEscrituras(limitar({ maximo: porMinuto })));
 app.use('/api/comprobantes', soloEscrituras(limitar({ maximo: Math.max(Math.floor(porMinuto / 3), 1) }))); // cada una manda un correo
 app.use('/api/eventos', soloEscrituras(limitar({ maximo: porMinuto * 4 })));
-// El seguimiento pide un código de confirmación: el límite es bajo para que nadie pueda ir probando códigos.
-app.use('/api/seguimiento', soloEscrituras(limitar({ maximo: 12, mensaje: 'Demasiadas consultas seguidas. Espera un minuto e inténtalo de nuevo.' })));
 
 app.get('/health', (req, res) => res.json({ success: true, data: 'ok' }));
 
 app.use('/api/tesis', catalogRoutes);
 app.use('/api/reservas', reservasRoutes);
 app.use('/api/solvencia', solvenciaRoutes);
-app.use('/api/tramites', tramitesRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/eventos', eventosRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/comprobantes', comprobantesRoutes);
-app.use('/api/seguimiento', seguimientoRoutes);
-app.use('/api', portadaRoutes);
+app.use('/api', horariosRoutes);
 
 app.use('/api', (req, res) => fail(res, 'Ruta no encontrada', 404));
 

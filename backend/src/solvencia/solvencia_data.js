@@ -141,16 +141,17 @@ function avanzarEstado(id) {
   return solicitud;
 }
 
-// Rechaza una solicitud y deja escrito por qué (por ejemplo, un dato mal escrito: la persona debe enviar otra).
+// Rechaza una solicitud. El motivo es opcional: si se escribe queda anotado en la solicitud para el personal (por ejemplo,
+// un dato mal escrito: la persona debe enviar otra solicitud).
 function rechazar(id, observacion) {
   const solicitud = buscarSolicitud(id);
   if (!solicitud) return null;
   const motivo = String(observacion ?? '').trim();
-  if (motivo.length < 3 || motivo.length > 500) {
-    throw rechazo('Escribe el motivo del rechazo (de 3 a 500 caracteres): la persona lo recibirá por correo');
+  if (motivo && (motivo.length < 3 || motivo.length > 500)) {
+    throw rechazo('El motivo del rechazo debe tener de 3 a 500 caracteres (o déjalo en blanco)');
   }
   solicitud.estado = 'rechazada';
-  solicitud.observacion = motivo;
+  if (motivo) solicitud.observacion = motivo;
   solicitud.atendidaEn = new Date().toISOString();
   guardar();
   return solicitud;

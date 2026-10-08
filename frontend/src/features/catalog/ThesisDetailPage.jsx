@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { BookOpen, Check, Copy, Download, FilePlus2, FileText, List, Printer, Search, Smartphone, TriangleAlert } from 'lucide-react';
+import { BookOpen, Check, Copy, Download, FileText, List, Printer, Search, Smartphone } from 'lucide-react';
 import { catalogApi } from './catalogApi';
-import { tramitesApi } from '../tramites/tramitesApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import { LIBRARY } from '../../shared/config/library';
@@ -16,7 +15,6 @@ import Button from '../../shared/components/Button';
 import Dropdown, { DropdownItem } from '../../shared/components/Dropdown';
 import Nota from '../../shared/components/Nota';
 import Page from '../../shared/components/Page';
-import SectionHeading from '../../shared/components/SectionHeading';
 import { Cargando, EstadoVacio } from '../../shared/components/Cargando';
 
 const TABS = [
@@ -49,7 +47,6 @@ export default function ThesisDetailPage() {
   const [tab, setTab] = useState('existencias');
   const [vista, setVista] = useState('normal');
   const [copiado, setCopiado] = useState(false);
-  const [anios, setAnios] = useState({ anioMinimoGrado: 2010, anioMinimoPosgrado: 2016 });
   const accesoContado = useRef(null);
 
   const llegoPorQr = searchParams.get('origen') === 'qr';
@@ -65,13 +62,6 @@ export default function ThesisDetailPage() {
       .catch((err) => setError(getErrorMessage(err, 'No se pudo cargar la tesis')))
       .finally(() => setCargando(false));
   }, [id]);
-
-  useEffect(() => {
-    tramitesApi
-      .reglas()
-      .then((res) => setAnios(res.data.data))
-      .catch(() => {});
-  }, []);
 
   // Cuenta una vez cada llegada por el código QR de la etiqueta (solo si ese código sigue activo).
   useEffect(() => {
@@ -127,9 +117,6 @@ export default function ThesisDetailPage() {
   const acceso = ACCESOS[tesis.documentoDigital?.acceso] ?? ACCESOS.sin_acceso;
   const hayDigital = Boolean(tesis.documentoDigital?.disponible);
   const qrDesactivado = llegoPorQr && !tesis.qr?.activo;
-  const nivel = tesis.tipoDocumento === 'tesis_grado' ? 'grado' : 'posgrado';
-  const anioMinimo = nivel === 'grado' ? anios.anioMinimoGrado : anios.anioMinimoPosgrado;
-  const sePuedePedirDigital = !hayDigital && Number(tesis.anio) >= anioMinimo;
 
   return (
     <Page
@@ -319,21 +306,6 @@ export default function ThesisDetailPage() {
                   Consultar documento digital
                 </Link>
               ) : null}
-              {sePuedePedirDigital ? (
-                <Link
-                  to={`/tesis-digital?tesis=${encodeURIComponent(tesis.id)}`}
-                  className="inline-flex w-full items-center justify-start gap-2 rounded-lg bg-action px-4 py-3 text-base font-bold text-white shadow-sm transition-colors hover:bg-action-dark"
-                >
-                  <FilePlus2 size={18} aria-hidden="true" />
-                  Solicitar en formato digital
-                </Link>
-              ) : null}
-              {!hayDigital && !sePuedePedirDigital ? (
-                <p className="flex gap-2 rounded-lg bg-surface px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-                  <TriangleAlert size={15} className="mt-0.5 shrink-0 text-amber-600" aria-hidden="true" />
-                  Las tesis de {nivel} anteriores a {anioMinimo} solo se consultan en su ejemplar impreso.
-                </p>
-              ) : null}
               <Button variant="brand" icon={Printer} className="w-full justify-start px-4 py-3 text-base" onClick={() => window.print()}>
                 Imprimir
               </Button>
@@ -349,15 +321,13 @@ export default function ThesisDetailPage() {
                   </DropdownItem>
                 ))}
               </Dropdown>
-              <Dropdown label="Más búsquedas" icon={Search}>
-                <DropdownItem to={`/catalogo?autor=${encodeURIComponent(tesis.autor)}`}>Otras tesis de este autor</DropdownItem>
-                {!esKiosco ? (
-                  <>
-                    <DropdownItem href={`https://search.worldcat.org/search?q=${encodeURIComponent(tesis.titulo)}`}>Otras bibliotecas (WorldCat)</DropdownItem>
-                    <DropdownItem href={`https://scholar.google.com/scholar?q=${encodeURIComponent(tesis.titulo)}`}>Google Scholar</DropdownItem>
-                  </>
-                ) : null}
-              </Dropdown>
+              <Link
+                to={`/catalogo?autor=${encodeURIComponent(tesis.autor)}`}
+                className="inline-flex w-full items-center justify-start gap-2 rounded-lg border border-border bg-white px-4 py-3 text-base font-semibold text-primary transition-colors hover:border-primary"
+              >
+                <Search size={18} aria-hidden="true" />
+                Otras tesis de este autor
+              </Link>
             </div>
 
             <div className="flex flex-col items-center gap-3 rounded-2xl border border-t-4 border-border border-t-action bg-white p-5 text-center shadow-card">
@@ -378,9 +348,9 @@ export default function ThesisDetailPage() {
 
         {relacionadas.length > 0 ? (
           <section className="flex flex-col gap-5 print:hidden" aria-labelledby="relacionadas-titulo">
-            <SectionHeading etiqueta="Sigue explorando">
-              <span id="relacionadas-titulo">También te puede interesar</span>
-            </SectionHeading>
+            <h2 id="relacionadas-titulo" className="font-display text-2xl font-semibold text-slate-900">
+              También te puede interesar
+            </h2>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               {relacionadas.map((rel) => (
                 <ThesisCard key={rel.id} tesis={rel} />

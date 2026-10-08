@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookMarked, CalendarCheck, Clock, FilePlus2, FileCheck2, FileText, Loader2, MonitorSmartphone, Search } from 'lucide-react';
+import { ArrowRight, BookMarked, CalendarCheck, Clock, FileCheck2, FileText, Loader2, MonitorSmartphone, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
 import { solvenciaApi } from '../../solvencia/solvenciaApi';
-import { tramitesApi } from '../../tramites/tramitesApi';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { puedeVer } from '../secciones';
 import { useSesionAdmin } from '../SesionAdmin';
-import { ACCIONES_DE_ACTIVIDAD, ESTADO_DE_TRAMITE, ESTADO_RESERVA, ESTADO_SOLVENCIA, ROLES_DEL_PERSONAL, TIPO_DE_TRAMITE, fechaLegible } from '../estados';
+import { ACCIONES_DE_ACTIVIDAD, ESTADO_RESERVA, ESTADO_SOLVENCIA, ROLES_DEL_PERSONAL, fechaLegible } from '../estados';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import StatTile from '../../../shared/components/StatTile';
@@ -19,7 +18,6 @@ const PEDIDOS = {
   resumen: { seccion: 'resumen', pedir: () => adminApi.resumen(), nombre: 'las cifras' },
   reservas: { seccion: 'reservas', pedir: () => reservasApi.listar(), nombre: 'las reservas' },
   solicitudes: { seccion: 'solicitudes', pedir: () => solvenciaApi.listar(), nombre: 'las solicitudes de solvencia' },
-  tramites: { seccion: 'tramites', pedir: () => tramitesApi.listar(), nombre: 'las solicitudes de tesis y referencias' },
   estadisticas: { seccion: 'estadisticas', pedir: () => adminApi.estadisticas(), nombre: 'las estadísticas' },
   actividad: { seccion: 'actividad', pedir: () => adminApi.actividad({ limite: 6 }), nombre: 'la actividad' },
 };
@@ -83,7 +81,6 @@ export default function ResumenPage() {
   }
 
   const cifras = datos.resumen;
-  const tramitesPorAtender = (datos.tramites ?? []).filter((t) => ['pendiente', 'en_proceso'].includes(t.estado)).sort((a, b) => a.creadoEn.localeCompare(b.creadoEn));
   const tarjetas = [];
   if (cifras && datos.reservas) {
     tarjetas.push(
@@ -91,9 +88,6 @@ export default function ResumenPage() {
       { etiqueta: 'Reservas de hoy', valor: cifras.reservas.hoy, icono: CalendarCheck },
       { etiqueta: 'Solvencias pendientes', valor: cifras.solvencia.pendientes, icono: FileCheck2 }
     );
-  }
-  if (datos.tramites) {
-    tarjetas.push({ etiqueta: 'Tesis y referencias por atender', valor: tramitesPorAtender.length, icono: FilePlus2 });
   }
   if (cifras && puedeVer(rol, 'catalogo')) {
     tarjetas.push(
@@ -134,7 +128,7 @@ export default function ResumenPage() {
       {fallos.length > 0 ? <AlertBanner>{`No se pudieron cargar ${fallos.join(', ')}. Recarga la página para intentarlo de nuevo.`}</AlertBanner> : null}
 
       {tarjetas.length > 0 ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
           {tarjetas.map((t) => (
             <StatTile key={t.etiqueta} label={t.etiqueta} value={t.valor} icon={t.icono} />
           ))}
@@ -194,34 +188,6 @@ export default function ResumenPage() {
             )}
             {solicitudesPorRevisar.length > MAXIMO_POR_LISTA ? (
               <p className="text-xs text-slate-500">y {solicitudesPorRevisar.length - MAXIMO_POR_LISTA} más</p>
-            ) : null}
-          </Bloque>
-        ) : null}
-
-        {datos.tramites ? (
-          <Bloque titulo="Tesis y referencias por atender" enlace="/admin/tramites" textoEnlace="Ver las solicitudes">
-            {tramitesPorAtender.length === 0 ? (
-              <Vacio>No hay solicitudes de tesis ni de referencias esperando atención.</Vacio>
-            ) : (
-              <ul className="divide-y divide-border">
-                {tramitesPorAtender.slice(0, MAXIMO_POR_LISTA).map((t) => {
-                  const estado = ESTADO_DE_TRAMITE[t.estado];
-                  return (
-                    <li key={t.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <span className="min-w-0">
-                        <span className="font-mono text-slate-700">{t.id}</span> <span className="font-semibold text-slate-900">{t.solicitante}</span>
-                        <span className="block truncate text-xs text-slate-500">
-                          {TIPO_DE_TRAMITE[t.tipo]}: {t.tipo === 'tesis_digital' ? t.titulo : t.tema}
-                        </span>
-                      </span>
-                      <Badge tone={estado.tone}>{estado.label}</Badge>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-            {tramitesPorAtender.length > MAXIMO_POR_LISTA ? (
-              <p className="text-xs text-slate-500">y {tramitesPorAtender.length - MAXIMO_POR_LISTA} más</p>
             ) : null}
           </Bloque>
         ) : null}

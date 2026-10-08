@@ -172,8 +172,7 @@ function DiasDeCierre({ cierres, onCambio }) {
       <div className="border-b border-border px-5 py-4">
         <h2 className="text-base font-bold text-slate-900">Días de cierre</h2>
         <p className="mt-0.5 max-w-2xl text-sm text-slate-600">
-          Asuetos, vacaciones o inventario. Ese día no hay atención, no se pueden hacer reservas y las solvencias no se entregan. El sitio lo anuncia solo desde
-          una semana antes.
+          Asuetos, vacaciones o inventario. Ese día no se pueden hacer reservas y las solvencias no se entregan.
         </p>
       </div>
 
@@ -220,8 +219,8 @@ function DiasDeCierre({ cierres, onCambio }) {
   );
 }
 
-// Horarios de atención y de reservas, y días de cierre (solo el administrador). Lo que se guarda aquí rige de inmediato en
-// el sitio: los horarios que ve el público, las horas que se pueden reservar y la fecha de entrega de las solvencias.
+// Horarios de reserva y días de cierre (solo el administrador). Lo que se guarda aquí rige de inmediato en el sitio: las horas
+// que se pueden reservar y la fecha de entrega de las solvencias.
 export default function HorariosPage() {
   const [horarios, setHorarios] = useState(null);
   const [error, setError] = useState('');
@@ -257,14 +256,8 @@ export default function HorariosPage() {
   }
 
   return (
-    <PaginaAdmin descripcion="Los horarios que ve el público y que usa el sistema para aceptar reservas y calcular la entrega de las solvencias. Los cambios rigen de inmediato; las reservas que ya existen no se tocan.">
+    <PaginaAdmin descripcion="Las horas en que se aceptan reservas y los días de cierre. También se usan para calcular la entrega de las solvencias. Los cambios rigen de inmediato; las reservas que ya existen no se tocan.">
       <AlertBanner>{error}</AlertBanner>
-      <EditorDeSemana
-        titulo="Atención al público"
-        descripcion="Cuándo está abierta la biblioteca. Con esto el sitio dice «Abierto ahora» o «Cerrado»."
-        semana={horarios.atencion}
-        onGuardar={(semana) => guardar('atencion', semana)}
-      />
       <EditorDeSemana
         titulo="Reserva de cubículos y lugares de estudio"
         descripcion="Las horas en las que se pueden reservar. Solo se ofrecen horas enteras que caben completas dentro de un tramo: con un tramo de 13:10 a 19:15, la primera hora reservable es 14:00 y la última 18:00."

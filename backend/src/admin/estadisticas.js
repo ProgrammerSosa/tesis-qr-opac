@@ -3,7 +3,6 @@
 const { listar: listarEventos } = require('../eventos/eventos_data');
 const { listarReservas, franjasDeReserva } = require('../reservas/reservas_data');
 const { listar: listarSolicitudes } = require('../solvencia/solvencia_data');
-const { listar: listarTramites } = require('../tramites/tramites_data');
 const { TESIS } = require('../catalog/catalog_data');
 const { todasLasFranjas } = require('../horarios/horarios_data');
 
@@ -18,7 +17,6 @@ function calcular() {
   const eventos = listarEventos();
   const reservas = listarReservas();
   const solicitudes = listarSolicitudes();
-  const tramites = listarTramites();
   const reservasVigentes = reservas.filter((r) => r.estado !== 'cancelado');
 
   // Demanda por hora: cada reserva suma una vez en cada hora que ocupa.
@@ -47,7 +45,7 @@ function calcular() {
     .map((kiosco) => ({
       kiosco,
       sesiones: eventos.filter((e) => e.tipo === 'sesion_kiosco' && e.kiosco === kiosco).length,
-      operaciones: [...reservas, ...solicitudes, ...tramites].filter((x) => x.kiosco === kiosco).length,
+      operaciones: [...reservas, ...solicitudes].filter((x) => x.kiosco === kiosco).length,
     }));
 
   return {
@@ -60,12 +58,10 @@ function calcular() {
       reservasCubiculos: reservas.filter((r) => r.tipo === 'cubiculo').length,
       reservasEspacios: reservas.filter((r) => r.tipo !== 'cubiculo').length,
       solicitudesSolvencia: solicitudes.length,
-      solicitudesTesisDigital: tramites.filter((x) => x.tipo === 'tesis_digital').length,
-      solicitudesReferencias: tramites.filter((x) => x.tipo === 'referencias').length,
       sesionesKiosco: contar(eventos, 'sesion_kiosco'),
     },
     comprobantes: {
-      generados: reservas.length + solicitudes.length + tramites.length,
+      generados: reservas.length + solicitudes.length,
       impresos: contar(eventos, 'comprobante_impreso'),
       porCorreo: contar(eventos, 'comprobante_correo'),
     },

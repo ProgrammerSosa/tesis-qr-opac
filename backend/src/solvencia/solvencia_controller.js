@@ -45,7 +45,6 @@ function patchAvanzar(req, res) {
   if (!solicitud) return notFound(res, 'Solicitud no encontrada');
   if (solicitud.estado !== antes) {
     registrar(req.sesion, 'solicitud.avanzada', `${solicitud.id}: ${TEXTO_DE_ESTADO[antes]} → ${TEXTO_DE_ESTADO[solicitud.estado]}`);
-    if (solicitud.estado === 'aprobada') notificaciones.solvenciaAprobada(solicitud);
   }
   return ok(res, solicitud);
 }
@@ -54,8 +53,7 @@ function patchRechazar(req, res) {
   try {
     const solicitud = rechazar(req.params.id, req.body?.observacion);
     if (!solicitud) return notFound(res, 'Solicitud no encontrada');
-    registrar(req.sesion, 'solicitud.rechazada', `${solicitud.id}: ${solicitud.observacion}`);
-    notificaciones.solvenciaRechazada(solicitud);
+    registrar(req.sesion, 'solicitud.rechazada', solicitud.observacion ? `${solicitud.id}: ${solicitud.observacion}` : solicitud.id);
     return ok(res, solicitud);
   } catch (err) {
     return fail(res, err.message, err.estado || 500);
