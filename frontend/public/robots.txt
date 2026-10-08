@@ -1,4 +1,4 @@
-# El catálogo y los servicios de la biblioteca son públicos; el panel del personal y la API no se indexan.
+# El catálogo y los servicios de la biblioteca son públicos; la API no se indexa.
+# El panel del personal no se nombra aquí a propósito (este archivo es público): el servidor lo marca con X-Robots-Tag: noindex.
 User-agent: *
-Disallow: /admin
 Disallow: /api

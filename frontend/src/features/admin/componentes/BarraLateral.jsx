@@ -3,6 +3,7 @@ import { Globe, KeyRound, LogOut } from 'lucide-react';
 import { GRUPOS, seccionesDe } from '../secciones';
 import { ROLES_DEL_PERSONAL } from '../estados';
 import { LIBRARY } from '../../../shared/config/library';
+import { RUTA_DEL_PANEL } from '../../../shared/config/rutas';
 import MarcaBiblioteca from '../../../shared/components/MarcaBiblioteca';
 
 // Navegación de la consola del personal: las secciones agrupadas (solo las que el rol puede ver),
@@ -33,7 +34,7 @@ export default function BarraLateral({ sesion, onNavegar, onMiCuenta, onSalir })
                 {secciones.map((s) => (
                   <li key={s.clave}>
                     <NavLink
-                      to={`/admin/${s.clave}`}
+                      to={`${RUTA_DEL_PANEL}/${s.clave}`}
                       onClick={onNavegar}
                       className={({ isActive }) =>
                         `flex items-center gap-3 rounded-md border-l-2 px-3 py-2 text-sm font-medium transition-colors ${

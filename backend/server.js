@@ -30,6 +30,7 @@ const { correoConfigurado } = require('./utils/correo');
 const { limitar, soloEscrituras } = require('./utils/limitador');
 const { fail } = require('./utils/httpResponse');
 const { crearComprobadorDeDirecciones } = require('./utils/redes');
+const { RUTA_DEL_PANEL } = require('./utils/rutas');
 
 const app = express();
 app.disable('x-powered-by');
@@ -48,26 +49,34 @@ app.use((req, res, next) => {
   next();
 });
 
-// Lo que es del personal no se indexa ni se guarda en cachés: el panel (/admin) y la API no deben aparecer en buscadores, y las respuestas
-// de la sesión y de la API del personal (o de cualquier petición con ficha de acceso) llevan datos de personas que no deben quedar guardados.
+// Las direcciones se comparan sin importar mayúsculas, porque el navegador y el servidor las resuelven igual (/PrivateAccess y
+// /privateaccess llevan al mismo panel): si no, una letra en mayúscula esquivaría el candado de los kioscos.
+const empiezaCon = (ruta, base) => {
+  const minuscula = ruta.toLowerCase();
+  return minuscula === base.toLowerCase() || minuscula.startsWith(`${base.toLowerCase()}/`);
+};
+const esDelPanel = (ruta) => empiezaCon(ruta, RUTA_DEL_PANEL);
+const esApiDelPersonal = (ruta) => empiezaCon(ruta, '/api/admin') || empiezaCon(ruta, '/api/auth');
+
+// Lo que es del personal no se indexa ni se guarda en cachés: el panel (RUTA_DEL_PANEL) y la API no deben aparecer en buscadores, y las
+// respuestas de la sesión y de la API del personal (o de cualquier petición con ficha de acceso) llevan datos de personas que no deben
+// quedar guardados.
 app.use((req, res, next) => {
-  const delPanel = req.path === '/admin' || req.path.startsWith('/admin/');
-  const apiDelPersonal = req.path.startsWith('/api/admin') || req.path.startsWith('/api/auth');
-  if (delPanel || req.path.startsWith('/api')) res.set('X-Robots-Tag', 'noindex, nofollow');
-  if (apiDelPersonal || req.get('Authorization')) res.set('Cache-Control', 'no-store');
+  if (esDelPanel(req.path) || empiezaCon(req.path, '/api')) res.set('X-Robots-Tag', 'noindex, nofollow');
+  if (esApiDelPersonal(req.path) || req.get('Authorization')) res.set('Cache-Control', 'no-store');
   next();
 });
 
 // Candado de red para los kioscos: las computadoras del público no deben poder llegar al panel del personal, aunque alguien
 // escriba la dirección a mano. Con KIOSCOS_IP (direcciones o rangos separados por coma) a esos equipos se les niega la entrada
-// al panel (/admin), a su API (/api/admin) y al inicio de sesión del personal (/api/auth). El resto del sitio funciona igual.
+// al panel (RUTA_DEL_PANEL), a su API (/api/admin) y al inicio de sesión del personal (/api/auth). El resto del sitio funciona igual.
 // Detrás de un proxy hay que indicar TRUST_PROXY para que la dirección sea la del equipo y no la del proxy.
 const esKiosco = crearComprobadorDeDirecciones(process.env.KIOSCOS_IP);
 if (esKiosco.hayLista) {
   app.use((req, res, next) => {
     if (!esKiosco(req.ip)) return next();
-    if (req.path === '/admin' || req.path.startsWith('/admin/')) return res.redirect('/');
-    if (req.path.startsWith('/api/admin') || req.path.startsWith('/api/auth')) {
+    if (esDelPanel(req.path)) return res.redirect('/');
+    if (esApiDelPersonal(req.path)) {
       return fail(res, 'Este equipo no tiene acceso al panel del personal', 403);
     }
     return next();

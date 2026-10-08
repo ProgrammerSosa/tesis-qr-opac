@@ -6,6 +6,7 @@ import { getErrorMessage } from '../../shared/api/axiosClient';
 import { guardarSesion } from '../../shared/auth/sesion';
 import { puedeVer } from './secciones';
 import { LIBRARY } from '../../shared/config/library';
+import { RUTA_DEL_PANEL } from '../../shared/config/rutas';
 import AlertBanner from '../../shared/components/AlertBanner';
 import Button from '../../shared/components/Button';
 import MarcaBiblioteca from '../../shared/components/MarcaBiblioteca';
@@ -15,9 +16,9 @@ const AVISOS = { terminada: 'Tu sesión terminó. Inicia sesión de nuevo para c
 
 // A dónde ir después de entrar: a la página que se quería ver, si era del panel y el rol puede verla; si no, al inicio del panel.
 function destinoTras(desde, rol) {
-  if (typeof desde !== 'string' || !desde.startsWith('/admin/') || desde.startsWith('/admin/acceso')) return '/admin';
+  if (typeof desde !== 'string' || !desde.startsWith(`${RUTA_DEL_PANEL}/`) || desde.startsWith(`${RUTA_DEL_PANEL}/acceso`)) return RUTA_DEL_PANEL;
   const seccion = desde.split(/[/?#]/)[2];
-  return puedeVer(rol, seccion) ? desde : '/admin';
+  return puedeVer(rol, seccion) ? desde : RUTA_DEL_PANEL;
 }
 
 // Inicio de sesión del personal (propuesta, sección 4.5.6): pantalla propia, sin el diseño del sitio público.

@@ -2,8 +2,9 @@ import { redirect } from 'react-router-dom';
 import { authApi } from './authApi';
 import { SECCIONES, puedeVer } from './secciones';
 import { borrarSesion, leerSesion } from '../../shared/auth/sesion';
+import { RUTA_DEL_PANEL } from '../../shared/config/rutas';
 
-// Guardia de las rutas del panel del personal: corre antes de dibujar cualquier página de /admin/... (ver router.jsx).
+// Guardia de las rutas del panel del personal: corre antes de dibujar cualquier página del panel (ver router.jsx).
 //  1. Sin sesión, al inicio de sesión, que recuerda a dónde se quería ir.
 //  2. Con una sesión que el servidor ya no reconoce (venció o el servidor se reinició), se borra y se vuelve a pedir el acceso. El servidor
 //     la confirma una vez por carga de la página (y otra vez si entra otra persona), no en cada cambio de sección.
@@ -15,18 +16,18 @@ let fichaConfirmada = null; // la ficha de acceso que el servidor ya reconoció 
 function haciaElAcceso(url, aviso) {
   const parametros = new URLSearchParams();
   const desde = `${url.pathname}${url.search}`;
-  if (desde !== '/admin' && desde !== '/admin/') parametros.set('desde', desde);
+  if (desde !== RUTA_DEL_PANEL && desde !== `${RUTA_DEL_PANEL}/`) parametros.set('desde', desde);
   if (aviso) parametros.set('aviso', aviso);
   const consulta = parametros.toString();
-  return redirect(`/admin/acceso${consulta ? `?${consulta}` : ''}`);
+  return redirect(`${RUTA_DEL_PANEL}/acceso${consulta ? `?${consulta}` : ''}`);
 }
 
 export async function guardarRutaDelPanel({ request }) {
   const url = new URL(request.url);
-  const [, clave = ''] = url.pathname.split('/').filter(Boolean); // /admin/qr -> "qr"
+  const [, clave = ''] = url.pathname.split('/').filter(Boolean); // /privateAccess/qr -> "qr"
   const sesion = leerSesion();
   // La pantalla de acceso solo es para quien no tiene sesión: quien ya la tiene va al panel (que confirma si sigue vigente).
-  if (clave === 'acceso') return sesion?.token ? redirect('/admin') : null;
+  if (clave === 'acceso') return sesion?.token ? redirect(RUTA_DEL_PANEL) : null;
 
   if (!sesion?.token) throw haciaElAcceso(url);
 
@@ -44,7 +45,7 @@ export async function guardarRutaDelPanel({ request }) {
   }
 
   if (SECCIONES.some((s) => s.clave === clave) && !puedeVer(sesion.rol, clave)) {
-    throw redirect(`/admin/resumen?sinpermiso=${encodeURIComponent(clave)}`);
+    throw redirect(`${RUTA_DEL_PANEL}/resumen?sinpermiso=${encodeURIComponent(clave)}`);
   }
   return null;
 }

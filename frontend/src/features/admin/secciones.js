@@ -19,7 +19,7 @@ const TESIS = ['administrador', 'tesis'];
 
 // Secciones de la consola del personal (propuesta, sección 4.5.6) y qué roles entran a cada una.
 // El servidor repite la comprobación en cada petición: ocultar una sección es comodidad, no seguridad.
-// `clave` es también la dirección de la sección: /admin/<clave>.
+// `clave` es también la dirección de la sección: RUTA_DEL_PANEL/<clave> (ver shared/config/rutas.js).
 export const GRUPOS = ['Atención', 'Acervo digital', 'Análisis', 'Administración'];
 
 export const SECCIONES = [

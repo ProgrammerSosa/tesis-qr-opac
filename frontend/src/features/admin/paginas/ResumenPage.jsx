@@ -11,6 +11,7 @@ import { ACCIONES_DE_ACTIVIDAD, ESTADO_RESERVA, ESTADO_SOLVENCIA, ROLES_DEL_PERS
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import StatTile from '../../../shared/components/StatTile';
+import { RUTA_DEL_PANEL } from '../../../shared/config/rutas';
 import { fechaCorta, fechaLarga, hoyISO } from '../../../shared/utils/fechas';
 
 // Qué datos pide el resumen y qué sección debe poder ver el rol para recibirlos: cada rol ve solo lo suyo.
@@ -137,7 +138,7 @@ export default function ResumenPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {datos.reservas ? (
-          <Bloque titulo="Reservas de hoy por atender" enlace="/admin/reservas" textoEnlace="Ver las reservas">
+          <Bloque titulo="Reservas de hoy por atender" enlace={`${RUTA_DEL_PANEL}/reservas`} textoEnlace="Ver las reservas">
             {reservasDeHoy.length === 0 ? (
               <Vacio>No hay reservas pendientes para hoy.</Vacio>
             ) : (
@@ -164,7 +165,7 @@ export default function ResumenPage() {
         ) : null}
 
         {datos.solicitudes ? (
-          <Bloque titulo="Solvencias por revisar" enlace="/admin/solicitudes" textoEnlace="Ver las solvencias">
+          <Bloque titulo="Solvencias por revisar" enlace={`${RUTA_DEL_PANEL}/solicitudes`} textoEnlace="Ver las solvencias">
             {solicitudesPorRevisar.length === 0 ? (
               <Vacio>No hay solvencias esperando revisión.</Vacio>
             ) : (
@@ -193,7 +194,7 @@ export default function ResumenPage() {
         ) : null}
 
         {cifras && puedeVer(rol, 'qr') ? (
-          <Bloque titulo="Códigos QR por revisar" enlace="/admin/qr" textoEnlace="Ver los códigos">
+          <Bloque titulo="Códigos QR por revisar" enlace={`${RUTA_DEL_PANEL}/qr`} textoEnlace="Ver los códigos">
             {codigosPorRevisar.length === 0 ? (
               <Vacio>Todos los códigos activos fueron verificados y responden.</Vacio>
             ) : (
@@ -216,7 +217,7 @@ export default function ResumenPage() {
         ) : null}
 
         {datos.estadisticas ? (
-          <Bloque titulo="Uso de los servicios" enlace="/admin/estadisticas" textoEnlace="Ver las estadísticas">
+          <Bloque titulo="Uso de los servicios" enlace={`${RUTA_DEL_PANEL}/estadisticas`} textoEnlace="Ver las estadísticas">
             <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
               {[
                 ['Búsquedas en el OPAC', datos.estadisticas.totales.busquedasOpac],
@@ -234,7 +235,7 @@ export default function ResumenPage() {
         ) : null}
 
         {datos.actividad ? (
-          <Bloque titulo="Últimos movimientos del personal" enlace="/admin/actividad" textoEnlace="Ver toda la actividad">
+          <Bloque titulo="Últimos movimientos del personal" enlace={`${RUTA_DEL_PANEL}/actividad`} textoEnlace="Ver toda la actividad">
             {datos.actividad.registros.length === 0 ? (
               <Vacio>Todavía no hay movimientos.</Vacio>
             ) : (

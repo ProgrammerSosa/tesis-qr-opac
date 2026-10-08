@@ -8,7 +8,7 @@ Complemento digital de la biblioteca de la Facultad de Ciencias Jurídicas y Soc
 - **Solicitud de solvencia**.
 - **Comprobantes** en pantalla, impresos (ticket de 80 mm) y por correo.
 - **Kioscos táctiles** con cierre de sesión por inactividad y candado de pantalla.
-- **Panel del personal** con cuatro roles y estadísticas de uso (`/admin`).
+- **Panel del personal** con cuatro roles y estadísticas de uso (`/privateAccess`).
 
 ```
 backend/    API en Express (datos en archivos JSON dentro de backend/data)
@@ -31,7 +31,7 @@ cd backend  && npm run dev     # API en http://localhost:4001
 cd frontend && npm run dev     # sitio en http://localhost:5174 (reenvía /api al backend)
 ```
 
-El panel está en `http://localhost:5174/admin`. Sus cuatro cuentas iniciales (`admin`, `circulacion`, `tesis` y `consulta`)
+El panel está en `http://localhost:5174/privateAccess`. Sus cuatro cuentas iniciales (`admin`, `circulacion`, `tesis` y `consulta`)
 toman la clave de `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CONSULTA` en `backend/.env`. Si alguna queda
 vacía, el servidor genera una clave temporal y la muestra en su consola. **`backend/.env` no se sube a git.** Las demás cuentas
 se crean desde el panel («Cuentas del personal»).
@@ -109,7 +109,7 @@ Cada kiosco abre el sitio con su número: `https://tu-servidor/?kiosco=1`, `?kio
 - bloquea menú contextual, selección de texto, zoom, atajos de las herramientas del navegador, enlaces a otros sitios y ventanas
   nuevas, y no ofrece descargas;
 - cuenta cada kiosco en las estadísticas;
-- no puede abrir el panel del personal (`/admin`).
+- no puede abrir el panel del personal (`/privateAccess`).
 
 **Una página web no puede, por sí sola, impedir que alguien cambie de ventana o escriba otra dirección.** Para un candado
 completo el equipo debe estar configurado como kiosco:
@@ -137,11 +137,14 @@ El servidor comprueba el rol en cada petición; ocultar una sección en el panel
 
 ### Protección de rutas
 
-- **En el navegador**, una guardia corre antes de mostrar cualquier página de `/admin/...`: sin sesión manda al inicio de sesión (y al
+- **En el navegador**, una guardia corre antes de mostrar cualquier página de `/privateAccess/...`: sin sesión manda al inicio de sesión (y al
   entrar vuelve a la página que se quería ver), con una sesión que el servidor ya no reconoce la cierra y avisa, y con una sección que
   el rol no puede ver redirige al resumen con un aviso. Una pestaña de kiosco no entra al panel.
 - **En el servidor**, toda ruta del personal exige una sesión y el rol correcto (401 sin sesión, 403 con otro rol); con `KIOSCOS_IP`
   los kioscos ni siquiera llegan al panel ni a su API. Las respuestas de la API del personal no se guardan en cachés y el panel no se
   indexa en buscadores (`X-Robots-Tag` y `robots.txt`).
+- La dirección del panel se define en `frontend/src/shared/config/rutas.js` y en `backend/utils/rutas.js` (las dos deben coincidir, y
+  hay que volver a compilar el sitio). `/admin` ya no existe. Un nombre poco evidente evita visitas por costumbre, pero lo que protege
+  el panel es el inicio de sesión y los roles: este repositorio es público y el nombre se puede leer en él.
 - Las sesiones duran 8 horas, se cierran tras 20 minutos sin actividad y una cuenta se bloquea 5 minutos después de 5 intentos
   fallidos.

@@ -10,6 +10,7 @@ import { useCierrePorInactividad } from './useCierrePorInactividad';
 import { ROLES_DEL_PERSONAL } from './estados';
 import { EVENTO_SESION_EXPIRADA } from '../../shared/api/axiosClient';
 import { borrarSesion, leerSesion } from '../../shared/auth/sesion';
+import { RUTA_DEL_PANEL } from '../../shared/config/rutas';
 import Badge from '../../shared/components/Badge';
 import Button from '../../shared/components/Button';
 import Nota from '../../shared/components/Nota';
@@ -83,7 +84,7 @@ export default function AdminLayout() {
   }, [menuAbierto]);
 
   const seccionSinPermiso = SECCIONES.find((s) => s.clave === parametros.get('sinpermiso'));
-  const seccion = SECCIONES.find((s) => location.pathname === `/admin/${s.clave}`);
+  const seccion = SECCIONES.find((s) => location.pathname === `${RUTA_DEL_PANEL}/${s.clave}`);
   const titulo = seccion?.titulo ?? 'Panel del personal';
 
   useEffect(() => {
@@ -104,7 +105,7 @@ export default function AdminLayout() {
 
   if (!sesion) {
     return (
-      <Navigate to="/admin/acceso" replace state={{ desde: salioAMano ? undefined : `${location.pathname}${location.search}`, aviso: motivoDeSalida }} />
+      <Navigate to={`${RUTA_DEL_PANEL}/acceso`} replace state={{ desde: salioAMano ? undefined : `${location.pathname}${location.search}`, aviso: motivoDeSalida }} />
     );
   }
 

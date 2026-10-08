@@ -3,13 +3,14 @@ import Layout from '../shared/components/Layout';
 import NotFoundPage from './NotFoundPage';
 import PantallaDeCarga from './PantallaDeCarga';
 import HomePage from '../features/inicio/HomePage';
+import { RUTA_DEL_PANEL } from '../shared/config/rutas';
 import { hayKiosco } from '../shared/kiosco/kiosco';
 
 // Cada página se descarga cuando alguien entra a ella: así el primer acceso (que en un kiosco o en un celular pesa) solo
 // trae el inicio y el diseño del sitio, no todo el código de la biblioteca.
 const pagina = (cargar) => ({ lazy: async () => ({ Component: (await cargar()).default }) });
 
-// Protección de rutas del panel del personal. Corre antes de dibujar cualquier página de /admin/...:
+// Protección de rutas del panel del personal. Corre antes de dibujar cualquier página del panel (RUTA_DEL_PANEL, en shared/config/rutas.js):
 //  - una pestaña que es un kiosco no entra al panel aunque alguien escriba la dirección (si el servidor tiene KIOSCOS_IP, también
 //    lo niega la red; ver backend/server.js);
 //  - sin sesión, con una sesión vencida o con una sección que el rol no puede ver, se redirige (ver features/admin/guardia.js).
@@ -43,9 +44,9 @@ export const router = createBrowserRouter([
     ],
   },
   // Consola del personal: otra parte del sistema, sin el diseño público (encabezado, buscador, pie, modo kiosco).
-  // Se descarga solo cuando alguien entra a /admin: el público y los kioscos no cargan ese código.
+  // Se descarga solo cuando alguien entra al panel: el público y los kioscos no cargan ese código.
   {
-    path: '/admin/*',
+    path: `${RUTA_DEL_PANEL}/*`,
     loader: protegerElPanel,
     ...pagina(() => import('../features/admin/AdminApp')),
     hydrateFallbackElement: <PantallaDeCarga />,
