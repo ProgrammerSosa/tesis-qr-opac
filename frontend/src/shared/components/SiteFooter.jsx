@@ -4,7 +4,7 @@ import MarcaBiblioteca from './MarcaBiblioteca';
 import { LIBRARY } from '../config/library';
 import { SERVICIOS } from '../config/navegacion';
 
-// Pie de página sencillo: quién es la biblioteca y los cuatro servicios. El panel del personal es otra parte del sistema y
+// Pie de página sencillo: quién es la biblioteca y sus servicios. El panel del personal es otra parte del sistema y
 // no se enlaza desde el sitio público.
 export default function SiteFooter() {
   return (

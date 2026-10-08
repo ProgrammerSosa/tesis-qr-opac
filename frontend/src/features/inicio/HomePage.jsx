@@ -14,8 +14,8 @@ const ATAJOS = [
   { to: '/catalogo?avanzada=1', etiqueta: 'Búsqueda avanzada' },
 ];
 
-// Pantalla inicial del sitio y del kiosco (propuesta, sección 4.5): «Servicios de la biblioteca» con sus cuatro opciones,
-// grandes y claras, más el buscador del catálogo.
+// Pantalla inicial del sitio y del kiosco (propuesta, sección 4.5): «Servicios de la biblioteca» con sus opciones, grandes y
+// claras (catálogo, reservas de espacios de estudio con los cubículos adentro, y solvencia), más el buscador del catálogo.
 export default function HomePage() {
   useTitulo(null);
 
@@ -58,7 +58,7 @@ export default function HomePage() {
           <h2 id="servicios-titulo" className="text-center font-display text-3xl font-semibold text-slate-900">
             ¿Qué quieres hacer?
           </h2>
-          <ul className="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+          <ul className="mt-8 grid gap-6 md:grid-cols-3">
             {SERVICIOS.map((s) => (
               <li key={s.clave}>
                 <ServiceCard to={s.to} icono={s.icono} titulo={s.titulo} accion={s.accion} acento={s.acento}>

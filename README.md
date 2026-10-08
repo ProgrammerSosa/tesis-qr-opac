@@ -4,7 +4,7 @@ Complemento digital de la biblioteca de la Facultad de Ciencias Jurídicas y Soc
 «Del anaquel cerrado al acceso inteligente»:
 
 - **Catálogo (OPAC)** de tesis, con ficha, documento digital (acceso y descarga, solo consulta o sin acceso) y código QR.
-- **Reserva de cubículos y de espacios de estudio** (estaciones y sala de lectura), con plano de la sala.
+- **Reserva de espacios de estudio** (cubículos, estaciones y sala de lectura), con plano de la sala.
 - **Solicitud de solvencia**.
 - **Comprobantes** en pantalla, impresos (ticket de 80 mm) y por correo.
 - **Kioscos táctiles** con cierre de sesión por inactividad y candado de pantalla.

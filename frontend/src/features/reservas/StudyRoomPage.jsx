@@ -27,7 +27,7 @@ export default function StudyRoomPage() {
   const { kiosco } = useKiosco();
   const [condiciones, setCondiciones] = useState(null);
   const [parametros] = useSearchParams();
-  // /sala-de-estudio?zona=cubiculos | estaciones | sala abre directo en ese tipo de lugar (las opciones del menú inicial).
+  // /sala-de-estudio?zona=cubiculos | estaciones | sala abre directo en ese tipo de lugar.
   const zonaDeLaUrl = parametros.get('zona');
   const [zona, setZona] = useState(() => (ZONAS.some((z) => z.key === zonaDeLaUrl) ? zonaDeLaUrl : ZONAS[0].key));
 
@@ -191,9 +191,9 @@ export default function StudyRoomPage() {
 
   return (
     <Page
-      crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Sala de estudio' }]}
-      title="Sala de estudio"
-      subtitle="Elige cubículos, estaciones o sala de lectura, selecciona fecha y hora, y toca un lugar libre en el plano para reservarlo."
+      crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Reservar espacio de estudio' }]}
+      title="Reservar espacio de estudio"
+      subtitle="Elige el tipo de lugar (cubículos, estaciones o sala de lectura), la fecha y la hora, y toca un lugar libre en el plano para reservarlo."
     >
       <div className="flex flex-col gap-6">
         <AlertBanner>{error}</AlertBanner>

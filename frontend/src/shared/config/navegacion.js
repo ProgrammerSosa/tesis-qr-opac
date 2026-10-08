@@ -1,6 +1,6 @@
-import { Armchair, BookOpen, DoorOpen, FileCheck2 } from 'lucide-react';
+import { Armchair, BookOpen, FileCheck2 } from 'lucide-react';
 
-// Los cuatro servicios del kiosco (propuesta, sección 4.5): OPAC, reservar cubículo, reservar espacio de estudio y
+// Los servicios del kiosco (propuesta, sección 4.5): el OPAC, la reserva de espacios de estudio (con los cubículos adentro) y el
 // formulario de solicitud de solvencia. Son las opciones de la pantalla inicial y del menú.
 export const SERVICIOS = [
   {
@@ -14,24 +14,14 @@ export const SERVICIOS = [
     resumen: 'Busca por autor, título, tema o tipo de documento. Consulta la ficha y, si existe, el documento digital.',
   },
   {
-    clave: 'cubiculo',
-    to: '/sala-de-estudio?zona=cubiculos',
-    titulo: 'Reservar cubículo',
-    tituloCorto: 'Cubículos',
-    icono: DoorOpen,
+    clave: 'reservas',
+    to: '/sala-de-estudio',
+    titulo: 'Reservar espacio de estudio',
+    tituloCorto: 'Reservas',
+    icono: Armchair,
     acento: 'red',
     accion: 'Reservar',
-    resumen: 'Elige el día, la hora y el cubículo para trabajar en grupo. Al terminar recibes tu comprobante.',
-  },
-  {
-    clave: 'espacio',
-    to: '/sala-de-estudio?zona=estaciones',
-    titulo: 'Reservar espacio de estudio',
-    tituloCorto: 'Espacios de estudio',
-    icono: Armchair,
-    acento: 'blue',
-    accion: 'Reservar',
-    resumen: 'Estaciones individuales y lugares de la sala de lectura, según la fecha y el horario que elijas.',
+    resumen: 'Cubículos para trabajar en grupo, estaciones individuales y lugares de la sala de lectura. Elige el día y la hora.',
   },
   {
     clave: 'solvencia',
@@ -45,7 +35,7 @@ export const SERVICIOS = [
   },
 ];
 
-// Menú principal del sitio. La reserva de cubículos y de espacios comparte pantalla (sala de estudio).
+// Menú principal del sitio.
 export const MENU = [
   { to: '/', etiqueta: 'Inicio', exacto: true },
   { to: '/catalogo', etiqueta: 'Catálogo' },
