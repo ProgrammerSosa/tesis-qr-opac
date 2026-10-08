@@ -86,6 +86,14 @@ otros sitios.
 En el panel, **Horarios y cierres** (solo el administrador): las horas en que se aceptan reservas por día de la semana y los días
 de cierre. Solo se ofrecen horas enteras que caben completas dentro de un tramo.
 
+### Reservas de cubículos por horas
+
+Los cubículos se reservan por horas enteras: la persona toca el cubículo en el plano y escribe de qué hora a qué hora lo necesita (por
+ejemplo, de 10:00 a 13:00). Si el cubículo ya está reservado en esas horas, la pantalla avisa («Este cubículo ya está reservado.
+Intenta con otro cubículo o cambia la hora») y no deja confirmar. La reserva debe ser de horas seguidas dentro del horario del día: no
+cruza la pausa del mediodía. En **Configuración** el administrador fija cuántas horas puede reservar una persona por vez y en total al
+día entre todos los cubículos (al empezar, 8 y 8). Las estaciones y las sillas de la sala se siguen reservando por una hora.
+
 ## Kioscos
 
 Cada kiosco abre el sitio con su número: `https://tu-servidor/?kiosco=1`, `?kiosco=2`... Con eso el sitio:
@@ -115,7 +123,7 @@ completo el equipo debe estar configurado como kiosco:
 
 | Rol | Qué puede hacer |
 | --- | --- |
-| Administrador | Todo: cuentas del personal, configuración (tolerancia y pausas), horarios y cierres, catálogo, actividad |
+| Administrador | Todo: cuentas del personal, configuración (tolerancia, horas de los cubículos y pausas), horarios y cierres, catálogo, actividad |
 | Personal de circulación | Reservas, solicitudes de solvencia y usuarios |
 | Personal de tesis | Catálogo, documentos digitales y códigos QR |
 | Consulta | Solo estadísticas |

@@ -1,4 +1,4 @@
-const { RECURSOS, REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
+const { RECURSOS, CONDICIONES } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
 const horarios = require('../horarios/horarios_data');
 const almacen = require('../../utils/almacen');
@@ -104,47 +104,50 @@ function disponibilidad(tipo, fecha) {
   });
 }
 
-// Reglas de los cubículos: cada tipo de reserva aplica a ciertos cubículos, tiene una duración
-// permitida y un máximo de horas al día por persona.
-function validarCubiculo({ recurso, fecha, modalidad, duracion, identificacion }) {
-  const regla = REGLAS_CUBICULO[modalidad];
-  if (!regla) {
-    throw rechazo('Elige el tipo de reserva del cubículo');
+// Cuántas horas dura una reserva de cubículo: se elige desde qué hora hasta qué hora (`horaFin`, una hora entera, p. ej. "13:00"),
+// o se indica la duración en horas (`duracion`). Sin ninguna de las dos es de una hora.
+function horasDeCubiculo({ hora, horaFin, duracion }) {
+  if (horaFin !== undefined && horaFin !== null && horaFin !== '') {
+    if (!/^([01]\d|2[0-3]):00$/.test(String(horaFin))) {
+      throw rechazo('La hora final debe ser una hora entera, por ejemplo 13:00');
+    }
+    const horas = Number(String(horaFin).slice(0, 2)) - Number(hora.slice(0, 2));
+    if (horas < 1) {
+      throw rechazo('La hora final debe ser posterior a la hora de inicio');
+    }
+    return horas;
   }
-  if (!recurso.modalidades.includes(modalidad)) {
-    throw rechazo(`El ${recurso.nombre} no está habilitado para ${regla.nombre.toLowerCase()}`);
-  }
-
+  if (duracion === undefined || duracion === null || duracion === '') return 1;
   const horas = Number(duracion);
-  if (!Number.isInteger(horas) || horas < regla.minHoras || horas > regla.maxHoras) {
-    const rango = regla.minHoras === regla.maxHoras ? `de ${regla.minHoras} horas` : `de ${regla.minHoras} a ${regla.maxHoras} horas`;
-    throw rechazo(`La reserva para ${regla.nombre.toLowerCase()} debe ser ${rango}`);
+  if (!Number.isInteger(horas) || horas < 1) {
+    throw rechazo('La duración de la reserva debe ser de al menos una hora');
+  }
+  return horas;
+}
+
+// Reglas de los cubículos: por horas enteras, hasta un máximo de horas por reserva y por persona al día (el administrador
+// los fija en la configuración).
+function validarCubiculo({ fecha, horas, identificacion }) {
+  const { maxHorasPorReserva, maxHorasPorDia } = configuracion.limitesDeCubiculo();
+  if (horas > maxHorasPorReserva) {
+    throw rechazo(`Un cubículo se reserva por ${maxHorasPorReserva} horas como máximo; elige una hora final más cercana`);
   }
 
   const yaReservadas = reservas
-    .filter(
-      (r) =>
-        r.tipo === 'cubiculo' &&
-        r.modalidad === modalidad &&
-        r.identificacion === identificacion &&
-        r.fecha === fecha &&
-        vigente(r)
-    )
+    .filter((r) => r.tipo === 'cubiculo' && r.identificacion === identificacion && r.fecha === fecha && vigente(r))
     .reduce((total, r) => total + r.duracion, 0);
-  if (yaReservadas + horas > regla.maxDiarias) {
+  if (yaReservadas + horas > maxHorasPorDia) {
     throw rechazo(
-      `Superarías el máximo de ${regla.maxDiarias} horas diarias para ${regla.nombre.toLowerCase()} (ya tienes ${yaReservadas})`
+      `Superarías el máximo de ${maxHorasPorDia} horas de cubículo al día por persona (ya tienes ${yaReservadas}). Elige menos horas u otro día.`
     );
   }
-
-  return { regla, horas };
 }
 
 function kioscoValido(kiosco) {
   return typeof kiosco === 'string' && /^[0-9A-Za-z_-]{1,10}$/.test(kiosco) ? kiosco : null;
 }
 
-function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacion, correo, kiosco, modalidad, duracion }) {
+function crearReserva({ tipo, recursoId, fecha, hora, horaFin, solicitante, identificacion, correo, kiosco, duracion }) {
   liberarVencidas();
   if (configuracion.reservasPausadas(tipo)) {
     throw rechazo(configuracion.mensajeDePausa(tipo), 503);
@@ -185,21 +188,27 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
     throw rechazo('El correo no es válido');
   }
 
-  let horas = 1;
-  let regla = null;
-  if (tipo === 'cubiculo') {
-    ({ regla, horas } = validarCubiculo({ recurso, fecha, modalidad, duracion, identificacion: documento }));
+  // Los cubículos se reservan por horas (de la hora de inicio a la hora final); estaciones y sillas, una hora.
+  const esCubiculo = tipo === 'cubiculo';
+  const horas = esCubiculo ? horasDeCubiculo({ hora, horaFin, duracion }) : 1;
+  if (esCubiculo) {
+    validarCubiculo({ fecha, horas, identificacion: documento });
   }
 
   const cubiertas = franjasCubiertas(fecha, hora, horas);
   if (cubiertas.length < horas) {
-    throw rechazo('El horario elegido no alcanza para esa duración: la reserva debe quedar dentro del horario de ese día');
+    throw rechazo('Ese horario no cabe en el horario de reservas de ese día: la reserva debe quedar dentro de las horas que se ofrecen (sin cruzar la pausa del mediodía)');
   }
   const ocupadas = horasOcupadas(tipo, recursoId, fecha);
   if (cubiertas.some((franja) => ocupadas.includes(franja))) {
-    throw rechazo('Ese horario ya fue reservado, elige otro', 409);
+    throw rechazo(
+      esCubiculo
+        ? 'Este cubículo ya está reservado en ese horario. Intenta con otro cubículo o cambia la hora.'
+        : 'Ese lugar ya está reservado a esa hora. Intenta con otro lugar o cambia la hora.',
+      409
+    );
   }
-  if (regla && cubiertas.some((franja) => horasDePersona(documento, fecha).includes(franja))) {
+  if (esCubiculo && cubiertas.some((franja) => horasDePersona(documento, fecha).includes(franja))) {
     throw rechazo('Ya tienes otro cubículo reservado en ese horario');
   }
 
@@ -212,7 +221,6 @@ function crearReserva({ tipo, recursoId, fecha, hora, solicitante, identificacio
     hora,
     horaFin: horaFinal(cubiertas),
     duracion: horas,
-    ...(regla ? { modalidad, modalidadNombre: regla.nombre } : {}),
     solicitante,
     identificacion: documento,
     ...(correoLimpio ? { correo: correoLimpio } : {}),

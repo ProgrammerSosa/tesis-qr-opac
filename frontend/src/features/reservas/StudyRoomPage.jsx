@@ -13,10 +13,10 @@ import Page from '../../shared/components/Page';
 import { Input } from '../../shared/components/FormField';
 import { fechaLarga, hoyISO, minutosDelDia, sumarDias, textoDeTramos } from '../../shared/utils/fechas';
 import { correoValido } from '../../shared/utils/validaciones';
-import CubiculoOpciones from './CubiculoOpciones';
+import RangoDeHoras from './RangoDeHoras';
 import StudyRoomMap from './StudyRoomMap';
 import { ZONAS } from './studyRoomLayout';
-import { sumarHoras, ventanaDesde } from './reglasCubiculo';
+import { horasFinalesPosibles, sumarHoras, textoDeHoras, tramosOcupados } from './rangosDeHoras';
 
 const TIPOS = ZONAS.map((z) => z.tipo);
 
@@ -36,16 +36,14 @@ export default function StudyRoomPage() {
     if (ZONAS.some((z) => z.key === zonaDeLaUrl)) setZona(zonaDeLaUrl);
   }, [zonaDeLaUrl]);
   const [fecha, setFecha] = useState(hoyISO());
-  const [hora, setHora] = useState('');
+  const [hora, setHora] = useState(''); // la hora de estaciones y sala de lectura (una hora); en los cubículos la persona elige `rango`
   const [porTipo, setPorTipo] = useState({});
   const [diaInfo, setDiaInfo] = useState(null);
-  const [reglas, setReglas] = useState(null);
-  const [modalidad, setModalidad] = useState('fases');
-  const [horasFases, setHorasFases] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
   const [seleccion, setSeleccion] = useState(null); // { recursoId, nombre, tipo }
+  const [rango, setRango] = useState({ inicio: '', fin: '' }); // solo cubículos: de qué hora a qué hora
   const [nombre, setNombre] = useState('');
   const [documento, setDocumento] = useState('');
   const [correo, setCorreo] = useState('');
@@ -57,6 +55,8 @@ export default function StudyRoomPage() {
   const hoy = hoyISO();
   const diasMaximos = condiciones?.diasMaximosDeAnticipacion ?? 30;
   const tolerancia = condiciones?.toleranciaMinutos ?? 15;
+  const maxHorasPorReserva = condiciones?.cubiculo?.maxHorasPorReserva ?? 8;
+  const maxHorasPorDia = condiciones?.cubiculo?.maxHorasPorDia ?? 8;
 
   const cargarDisponibilidad = useCallback(async () => {
     setCargando(true);
@@ -79,12 +79,8 @@ export default function StudyRoomPage() {
     cargarDisponibilidad();
   }, [cargarDisponibilidad]);
 
+  // Las condiciones generales son informativas: si no llegan, la pantalla funciona igual con valores por defecto.
   useEffect(() => {
-    reservasApi
-      .reglas()
-      .then((res) => setReglas(res.data.data))
-      .catch((err) => setError(getErrorMessage(err, 'No se pudieron cargar las reglas de los cubículos')));
-    // Las condiciones generales son informativas: si no llegan, la pantalla funciona igual con valores por defecto.
     reservasApi
       .condiciones()
       .then((res) => setCondiciones(res.data.data))
@@ -93,14 +89,8 @@ export default function StudyRoomPage() {
 
   // Las horas en las que se puede reservar ese día (pueden tener huecos, como la pausa del mediodía).
   const horas = useMemo(() => (porTipo[TIPOS[0]]?.[0]?.franjas ?? []).map((f) => f.hora), [porTipo]);
-
-  // Duración de la reserva de cubículo según el tipo elegido: fija o dentro del rango permitido.
-  const reglaActual = reglas?.[modalidad] ?? null;
-  const duracionCubiculo = reglaActual
-    ? Math.min(Math.max(horasFases ?? reglaActual.minHoras, reglaActual.minHoras), reglaActual.maxHoras)
-    : 1;
+  const cubiculos = useMemo(() => porTipo.cubiculo ?? [], [porTipo]);
   const esCubiculos = zona === 'cubiculos';
-  const duracionActiva = esCubiculos ? duracionCubiculo : 1;
 
   // La biblioteca puede pausar las reservas de un tipo de lugar (se configura en el panel del personal).
   const estaPausada = (z) => Boolean(condiciones?.pausadas?.includes(z.tipo));
@@ -109,53 +99,101 @@ export default function StudyRoomPage() {
   const diaCerrado = Boolean(diaInfo?.cerrado);
 
   // Una hora ya no se puede reservar cuando pasó su tiempo de tolerancia (después de eso la reserva se liberaría sola).
-  function horaPasada(h) {
-    return fecha === hoy && minutosDelDia() >= Number(h.slice(0, 2)) * 60 + tolerancia;
-  }
+  const horaPasada = useCallback((h) => fecha === hoy && minutosDelDia() >= Number(h.slice(0, 2)) * 60 + tolerancia, [fecha, hoy, tolerancia]);
 
-  function horaValida(h) {
-    return !horaPasada(h) && ventanaDesde(horas, h, duracionActiva).length === duracionActiva;
-  }
+  // Cómo está una hora de un lugar: libre, ocupada (ya reservada) o pasada (ya no se puede reservar).
+  const estadoDeHora = useCallback(
+    (recurso, h) => {
+      if (!recurso.franjas.find((f) => f.hora === h)?.disponible) return 'ocupada';
+      return horaPasada(h) ? 'pasada' : 'libre';
+    },
+    [horaPasada]
+  );
 
-  // Si la hora elegida ya pasó, o la reserva ya no cabe en el horario, se pasa a la primera hora posible.
+  // Si la hora elegida ya pasó, se pasa a la primera hora posible (estaciones y sala de lectura).
   useEffect(() => {
     if (horas.length === 0) {
       if (hora) setHora('');
       return;
     }
-    if (!hora || !horaValida(hora)) {
-      setHora(horas.find(horaValida) ?? '');
+    if (!hora || !horas.includes(hora) || horaPasada(hora)) {
+      setHora(horas.find((h) => !horaPasada(h)) ?? '');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [horas, fecha, duracionActiva]);
+  }, [horas, hora, horaPasada]);
 
-  // Estado de cada lugar para la hora y la duración elegidas, por identificador.
+  // Estado de cada lugar, por identificador. Estaciones y sala: libres a la hora elegida. Cubículos: libres si les queda alguna hora ese día
+  // (las horas se eligen al reservar y allí se avisa si ya están reservadas).
   const estados = useMemo(() => {
     const mapa = {};
     Object.entries(porTipo).forEach(([tipo, recursos]) => {
-      const duracion = tipo === 'cubiculo' ? duracionCubiculo : 1;
-      const ventana = hora ? ventanaDesde(horas, hora, duracion) : [];
-      const cabe = ventana.length === duracion;
       recursos.forEach((recurso) => {
-        const aplica = tipo !== 'cubiculo' || (recurso.modalidades ?? []).includes(modalidad);
-        const libre = aplica && cabe && ventana.every((h) => recurso.franjas.find((f) => f.hora === h)?.disponible);
-        mapa[recurso.id] = { nombre: recurso.nombre, capacidad: recurso.capacidad, aplica, libre: Boolean(libre) };
+        const libre =
+          tipo === 'cubiculo'
+            ? horas.some((h) => estadoDeHora(recurso, h) === 'libre')
+            : Boolean(hora) && horas.includes(hora) && recurso.franjas.find((f) => f.hora === hora)?.disponible;
+        mapa[recurso.id] = {
+          nombre: recurso.nombre,
+          capacidad: recurso.capacidad,
+          libre: Boolean(libre),
+          ...(tipo === 'cubiculo' ? { resumen: libre ? 'Con horas libres' : 'Sin horas libres' } : {}),
+        };
       });
     });
     return mapa;
-  }, [porTipo, hora, horas, modalidad, duracionCubiculo]);
+  }, [porTipo, hora, horas, estadoDeHora]);
 
   function resumenZona(z) {
-    const recursos = (porTipo[z.tipo] ?? []).filter((r) => estados[r.id]?.aplica);
-    return { libres: recursos.filter((r) => estados[r.id].libre).length, total: recursos.length };
+    const recursos = porTipo[z.tipo] ?? [];
+    return { libres: recursos.filter((r) => estados[r.id]?.libre).length, total: recursos.length };
   }
 
-  const ventanaActiva = hora ? ventanaDesde(horas, hora, duracionActiva) : [];
-  const horaFin = ventanaActiva.length === duracionActiva ? sumarHoras(ventanaActiva[ventanaActiva.length - 1], 1) : '';
+  const horaFin = hora && horas.includes(hora) ? sumarHoras(hora, 1) : '';
+
+  // Con qué horas se abre la reserva de un cubículo: la primera hora libre; si ya no le queda ninguna, la primera que no ha pasado
+  // (y allí se le avisa a la persona que está reservado).
+  const rangoInicial = useCallback(
+    (recurso) => {
+      const inicio = horas.find((h) => estadoDeHora(recurso, h) === 'libre') ?? horas.find((h) => !horaPasada(h));
+      return inicio ? { inicio, fin: sumarHoras(inicio, 1) } : { inicio: '', fin: '' };
+    },
+    [horas, estadoDeHora, horaPasada]
+  );
+
+  const esReservaCubiculo = seleccion?.tipo === 'cubiculo';
+  const cubiculoElegido = esReservaCubiculo ? cubiculos.find((r) => r.id === seleccion.recursoId) : null;
+  const ocupadaElegido = useCallback((h) => (cubiculoElegido ? estadoDeHora(cubiculoElegido, h) === 'ocupada' : false), [cubiculoElegido, estadoDeHora]);
+  const iniciosPosibles = horas.filter((h) => !horaPasada(h));
+  const finalesPosibles = rango.inicio ? horasFinalesPosibles(horas, rango.inicio, maxHorasPorReserva) : [];
+  const rangoEnLista = iniciosPosibles.includes(rango.inicio) && finalesPosibles.includes(rango.fin);
+  // Las horas elegidas que ya están reservadas en ese cubículo: si hay alguna, no se puede confirmar.
+  const choques = rangoEnLista ? tramosOcupados(horas, ocupadaElegido, rango.inicio, rango.fin) : [];
+  const todoElDiaReservado = iniciosPosibles.length > 0 && iniciosPosibles.every(ocupadaElegido);
+  const rangoValido = rangoEnLista && choques.length === 0;
+
+  // Si mientras la reserva está abierta cambian las horas (pasó una hora, o se recargó la disponibilidad), se corrigen las horas
+  // elegidas; si ya no queda ninguna hora en el día, se cierra la reserva y se avisa.
+  useEffect(() => {
+    if (!cubiculoElegido || rangoEnLista) return;
+    const nuevo = rangoInicial(cubiculoElegido);
+    if (nuevo.inicio) {
+      setRango(nuevo);
+    } else {
+      setSeleccion(null);
+      setError('Ya no quedan horas para reservar ese día. Elige otra fecha.');
+    }
+  }, [cubiculoElegido, rangoEnLista, rangoInicial]);
 
   function elegirLugar(recursoId) {
     const tipo = ZONAS.find((z) => z.key === zona).tipo;
     setErrorReserva('');
+    if (tipo === 'cubiculo') {
+      const inicial = rangoInicial(cubiculos.find((r) => r.id === recursoId));
+      if (!inicial.inicio) {
+        setError('Ya no quedan horas para reservar ese día. Elige otra fecha.');
+        return;
+      }
+      setRango(inicial);
+    }
     setSeleccion({ recursoId, nombre: estados[recursoId].nombre, tipo });
   }
 
@@ -167,10 +205,16 @@ export default function StudyRoomPage() {
     }
     setReservando(true);
     setErrorReserva('');
-    const datos = { recursoId: seleccion.recursoId, fecha, hora, solicitante: nombre, identificacion: documento, correo, kiosco };
-    if (seleccion.tipo === 'cubiculo') {
-      Object.assign(datos, { modalidad, duracion: duracionCubiculo });
-    }
+    const datos = {
+      recursoId: seleccion.recursoId,
+      fecha,
+      hora: esReservaCubiculo ? rango.inicio : hora,
+      solicitante: nombre,
+      identificacion: documento,
+      correo,
+      kiosco,
+    };
+    if (esReservaCubiculo) datos.horaFin = rango.fin;
     try {
       const res = await reservasApi.reservar(seleccion.tipo, datos);
       setComprobante(res.data.data);
@@ -187,13 +231,21 @@ export default function StudyRoomPage() {
     }
   }
 
-  const esReservaCubiculo = seleccion?.tipo === 'cubiculo';
+  const lineaDeHorario =
+    diaInfo?.ventanasDeReserva?.length > 0 ? (
+      <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
+        <Clock size={13} aria-hidden="true" />
+        Horario de reservas de ese día: {textoDeTramos(diaInfo.ventanasDeReserva)}
+      </p>
+    ) : null;
+
+  const planConEstados = (esCubiculos || horaFin) && !zonaPausada && !diaCerrado;
 
   return (
     <Page
       crumbs={[{ etiqueta: 'Inicio', to: '/' }, { etiqueta: 'Reservar espacio de estudio' }]}
       title="Reservar espacio de estudio"
-      subtitle="Elige el tipo de lugar (cubículos, estaciones o sala de lectura), la fecha y la hora, y toca un lugar libre en el plano para reservarlo."
+      subtitle="Elige el tipo de lugar (cubículos, estaciones o sala de lectura), la fecha y toca un lugar en el plano. En los cubículos escribes de qué hora a qué hora; en estaciones y sala de lectura se reserva una hora."
     >
       <div className="flex flex-col gap-6">
         <AlertBanner>{error}</AlertBanner>
@@ -214,6 +266,7 @@ export default function StudyRoomPage() {
           {ZONAS.map((z) => {
             const { libres, total } = resumenZona(z);
             const activa = zona === z.key;
+            const esZonaDeCubiculos = z.tipo === 'cubiculo';
             return (
               <button
                 key={z.key}
@@ -236,9 +289,9 @@ export default function StudyRoomPage() {
                   <span className="mt-0.5 block text-sm text-slate-600">{z.descripcion}</span>
                   {estaPausada(z) ? (
                     <span className="mt-2 block text-sm font-semibold text-amber-700">Pausado temporalmente</span>
-                  ) : total > 0 && hora && !diaCerrado ? (
+                  ) : total > 0 && (esZonaDeCubiculos || hora) && !diaCerrado ? (
                     <span className={`mt-2 block text-sm font-bold ${libres === 0 ? 'text-action' : 'text-primary'}`}>
-                      {libres} libres de {total}
+                      {esZonaDeCubiculos ? `${libres} con horas libres de ${total}` : `${libres} libres de ${total}`}
                     </span>
                   ) : null}
                 </span>
@@ -258,7 +311,10 @@ export default function StudyRoomPage() {
           <div>
             <p className="font-bold text-slate-900">Condiciones de uso</p>
             <ul className="mt-1.5 grid list-disc gap-x-8 gap-y-1 pl-5 md:grid-cols-2">
-              <li>Cubículos: la duración depende del tipo de reserva (más abajo). Estaciones y sillas de la sala: 1 hora.</li>
+              <li>
+                Cubículos: escribes de qué hora a qué hora, hasta {textoDeHoras(maxHorasPorReserva)} por reserva y {textoDeHoras(maxHorasPorDia)} al día
+                por persona. Estaciones y sillas de la sala: 1 hora.
+              </li>
               <li>Para reservar necesitas tu carné, tu correo institucional o tu documento.</li>
               <li>
                 Si no te presentas dentro de {tolerancia} minutos del inicio, la reserva se libera y el lugar queda disponible para otra persona.
@@ -282,7 +338,7 @@ export default function StudyRoomPage() {
               />
             </div>
             <div className="flex-1">
-              <p className="mb-1 text-[13px] font-semibold text-slate-500">Hora de inicio</p>
+              <p className="mb-1 text-[13px] font-semibold text-slate-500">{esCubiculos ? 'Horas' : 'Hora de inicio'}</p>
               {diaCerrado ? (
                 <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
                   <CalendarX size={18} aria-hidden="true" />
@@ -292,24 +348,31 @@ export default function StudyRoomPage() {
                 <p className="rounded-lg bg-surface px-4 py-3 text-sm text-slate-600">
                   {cargando ? 'Cargando los horarios...' : 'No hay horario de reservas ese día. Elige otra fecha.'}
                 </p>
+              ) : esCubiculos ? (
+                <>
+                  <p className="rounded-lg bg-surface px-4 py-3 text-sm leading-relaxed text-slate-700">
+                    Toca un cubículo en el plano y escribe <b>de qué hora a qué hora</b> lo necesitas. Si ya está reservado, te avisamos para que elijas
+                    otro cubículo o cambies la hora.
+                  </p>
+                  {lineaDeHorario}
+                </>
               ) : (
                 <>
                   <div className="flex flex-wrap gap-2">
                     {horas.map((h) => {
                       const pasada = horaPasada(h);
-                      const bloqueada = !horaValida(h);
                       return (
                         <button
                           key={h}
                           type="button"
-                          disabled={bloqueada}
-                          title={pasada ? 'Esa hora ya pasó' : bloqueada ? 'La reserva no cabe en el horario desde esta hora' : undefined}
+                          disabled={pasada}
+                          title={pasada ? 'Esa hora ya pasó' : undefined}
                           aria-pressed={hora === h}
                           onClick={() => setHora(h)}
                           className={`min-h-11 rounded-lg px-4 py-2 font-mono text-sm transition-colors ${
                             hora === h
                               ? 'bg-primary font-semibold text-white shadow-sm'
-                              : bloqueada
+                              : pasada
                                 ? 'cursor-not-allowed bg-slate-100 text-slate-300 line-through'
                                 : 'border border-border bg-white text-slate-700 hover:border-primary hover:text-primary'
                           }`}
@@ -319,12 +382,7 @@ export default function StudyRoomPage() {
                       );
                     })}
                   </div>
-                  {diaInfo?.ventanasDeReserva?.length > 0 ? (
-                    <p className="mt-2 flex items-center gap-1.5 text-xs text-slate-500">
-                      <Clock size={13} aria-hidden="true" />
-                      Horario de reservas de ese día: {textoDeTramos(diaInfo.ventanasDeReserva)}
-                    </p>
-                  ) : null}
+                  {lineaDeHorario}
                 </>
               )}
             </div>
@@ -334,20 +392,6 @@ export default function StudyRoomPage() {
             <Nota tono="aviso" titulo="Cerrado ese día">
               {diaInfo.motivo ? `${diaInfo.motivo}. ` : ''}No hay atención ni reservas el {fechaLarga(fecha)}. Elige otra fecha.
             </Nota>
-          ) : null}
-
-          {esCubiculos && !diaCerrado ? (
-            reglas ? (
-              <CubiculoOpciones
-                reglas={reglas}
-                modalidad={modalidad}
-                onModalidad={setModalidad}
-                duracion={duracionCubiculo}
-                onDuracion={setHorasFases}
-              />
-            ) : (
-              <p className="border-t border-border pt-4 text-sm text-slate-500">Cargando las reglas de los cubículos...</p>
-            )
           ) : null}
         </div>
 
@@ -359,22 +403,18 @@ export default function StudyRoomPage() {
             </span>
             <span className="flex items-center gap-2">
               <span className="h-3.5 w-3.5 rounded-full bg-action" />
-              Ocupado
+              {esCubiculos ? 'Sin horas libres' : 'Ocupado'}
             </span>
-            {esCubiculos ? (
-              <span className="flex items-center gap-2">
-                <span className="h-3.5 w-3.5 rounded-full bg-slate-400" />
-                No aplica a este tipo de reserva
-              </span>
-            ) : null}
             <span className="text-slate-500">
               {diaCerrado
                 ? 'La biblioteca está cerrada ese día.'
                 : zonaPausada
                   ? 'Las reservas de este tipo de lugar están pausadas.'
-                  : horaFin
-                    ? `Disponibilidad de ${hora} a ${horaFin} del ${fecha}${duracionActiva > 1 ? ` (${duracionActiva} horas)` : ''}.`
-                    : 'No hay un horario posible ese día con esa duración: elige otra fecha u otra hora.'}
+                  : esCubiculos
+                    ? 'Toca un cubículo para elegir de qué hora a qué hora.'
+                    : horaFin
+                      ? `Disponibilidad de ${hora} a ${horaFin} del ${fecha}.`
+                      : 'No hay una hora posible ese día: elige otra fecha.'}
             </span>
             {cargando ? <Loader2 className="animate-spin text-slate-400" size={16} aria-label="Cargando" /> : null}
           </div>
@@ -384,7 +424,7 @@ export default function StudyRoomPage() {
               <StudyRoomMap
                 zona={zona}
                 onZona={setZona}
-                estados={horaFin && !zonaPausada && !diaCerrado ? estados : {}}
+                estados={planConEstados ? estados : {}}
                 seleccionId={seleccion?.recursoId}
                 onSeleccionar={elegirLugar}
               />
@@ -402,7 +442,12 @@ export default function StudyRoomPage() {
             <Button variant="secondary" onClick={() => setSeleccion(null)}>
               Cancelar
             </Button>
-            <Button variant="primary" form="form-reserva" type="submit" disabled={reservando || !nombre.trim() || !documento.trim()}>
+            <Button
+              variant="primary"
+              form="form-reserva"
+              type="submit"
+              disabled={reservando || !nombre.trim() || !documento.trim() || (esReservaCubiculo && !rangoValido)}
+            >
               {reservando ? 'Reservando...' : 'Confirmar'}
             </Button>
           </>
@@ -411,18 +456,43 @@ export default function StudyRoomPage() {
         {seleccion ? (
           <form id="form-reserva" onSubmit={confirmarReserva} className="campos-grandes flex flex-col gap-3">
             <div className="rounded-lg bg-surface px-4 py-3 text-sm text-slate-600">
-              <p className="font-bold text-slate-900">{seleccion.nombre}</p>
-              <p>
-                {fechaLarga(fecha)} · <span className="font-mono">{hora}</span> a <span className="font-mono">{horaFin}</span>
-                {duracionActiva > 1 ? ` (${duracionActiva} horas)` : ''}
+              <p className="font-bold text-slate-900">
+                {seleccion.nombre}
+                {esReservaCubiculo && cubiculoElegido?.capacidad ? <span className="font-normal text-slate-500"> · hasta {cubiculoElegido.capacidad} personas</span> : null}
               </p>
-              {esReservaCubiculo && reglaActual ? <p>{reglaActual.nombre}</p> : null}
+              <p>
+                {fechaLarga(fecha)}
+                {!esReservaCubiculo ? (
+                  <>
+                    {' '}
+                    · <span className="font-mono">{hora}</span> a <span className="font-mono">{horaFin}</span>
+                  </>
+                ) : null}
+              </p>
             </div>
-            <AlertBanner>{errorReserva}</AlertBanner>
+
+            {esReservaCubiculo ? (
+              <div className="flex flex-col gap-2 border-b border-border pb-4">
+                <p className="text-sm font-bold text-slate-900">¿De qué hora a qué hora?</p>
+                <RangoDeHoras
+                  horas={horas}
+                  pasada={horaPasada}
+                  inicio={rango.inicio}
+                  fin={rango.fin}
+                  maxHoras={maxHorasPorReserva}
+                  choques={choques}
+                  todoElDiaReservado={todoElDiaReservado}
+                  onCambiar={setRango}
+                />
+              </div>
+            ) : null}
+
+            {/* Si el aviso de «ya está reservado» ya se ve junto a las horas, no se repite el mismo mensaje del servidor. */}
+            {esReservaCubiculo && (choques.length > 0 || todoElDiaReservado) ? null : <AlertBanner>{errorReserva}</AlertBanner>}
             <Input
               label="Nombre de quien reserva"
               required
-              autoFocus
+              autoFocus={!esReservaCubiculo}
               autoComplete="name"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}

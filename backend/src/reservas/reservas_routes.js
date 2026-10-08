@@ -1,7 +1,6 @@
 const express = require('express');
 const {
   getDisponibilidad,
-  getReglas,
   getCondiciones,
   postReserva,
   getReservas,
@@ -18,7 +17,6 @@ const router = express.Router();
 const personal = [autenticar, requiereRol('administrador', 'circulacion')];
 
 // Públicas: las usa cualquier persona desde el kiosco o desde su celular.
-router.get('/reglas', getReglas);
 router.get('/condiciones', getCondiciones);
 router.get('/:tipo/disponibilidad', getDisponibilidad);
 router.post('/:tipo', postReserva);

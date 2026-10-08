@@ -5,28 +5,25 @@ const ESTACIONES = 30; // puestos individuales, cada uno con una sola silla
 const MESAS_SALA = 5;
 const SILLAS_POR_MESA = 6;
 
-// Reglas de reserva de cubículos. `cubiculos` son los números de cubículo habilitados para cada tipo.
-// `maxDiarias` es el tope de horas por persona al día dentro de ese tipo de reserva.
-const REGLAS_CUBICULO = {
-  fases: { nombre: 'Preparación de fases', cubiculos: [1, 2, 3, 4], minHoras: 4, maxHoras: 8, maxDiarias: 8 },
-  regular: { nombre: 'Estudio regular', cubiculos: [5, 6], minHoras: 2, maxHoras: 2, maxDiarias: 4 },
-};
-
 // Condiciones generales de uso (propuesta, sección 4.5.2): si quien reserva no se presenta dentro de la
 // tolerancia, la reserva se libera y el lugar vuelve a estar disponible. Las estaciones y las sillas
 // de la sala se reservan por una hora. `diasMaximosDeAnticipacion` es hasta cuántos días adelante se puede reservar.
-const CONDICIONES = { toleranciaMinutos: 15, duracionEspaciosHoras: 1, diasMaximosDeAnticipacion: 30 };
-
-function modalidadesDelCubiculo(numero) {
-  return Object.keys(REGLAS_CUBICULO).filter((clave) => REGLAS_CUBICULO[clave].cubiculos.includes(numero));
-}
+// Los cubículos se reservan por horas enteras, eligiendo desde qué hora hasta qué hora (como mínimo una hora): para que una
+// persona no se quede con todos, hay un tope de horas por reserva y otro por persona al día. Son los valores con los que arranca el
+// sistema; el administrador los cambia en la configuración.
+const CONDICIONES = {
+  toleranciaMinutos: 15,
+  duracionEspaciosHoras: 1,
+  diasMaximosDeAnticipacion: 30,
+  cubiculoMaxHorasPorReserva: 8,
+  cubiculoMaxHorasPorDia: 8,
+};
 
 const RECURSOS = {
   cubiculo: Array.from({ length: CUBICULOS }, (_, i) => ({
     id: `cub-${i + 1}`,
     nombre: `Cubículo ${i + 1}`,
     capacidad: 5,
-    modalidades: modalidadesDelCubiculo(i + 1),
   })),
   estacion: Array.from({ length: ESTACIONES }, (_, i) => ({
     id: `est-${i + 1}`,
@@ -43,4 +40,4 @@ const RECURSOS = {
 // Las horas en las que se puede reservar dependen del día de la semana y de los cierres: las define el administrador
 // en los horarios (ver horarios/horarios_data.js).
 
-module.exports = { RECURSOS, REGLAS_CUBICULO, CONDICIONES };
+module.exports = { RECURSOS, CONDICIONES };

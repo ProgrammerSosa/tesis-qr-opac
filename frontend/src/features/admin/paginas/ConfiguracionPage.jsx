@@ -9,7 +9,7 @@ import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
 
 const SERVICIOS = [
-  { tipo: 'cubiculo', nombre: 'Cubículos', detalle: 'Reservas para preparar fases o estudiar en grupo.' },
+  { tipo: 'cubiculo', nombre: 'Cubículos', detalle: 'Reservas por horas para estudiar o trabajar en grupo.' },
   { tipo: 'estacion', nombre: 'Estaciones', detalle: 'Puestos individuales con una sola silla.' },
   { tipo: 'sala_lectura', nombre: 'Sala de lectura', detalle: 'Mesas compartidas de seis sillas.' },
 ];
@@ -19,6 +19,8 @@ const SERVICIOS = [
 export default function ConfiguracionPage() {
   const [guardada, setGuardada] = useState(null); // lo que tiene el servidor
   const [tolerancia, setTolerancia] = useState('');
+  const [horasPorReserva, setHorasPorReserva] = useState('');
+  const [horasPorDia, setHorasPorDia] = useState('');
   const [pausadas, setPausadas] = useState({});
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -28,6 +30,8 @@ export default function ConfiguracionPage() {
   function cargarEnFormulario(configuracion) {
     setGuardada(configuracion);
     setTolerancia(String(configuracion.toleranciaMinutos));
+    setHorasPorReserva(String(configuracion.cubiculoMaxHorasPorReserva));
+    setHorasPorDia(String(configuracion.cubiculoMaxHorasPorDia));
     setPausadas(configuracion.reservasPausadas);
   }
 
@@ -52,9 +56,12 @@ export default function ConfiguracionPage() {
     return <AlertBanner>{error || 'No se pudo cargar la configuración'}</AlertBanner>;
   }
 
-  const { toleranciaMinima, toleranciaMaxima } = guardada.limites;
+  const { toleranciaMinima, toleranciaMaxima, horasMaximasDeCubiculo } = guardada.limites;
   const hayCambios =
-    Number(tolerancia) !== guardada.toleranciaMinutos || SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]);
+    Number(tolerancia) !== guardada.toleranciaMinutos ||
+    Number(horasPorReserva) !== guardada.cubiculoMaxHorasPorReserva ||
+    Number(horasPorDia) !== guardada.cubiculoMaxHorasPorDia ||
+    SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]);
 
   async function guardar(e) {
     e.preventDefault();
@@ -63,11 +70,27 @@ export default function ConfiguracionPage() {
       setError(`La tolerancia debe ser un número entero de ${toleranciaMinima} a ${toleranciaMaxima} minutos.`);
       return;
     }
+    const porReserva = Number(horasPorReserva);
+    const porDia = Number(horasPorDia);
+    const horasValidas = (n) => Number.isInteger(n) && n >= 1 && n <= horasMaximasDeCubiculo;
+    if (!horasValidas(porReserva) || !horasValidas(porDia)) {
+      setError(`Las horas de los cubículos deben ser números enteros de 1 a ${horasMaximasDeCubiculo}.`);
+      return;
+    }
+    if (porDia < porReserva) {
+      setError('El máximo por persona al día no puede ser menor que el máximo por reserva.');
+      return;
+    }
     setGuardando(true);
     setError('');
     setAviso('');
     try {
-      const res = await adminApi.guardarConfiguracion({ toleranciaMinutos: minutos, reservasPausadas: pausadas });
+      const res = await adminApi.guardarConfiguracion({
+        toleranciaMinutos: minutos,
+        cubiculoMaxHorasPorReserva: porReserva,
+        cubiculoMaxHorasPorDia: porDia,
+        reservasPausadas: pausadas,
+      });
       cargarEnFormulario(res.data.data);
       setAviso('Configuración guardada. Ya rige en los kioscos y en la web.');
     } catch (err) {
@@ -106,6 +129,44 @@ export default function ConfiguracionPage() {
             />
             minutos (de {toleranciaMinima} a {toleranciaMaxima})
           </label>
+        </section>
+
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">
+          <h2 className="text-base font-bold text-slate-900">Horas de los cubículos</h2>
+          <p className="text-sm text-slate-600">
+            Los cubículos se reservan por horas enteras, eligiendo de qué hora a qué hora. Para que una persona no se quede con todos,
+            fija cuántas horas seguidas puede reservar y cuántas en total al día entre todos los cubículos.
+          </p>
+          <div className="flex flex-col gap-3 text-sm text-slate-700 sm:flex-row sm:gap-8">
+            <label className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={horasMaximasDeCubiculo}
+                step={1}
+                required
+                value={horasPorReserva}
+                onChange={(e) => setHorasPorReserva(e.target.value)}
+                aria-label="Máximo de horas por reserva de cubículo"
+                className="w-20 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              horas como máximo por reserva
+            </label>
+            <label className="flex items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={horasMaximasDeCubiculo}
+                step={1}
+                required
+                value={horasPorDia}
+                onChange={(e) => setHorasPorDia(e.target.value)}
+                aria-label="Máximo de horas de cubículo por persona al día"
+                className="w-20 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
+              horas como máximo por persona al día
+            </label>
+          </div>
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">

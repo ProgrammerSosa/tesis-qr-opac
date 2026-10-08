@@ -142,15 +142,15 @@ function Silla({ id, cx, cy, giro, estado, interactivo, seleccionada, onSeleccio
 function Cubiculo({ datos, estado, interactivo, seleccionado, onSeleccionar }) {
   const { id, caja, mesa, sillas, nombre: posNombre, puerta } = datos;
   const cargado = Boolean(estado);
-  const noAplica = interactivo && cargado && estado.aplica === false;
-  const libre = interactivo && cargado && !noAplica && estado.libre;
+  const libre = interactivo && cargado && estado.libre;
+  // Un cubículo se puede tocar aunque no le queden horas: la reserva avisa que ya está reservado para que elija otro o cambie la hora.
+  const elegible = interactivo && cargado;
   const nombre = estado?.nombre ?? id;
-  const resumen = !interactivo || !cargado ? '' : noAplica ? 'No aplica' : libre ? 'Libre' : 'Ocupado';
-  const tonoSillas = !interactivo || noAplica ? 'neutra' : !cargado ? 'cargando' : libre ? 'libre' : 'ocupado';
+  const resumen = !interactivo || !cargado ? '' : (estado.resumen ?? (libre ? 'Libre' : 'Ocupado'));
+  const tonoSillas = !interactivo ? 'neutra' : !cargado ? 'cargando' : libre ? 'libre' : 'ocupado';
 
   let relleno = 'fill-white';
   if (interactivo && !cargado) relleno = 'fill-slate-50';
-  else if (noAplica) relleno = 'fill-slate-100';
   else if (libre && seleccionado) relleno = 'fill-blue-200';
   else if (libre) relleno = 'fill-blue-50 group-hover:fill-blue-100 group-focus-visible:fill-blue-100';
   else if (interactivo) relleno = 'fill-red-50';
@@ -164,16 +164,15 @@ function Cubiculo({ datos, estado, interactivo, seleccionado, onSeleccionar }) {
   const interaccion = interactivo
     ? {
         role: 'button',
-        tabIndex: libre ? 0 : -1,
+        tabIndex: elegible ? 0 : -1,
         'aria-label': `${nombre}${resumen ? `, ${resumen.toLowerCase()}` : ''}`,
-        'aria-disabled': !libre,
-        onClick: libre ? () => onSeleccionar(id) : undefined,
-        onKeyDown: libre ? alActivar(() => onSeleccionar(id)) : undefined,
+        onClick: elegible ? () => onSeleccionar(id) : undefined,
+        onKeyDown: elegible ? alActivar(() => onSeleccionar(id)) : undefined,
       }
     : {};
 
   return (
-    <g {...interaccion} className={`group outline-none ${interactivo ? (libre ? 'cursor-pointer' : 'cursor-not-allowed') : ''}`}>
+    <g {...interaccion} className={`group outline-none ${interactivo ? (elegible ? 'cursor-pointer' : 'cursor-not-allowed') : ''}`}>
       {interactivo ? (
         <title>
           {nombre}
@@ -181,7 +180,7 @@ function Cubiculo({ datos, estado, interactivo, seleccionado, onSeleccionar }) {
         </title>
       ) : null}
       <rect {...caja} className={`transition-colors ${relleno}`} />
-      {interactivo && cargado && !libre && !noAplica ? <rect {...caja} fill="url(#patron-ocupado)" /> : null}
+      {interactivo && cargado && !libre ? <rect {...caja} fill="url(#patron-ocupado)" /> : null}
       <path d={paredes} fill="none" strokeWidth={5} strokeLinecap="square" className="stroke-ink" />
       <path
         d={`M${puerta.x1} ${base} A${hoja} ${hoja} 0 0 1 ${puerta.x2} ${base - hoja}`}
@@ -214,7 +213,7 @@ function Cubiculo({ datos, estado, interactivo, seleccionado, onSeleccionar }) {
           x={posNombre.x}
           y={posNombre.y + 15}
           textAnchor="middle"
-          className={`text-[11px] font-semibold ${noAplica ? 'fill-slate-500' : libre ? 'fill-primary' : 'fill-action'}`}
+          className={`text-[11px] font-semibold ${libre ? 'fill-primary' : 'fill-action'}`}
         >
           {resumen}
         </text>

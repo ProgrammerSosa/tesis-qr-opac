@@ -8,7 +8,7 @@ const {
   buscarReserva,
   resumen,
 } = require('./reservas_data');
-const { REGLAS_CUBICULO, CONDICIONES } = require('./recursos_data');
+const { CONDICIONES } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
 const notificaciones = require('../notificaciones/notificaciones');
 const { registrar } = require('../actividad/actividad_data');
@@ -36,7 +36,7 @@ function getDisponibilidad(req, res) {
 
 function postReserva(req, res) {
   if (!validarTipo(req, res)) return;
-  const { recursoId, fecha, hora, solicitante, identificacion, correo, kiosco, modalidad, duracion } = req.body;
+  const { recursoId, fecha, hora, horaFin, solicitante, identificacion, correo, kiosco, duracion } = req.body;
   if (!recursoId || !fecha || !hora || !solicitante) {
     return fail(res, 'Faltan datos de la reserva');
   }
@@ -46,11 +46,11 @@ function postReserva(req, res) {
       recursoId,
       fecha,
       hora,
+      horaFin,
       solicitante,
       identificacion,
       correo,
       kiosco,
-      modalidad,
       duracion,
     });
     notificaciones.reservaConfirmada(reserva); // si dejó un correo, recibe la confirmación; si el correo falla, la reserva sigue en pie
@@ -60,16 +60,14 @@ function postReserva(req, res) {
   }
 }
 
-function getReglas(req, res) {
-  return ok(res, REGLAS_CUBICULO);
-}
-
-// Condiciones generales de uso que se muestran antes de reservar, con los minutos de tolerancia y las reservas
-// pausadas que el administrador tenga en la configuración.
+// Condiciones generales de uso que se muestran antes de reservar, con los minutos de tolerancia, los topes de horas de los
+// cubículos y las reservas pausadas que el administrador tenga en la configuración.
 function getCondiciones(req, res) {
+  const { cubiculoMaxHorasPorReserva, cubiculoMaxHorasPorDia, ...generales } = CONDICIONES;
   return ok(res, {
-    ...CONDICIONES,
+    ...generales,
     toleranciaMinutos: configuracion.toleranciaMinutos(),
+    cubiculo: configuracion.limitesDeCubiculo(),
     pausadas: configuracion.tiposPausados(),
   });
 }
@@ -112,7 +110,6 @@ function getResumen(req, res) {
 
 module.exports = {
   getDisponibilidad,
-  getReglas,
   getCondiciones,
   postReserva,
   getReservas,

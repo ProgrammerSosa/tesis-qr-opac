@@ -6,7 +6,6 @@ export const reservasApi = {
   diaDeHorario: (fecha) => axiosClient.get('/horarios/dia', { params: { fecha } }),
   // La semana completa con las horas de reserva de cada día y los próximos cierres (para el inicio del sitio).
   horarioSemanal: () => axiosClient.get('/horarios/semana'),
-  reglas: () => axiosClient.get('/reservas/reglas'),
   condiciones: () => axiosClient.get('/reservas/condiciones'),
   reservar: (tipo, datos) => axiosClient.post(`/reservas/${tipo}`, datos),
   listar: (tipo) => axiosClient.get('/reservas', { params: tipo ? { tipo } : {} }),
