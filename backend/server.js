@@ -48,6 +48,16 @@ app.use((req, res, next) => {
   next();
 });
 
+// Lo que es del personal no se indexa ni se guarda en cachés: el panel (/admin) y la API no deben aparecer en buscadores, y las respuestas
+// de la sesión y de la API del personal (o de cualquier petición con ficha de acceso) llevan datos de personas que no deben quedar guardados.
+app.use((req, res, next) => {
+  const delPanel = req.path === '/admin' || req.path.startsWith('/admin/');
+  const apiDelPersonal = req.path.startsWith('/api/admin') || req.path.startsWith('/api/auth');
+  if (delPanel || req.path.startsWith('/api')) res.set('X-Robots-Tag', 'noindex, nofollow');
+  if (apiDelPersonal || req.get('Authorization')) res.set('Cache-Control', 'no-store');
+  next();
+});
+
 // Candado de red para los kioscos: las computadoras del público no deben poder llegar al panel del personal, aunque alguien
 // escriba la dirección a mano. Con KIOSCOS_IP (direcciones o rangos separados por coma) a esos equipos se les niega la entrada
 // al panel (/admin), a su API (/api/admin) y al inicio de sesión del personal (/api/auth). El resto del sitio funciona igual.

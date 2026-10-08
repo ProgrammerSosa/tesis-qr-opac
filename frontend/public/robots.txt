@@ -1,0 +1,4 @@
+# El catálogo y los servicios de la biblioteca son públicos; el panel del personal y la API no se indexan.
+User-agent: *
+Disallow: /admin
+Disallow: /api

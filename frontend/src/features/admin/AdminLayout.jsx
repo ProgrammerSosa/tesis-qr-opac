@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useSearchParams } from 'react-router-dom';
 import { Clock, Menu } from 'lucide-react';
 import { authApi } from './authApi';
 import BarraLateral from './componentes/BarraLateral';
@@ -12,6 +12,7 @@ import { EVENTO_SESION_EXPIRADA } from '../../shared/api/axiosClient';
 import { borrarSesion, leerSesion } from '../../shared/auth/sesion';
 import Badge from '../../shared/components/Badge';
 import Button from '../../shared/components/Button';
+import Nota from '../../shared/components/Nota';
 
 const MINUTOS_DE_INACTIVIDAD = 20;
 const SEGUNDOS_DE_AVISO = 60;
@@ -23,6 +24,7 @@ const AVISO_INACTIVIDAD = 'Cerramos tu sesión por inactividad. Inicia sesión d
 // diseño del sitio público (no usa su encabezado, buscador ni pie de página) y exige haber iniciado sesión.
 export default function AdminLayout() {
   const location = useLocation();
+  const [parametros] = useSearchParams();
   const [sesion, setSesion] = useState(leerSesion);
   const [motivoDeSalida, setMotivoDeSalida] = useState('');
   const [salioAMano, setSalioAMano] = useState(false);
@@ -80,6 +82,7 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [menuAbierto]);
 
+  const seccionSinPermiso = SECCIONES.find((s) => s.clave === parametros.get('sinpermiso'));
   const seccion = SECCIONES.find((s) => location.pathname === `/admin/${s.clave}`);
   const titulo = seccion?.titulo ?? 'Panel del personal';
 
@@ -147,6 +150,11 @@ export default function AdminLayout() {
           </header>
 
           <main className="flex-1 p-4 sm:p-6">
+            {seccionSinPermiso ? (
+              <Nota tono="aviso" titulo="Sin permiso" className="mx-auto mb-5 max-w-7xl">
+                Tu rol no tiene acceso a «{seccionSinPermiso.etiqueta}». Si la necesitas, pídela a la administración.
+              </Nota>
+            ) : null}
             <Outlet />
           </main>
         </div>

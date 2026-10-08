@@ -1,15 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { LogIn } from 'lucide-react';
 import { authApi } from './authApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
-import { guardarSesion, leerSesion } from '../../shared/auth/sesion';
+import { guardarSesion } from '../../shared/auth/sesion';
 import { puedeVer } from './secciones';
 import { LIBRARY } from '../../shared/config/library';
 import AlertBanner from '../../shared/components/AlertBanner';
 import Button from '../../shared/components/Button';
 import MarcaBiblioteca from '../../shared/components/MarcaBiblioteca';
 import { Input } from '../../shared/components/FormField';
+
+const AVISOS = { terminada: 'Tu sesión terminó. Inicia sesión de nuevo para continuar.' };
 
 // A dónde ir después de entrar: a la página que se quería ver, si era del panel y el rol puede verla; si no, al inicio del panel.
 function destinoTras(desde, rol) {
@@ -22,6 +24,10 @@ function destinoTras(desde, rol) {
 export default function AdminLoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [parametros] = useSearchParams();
+  // La guardia de rutas manda a quien no tiene sesión aquí con la página que quería ver (?desde=) y, si hace falta, el motivo (?aviso=).
+  const desde = location.state?.desde ?? parametros.get('desde');
+  const aviso = location.state?.aviso || AVISOS[parametros.get('aviso')];
   const [usuario, setUsuario] = useState('');
   const [clave, setClave] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -35,10 +41,6 @@ export default function AdminLoginPage() {
     };
   }, []);
 
-  if (leerSesion()) {
-    return <Navigate to="/admin" replace />;
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     if (!usuario.trim() || !clave) {
@@ -50,7 +52,7 @@ export default function AdminLoginPage() {
     try {
       const res = await authApi.login(usuario.trim(), clave);
       guardarSesion(res.data.data);
-      navigate(destinoTras(location.state?.desde, res.data.data.rol), { replace: true });
+      navigate(destinoTras(desde, res.data.data.rol), { replace: true });
     } catch (err) {
       setClave('');
       setError(getErrorMessage(err, 'No se pudo iniciar sesión'));
@@ -67,9 +69,9 @@ export default function AdminLoginPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="flex w-full max-w-sm flex-col gap-4 rounded-2xl bg-white p-6 text-slate-900 shadow-2xl shadow-black/40">
-        {location.state?.aviso ? (
+        {aviso ? (
           <p role="status" className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {location.state.aviso}
+            {aviso}
           </p>
         ) : null}
         <AlertBanner>{error}</AlertBanner>

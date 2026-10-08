@@ -9,12 +9,15 @@ import { hayKiosco } from '../shared/kiosco/kiosco';
 // trae el inicio y el diseño del sitio, no todo el código de la biblioteca.
 const pagina = (cargar) => ({ lazy: async () => ({ Component: (await cargar()).default }) });
 
-// Protección de rutas del panel del personal (además de la sesión y de los roles, que exigen el panel y el servidor):
-// una pestaña que es un kiosco no entra al panel aunque alguien escriba la dirección. Si el servidor tiene KIOSCOS_IP,
-// también lo niega la red (ver backend/server.js).
-function protegerElPanel({ request }) {
+// Protección de rutas del panel del personal. Corre antes de dibujar cualquier página de /admin/...:
+//  - una pestaña que es un kiosco no entra al panel aunque alguien escriba la dirección (si el servidor tiene KIOSCOS_IP, también
+//    lo niega la red; ver backend/server.js);
+//  - sin sesión, con una sesión vencida o con una sección que el rol no puede ver, se redirige (ver features/admin/guardia.js).
+// El servidor vuelve a comprobar la sesión y el rol en cada petición a la API.
+async function protegerElPanel({ request }) {
   if (hayKiosco(request.url)) throw redirect('/');
-  return null;
+  const { guardarRutaDelPanel } = await import('../features/admin/guardia');
+  return guardarRutaDelPanel({ request });
 }
 
 export const router = createBrowserRouter([

@@ -129,3 +129,14 @@ completo el equipo debe estar configurado como kiosco:
 | Consulta | Solo estadísticas |
 
 El servidor comprueba el rol en cada petición; ocultar una sección en el panel es solo comodidad.
+
+### Protección de rutas
+
+- **En el navegador**, una guardia corre antes de mostrar cualquier página de `/admin/...`: sin sesión manda al inicio de sesión (y al
+  entrar vuelve a la página que se quería ver), con una sesión que el servidor ya no reconoce la cierra y avisa, y con una sección que
+  el rol no puede ver redirige al resumen con un aviso. Una pestaña de kiosco no entra al panel.
+- **En el servidor**, toda ruta del personal exige una sesión y el rol correcto (401 sin sesión, 403 con otro rol); con `KIOSCOS_IP`
+  los kioscos ni siquiera llegan al panel ni a su API. Las respuestas de la API del personal no se guardan en cachés y el panel no se
+  indexa en buscadores (`X-Robots-Tag` y `robots.txt`).
+- Las sesiones duran 8 horas, se cierran tras 20 minutos sin actividad y una cuenta se bloquea 5 minutos después de 5 intentos
+  fallidos.
