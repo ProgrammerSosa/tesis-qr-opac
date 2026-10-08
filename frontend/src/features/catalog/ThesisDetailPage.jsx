@@ -306,21 +306,24 @@ export default function ThesisDetailPage() {
                   Consultar documento digital
                 </Link>
               ) : null}
-              <Button variant="brand" icon={Printer} className="w-full justify-start px-4 py-3 text-base" onClick={() => window.print()}>
-                Imprimir
-              </Button>
+              {/* En un kiosco no se imprime la página ni se guardan archivos en el equipo: para llevarse la tesis se usa el código QR. */}
               {!esKiosco ? (
-                <Button variant="secondary" icon={copiado ? Check : Copy} className="w-full justify-start px-4 py-3 text-base" onClick={copiarEnlace}>
-                  {copiado ? 'Enlace copiado' : 'Copiar enlace de la ficha'}
-                </Button>
+                <>
+                  <Button variant="brand" icon={Printer} className="w-full justify-start px-4 py-3 text-base" onClick={() => window.print()}>
+                    Imprimir
+                  </Button>
+                  <Button variant="secondary" icon={copiado ? Check : Copy} className="w-full justify-start px-4 py-3 text-base" onClick={copiarEnlace}>
+                    {copiado ? 'Enlace copiado' : 'Copiar enlace de la ficha'}
+                  </Button>
+                  <Dropdown label="Guardar registro" icon={Download}>
+                    {FORMATOS.map((f) => (
+                      <DropdownItem key={f.key} onClick={() => descargarRegistro(tesis, f)}>
+                        {f.label}
+                      </DropdownItem>
+                    ))}
+                  </Dropdown>
+                </>
               ) : null}
-              <Dropdown label="Guardar registro" icon={Download}>
-                {FORMATOS.map((f) => (
-                  <DropdownItem key={f.key} onClick={() => descargarRegistro(tesis, f)}>
-                    {f.label}
-                  </DropdownItem>
-                ))}
-              </Dropdown>
               <Link
                 to={`/catalogo?autor=${encodeURIComponent(tesis.autor)}`}
                 className="inline-flex w-full items-center justify-start gap-2 rounded-lg border border-border bg-white px-4 py-3 text-base font-semibold text-primary transition-colors hover:border-primary"
