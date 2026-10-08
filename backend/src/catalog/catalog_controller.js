@@ -29,7 +29,7 @@ function getItem(req, res) {
 
 // Entrega el documento digital de una tesis, respetando su nivel de acceso:
 // "consulta" solo se muestra en línea; "acceso_descarga" también se puede descargar.
-function getDocumento(req, res) {
+async function getDocumento(req, res) {
   const tesis = obtenerPorId(req.params.id);
   if (!tesis) {
     return notFound(res, 'Tesis no encontrada');
@@ -49,9 +49,16 @@ function getDocumento(req, res) {
   if (urlExterna) {
     return res.redirect(urlExterna);
   }
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `${descargar ? 'attachment' : 'inline'}; filename="${tesis.id}.pdf"`);
-  return res.send(pdfDeTesis(tesis, acceso));
+  try {
+    // La ficha de la tesis en este mismo sitio, para que el PDF la enlace.
+    const pdf = await pdfDeTesis(tesis, acceso, { enlace: `${req.protocol}://${req.get('host')}/tesis/${encodeURIComponent(tesis.id)}` });
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `${descargar ? 'attachment' : 'inline'}; filename="${tesis.id}.pdf"`);
+    return res.send(pdf);
+  } catch (error) {
+    console.error(error);
+    return fail(res, 'No se pudo preparar el documento', 500);
+  }
 }
 
 module.exports = { listItems, getItem, getDocumento };
