@@ -23,26 +23,34 @@ export default function CatalogoPage() {
   const esAdministrador = sesion.rol === 'administrador';
   const lista = useListaPaginada(adminApi.catalogo, { porPagina: 25 });
   const [formulario, setFormulario] = useState(null); // null | { tesis } (tesis ausente = agregar)
+  const [vecesAgregando, setVecesAgregando] = useState(0); // cambia para empezar un formulario nuevo con "Agregar otra tesis"
   const [importando, setImportando] = useState(false);
   const [aEliminar, setAEliminar] = useState(null);
   const [eliminando, setEliminando] = useState(false);
   const [errorDeEliminar, setErrorDeEliminar] = useState('');
   const [aviso, setAviso] = useState('');
 
+  // Al corregir una tesis se cierra el formulario. Al agregar una, se queda abierto y devuelve la tesis guardada para que muestre
+  // su código QR (generado con la URL de la tesis), listo para imprimir.
   async function guardar(datos) {
+    let respuesta;
     try {
       if (formulario.tesis) {
-        await adminApi.actualizarTesis(formulario.tesis.id, datos);
+        respuesta = await adminApi.actualizarTesis(formulario.tesis.id, datos);
         setAviso(`Se guardaron los cambios de ${formulario.tesis.id}.`);
       } else {
-        await adminApi.crearTesis(datos);
+        respuesta = await adminApi.crearTesis(datos);
         setAviso(`Se agregó la tesis ${datos.id} al catálogo.`);
       }
     } catch (err) {
       throw new Error(getErrorMessage(err, 'No se pudo guardar la tesis'));
     }
-    setFormulario(null);
     lista.recargar();
+    if (formulario.tesis) {
+      setFormulario(null);
+      return undefined;
+    }
+    return respuesta.data.data;
   }
 
   async function eliminar() {
@@ -62,7 +70,7 @@ export default function CatalogoPage() {
 
   return (
     <PaginaAdmin
-      descripcion="Las tesis que se ven en el catálogo público. Puedes agregar una, corregir sus datos o importar toda la hoja de cálculo del catálogo. El código de una tesis no se cambia: está impreso en el QR de su etiqueta."
+      descripcion="Las tesis que se ven en el catálogo público. Al agregar una escribes sus datos y la URL de la tesis, y con esa URL se genera su código QR; también puedes corregir una o importar toda la hoja de cálculo del catálogo. El código de una tesis no se cambia: está impreso en el QR de su etiqueta."
       acciones={
         <>
           <Button variant="secondary" icon={Upload} onClick={() => setImportando(true)}>
@@ -165,7 +173,16 @@ export default function CatalogoPage() {
 
       <Paginacion pagina={lista.pagina} paginas={lista.paginas} onCambiar={lista.irAPagina} />
 
-      {formulario ? <FormularioDeTesis abierto tesis={formulario.tesis} onCerrar={() => setFormulario(null)} onGuardar={guardar} /> : null}
+      {formulario ? (
+        <FormularioDeTesis
+          key={formulario.tesis?.id ?? `nueva-${vecesAgregando}`}
+          abierto
+          tesis={formulario.tesis}
+          onCerrar={() => setFormulario(null)}
+          onGuardar={guardar}
+          onOtra={() => setVecesAgregando((n) => n + 1)}
+        />
+      ) : null}
       {importando ? <ImportarCatalogoModal esAdministrador={esAdministrador} onCerrar={() => setImportando(false)} onTerminada={lista.recargar} /> : null}
 
       <ModalConfirmar

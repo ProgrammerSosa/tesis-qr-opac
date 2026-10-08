@@ -342,8 +342,7 @@ export default function ThesisDetailPage() {
                 <ThesisQr id={tesis.id} size={180} />
               </div>
               <p className="text-sm leading-relaxed text-slate-500">
-                Escanea para llevar este registro a tu dispositivo. Es el mismo código impreso en la etiqueta de la contraportada: no es necesario pedir el
-                ejemplar físico para consultarlo.
+                Escanea para llevar este registro a tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.
               </p>
             </div>
           </aside>

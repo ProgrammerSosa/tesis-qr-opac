@@ -7,6 +7,12 @@ const { rechazo } = require('../../utils/errores');
 //   sin_acceso      = no hay documento digital que ofrecer
 const ACCESOS = ['acceso_descarga', 'consulta', 'sin_acceso'];
 
+// A dónde lleva el código QR impreso en la etiqueta (propuesta, sección 4.3):
+//   url   = directo a la URL de la tesis, tal como la escribió el personal
+//   ficha = a la ficha de la tesis en este sistema: una dirección que no cambia aunque cambie el archivo digital
+// Sin URL de la tesis, o si el documento no se ofrece al público, el código siempre lleva a la ficha.
+const DESTINOS_DEL_QR = ['url', 'ficha'];
+
 // Tipos de documento de la colección de tesis (propuesta, sección 3.2).
 const TIPOS_DOCUMENTO = ['tesis_grado', 'tesis_posgrado', 'tesis_doctoral', 'seminario_posgrado'];
 
@@ -43,7 +49,7 @@ function registroNuevo(base, acceso = 'sin_acceso') {
     signatura: '',
     ...base,
     documentoDigital: { acceso, activo: true, urlExterna: null, actualizadoEn: GENERADO },
-    qr: { activo: true, generadoEn: GENERADO, verificadoEn: null, resultado: null },
+    qr: { activo: true, destino: 'url', generadoEn: GENERADO, verificadoEn: null, resultado: null },
   };
 }
 
@@ -164,6 +170,11 @@ const SEMILLA = [
 const estado = almacen.cargar('catalogo', { tesis: SEMILLA });
 const TESIS = estado.tesis;
 
+// Los datos guardados antes de que existiera el destino del QR traen códigos que llevan a la ficha: se conservan así.
+TESIS.forEach((t) => {
+  if (t.qr && t.qr.destino === undefined) t.qr.destino = 'ficha';
+});
+
 function guardar() {
   almacen.guardar('catalogo', estado);
 }
@@ -228,6 +239,80 @@ function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '' } 
   return { items: filtradas.slice((actual - 1) * tamano, actual * tamano).map(vistaAdmin), total: filtradas.length, pagina: actual, porPagina: tamano, paginas };
 }
 
+const MAXIMO_DE_URL = 2000;
+
+// La URL de la tesis: el enlace de acceso a su documento digital. Vacía quiere decir que no hay enlace (null).
+// Se guarda normalizada (con el formato que entiende cualquier navegador y lector de QR).
+function limpiarUrl(valor) {
+  const texto = String(valor ?? '').trim();
+  if (!texto) return null;
+  if (texto.length > MAXIMO_DE_URL) {
+    throw rechazo(`La URL de la tesis es demasiado larga (máximo ${MAXIMO_DE_URL} caracteres)`);
+  }
+  let url = null;
+  try {
+    url = /\s/.test(texto) ? null : new URL(texto);
+  } catch {
+    url = null;
+  }
+  if (!url || !['http:', 'https:'].includes(url.protocol) || !url.hostname) {
+    throw rechazo('La URL de la tesis debe empezar con http:// o https:// y no llevar espacios');
+  }
+  return url.href;
+}
+
+// Datos del documento digital que llegan junto con el formulario de la tesis o con una fila de la hoja de cálculo:
+// `urlTesis` (la URL), `acceso` (el nivel de acceso) y `destinoQr` (a dónde lleva el código QR). Devuelve solo lo que se
+// indicó, ya validado, para no pisar lo que no vino.
+function limpiarDocumento(datos = {}) {
+  const cambios = {};
+  if (datos.urlTesis !== undefined) cambios.urlExterna = limpiarUrl(datos.urlTesis);
+  if (datos.acceso !== undefined && datos.acceso !== '' && datos.acceso !== null) {
+    if (!ACCESOS.includes(datos.acceso)) throw rechazo('El nivel de acceso al documento no es válido');
+    cambios.acceso = datos.acceso;
+  }
+  if (datos.destinoQr !== undefined && datos.destinoQr !== '' && datos.destinoQr !== null) {
+    if (!DESTINOS_DEL_QR.includes(datos.destinoQr)) throw rechazo('El destino del código QR no es válido');
+    cambios.destinoQr = datos.destinoQr;
+  }
+  return cambios;
+}
+
+// Documento digital y código QR de una tesis recién agregada. Con URL y sin nivel de acceso indicado, el documento queda
+// en «consulta» (se ve en línea, sin descarga): descargar es una decisión que se toma de forma explícita.
+function documentoYQrNuevos(cambios, ahora) {
+  const acceso = cambios.acceso ?? (cambios.urlExterna ? 'consulta' : 'sin_acceso');
+  return {
+    documentoDigital: { acceso, activo: true, urlExterna: cambios.urlExterna ?? null, actualizadoEn: ahora },
+    qr: { activo: true, destino: cambios.destinoQr ?? 'url', generadoEn: ahora, verificadoEn: null, resultado: null },
+  };
+}
+
+// Aplica sobre una tesis que ya existe los cambios de documento y QR que sí se indicaron.
+function aplicarDocumentoYQr(t, cambios) {
+  const doc = t.documentoDigital;
+  let huboCambio = false;
+  if (cambios.urlExterna !== undefined && cambios.urlExterna !== (doc.urlExterna ?? null)) {
+    doc.urlExterna = cambios.urlExterna;
+    huboCambio = true;
+  }
+  if (cambios.acceso !== undefined && cambios.acceso !== doc.acceso) {
+    doc.acceso = cambios.acceso;
+    huboCambio = true;
+  }
+  if (huboCambio) {
+    doc.actualizadoEn = new Date().toISOString();
+    // Un código que se verificó con otro destino ya no vale como verificado.
+    t.qr.verificadoEn = null;
+    t.qr.resultado = null;
+  }
+  if (cambios.destinoQr !== undefined && cambios.destinoQr !== t.qr.destino) {
+    t.qr.destino = cambios.destinoQr;
+    t.qr.verificadoEn = null;
+    t.qr.resultado = null;
+  }
+}
+
 function actualizarDocumento(id, { acceso, activo, urlExterna }) {
   const t = obtenerPorId(id);
   if (!t) return null;
@@ -235,16 +320,35 @@ function actualizarDocumento(id, { acceso, activo, urlExterna }) {
   if (activo !== undefined) t.documentoDigital.activo = Boolean(activo);
   if (urlExterna !== undefined) t.documentoDigital.urlExterna = urlExterna || null;
   t.documentoDigital.actualizadoEn = new Date().toISOString();
+  t.qr.verificadoEn = null;
+  t.qr.resultado = null;
   guardar();
   return vistaAdmin(t);
 }
 
-function actualizarQr(id, { activo }) {
+function actualizarQr(id, { activo, destino }) {
   const t = obtenerPorId(id);
   if (!t) return null;
-  t.qr.activo = Boolean(activo);
+  if (activo !== undefined) t.qr.activo = Boolean(activo);
+  if (destino !== undefined && destino !== t.qr.destino) {
+    t.qr.destino = destino;
+    t.qr.verificadoEn = null;
+    t.qr.resultado = null;
+  }
   guardar();
   return vistaAdmin(t);
+}
+
+// Pide la dirección sin descargarla: primero con HEAD; si el sitio no lo admite (Drive, blogs y muchos servidores responden
+// 400, 403, 405 o 501 a HEAD aunque el documento exista), se repite con GET y se descarta el cuerpo.
+async function responde(url) {
+  const opciones = { redirect: 'follow', signal: AbortSignal.timeout(6000) };
+  let respuesta = await fetch(url, { ...opciones, method: 'HEAD' });
+  if (!respuesta.ok && [400, 403, 405, 501].includes(respuesta.status)) {
+    respuesta = await fetch(url, { ...opciones, method: 'GET' });
+    respuesta.body?.cancel().catch(() => {});
+  }
+  return respuesta.ok;
 }
 
 // Comprueba que el documento responda: los internos siempre existen; los externos se consultan por red.
@@ -253,14 +357,14 @@ async function documentoResponde(t) {
   const url = t.documentoDigital.urlExterna;
   if (!url) return true;
   try {
-    const respuesta = await fetch(url, { method: 'HEAD', redirect: 'follow', signal: AbortSignal.timeout(5000) });
-    return respuesta.ok;
+    return await responde(url);
   } catch {
     return false;
   }
 }
 
-// El código QR lleva a la ficha de la tesis; si además hay documento digital, también se verifica.
+// Verifica el código QR: lleva a la ficha de la tesis o directo a su URL (según el destino) y, si la tesis tiene documento
+// digital, también se comprueba que el enlace responda.
 async function verificarQr(id) {
   const t = obtenerPorId(id);
   if (!t) return null;
@@ -335,28 +439,29 @@ function limpiarTesis(datos, existente = null) {
   };
 }
 
+// Agrega una tesis. Además de sus datos puede traer la URL de la tesis (`urlTesis`), el nivel de acceso (`acceso`) y a
+// dónde lleva su código QR (`destinoQr`): así la tesis queda con su documento y su código listos desde el alta.
 function crearTesis(datos) {
   const limpia = limpiarTesis(datos);
+  const documento = limpiarDocumento(datos);
   if (obtenerPorId(limpia.id)) {
     throw rechazo('Ya hay una tesis con ese código', 409);
   }
-  const ahora = new Date().toISOString();
-  const tesis = {
-    ...limpia,
-    documentoDigital: { acceso: 'sin_acceso', activo: true, urlExterna: null, actualizadoEn: ahora },
-    qr: { activo: true, generadoEn: ahora, verificadoEn: null, resultado: null },
-  };
+  const tesis = { ...limpia, ...documentoYQrNuevos(documento, new Date().toISOString()) };
   TESIS.push(tesis);
   guardar();
   return vistaAdmin(tesis);
 }
 
-// Cambia los datos de una tesis. El código no se cambia: ya está impreso en el QR de la etiqueta.
+// Cambia los datos de una tesis (y, si se indican, su URL, su nivel de acceso y el destino de su QR). El código no se
+// cambia: ya está impreso en el QR de la etiqueta.
 function actualizarTesis(id, datos) {
   const existente = obtenerPorId(id);
   if (!existente) return null;
   const limpia = limpiarTesis({ ...datos, id }, existente);
+  const documento = limpiarDocumento(datos);
   Object.assign(existente, limpia);
+  aplicarDocumentoYQr(existente, documento);
   guardar();
   return vistaAdmin(existente);
 }
@@ -390,7 +495,7 @@ function importarTesis(filas, { existentes = 'omitir', reemplazar = false } = {}
   const errores = [];
   filas.forEach((fila, i) => {
     try {
-      validas.push({ numero: i + 1, tesis: limpiarTesis(fila ?? {}) });
+      validas.push({ numero: i + 1, tesis: limpiarTesis(fila ?? {}), documento: limpiarDocumento(fila ?? {}) });
     } catch (error) {
       errores.push({ fila: i + 1, motivo: error.message });
     }
@@ -405,17 +510,14 @@ function importarTesis(filas, { existentes = 'omitir', reemplazar = false } = {}
   let actualizadas = 0;
   let omitidas = 0;
   const ahora = new Date().toISOString();
-  validas.forEach(({ tesis }) => {
+  validas.forEach(({ tesis, documento }) => {
     const previa = obtenerPorId(tesis.id);
     if (!previa) {
-      TESIS.push({
-        ...tesis,
-        documentoDigital: { acceso: 'sin_acceso', activo: true, urlExterna: null, actualizadoEn: ahora },
-        qr: { activo: true, generadoEn: ahora, verificadoEn: null, resultado: null },
-      });
+      TESIS.push({ ...tesis, ...documentoYQrNuevos(documento, ahora) });
       creadas += 1;
     } else if (existentes === 'actualizar') {
       Object.assign(previa, tesis);
+      aplicarDocumentoYQr(previa, documento);
       actualizadas += 1;
     } else {
       omitidas += 1;
@@ -427,7 +529,9 @@ function importarTesis(filas, { existentes = 'omitir', reemplazar = false } = {}
 
 module.exports = {
   ACCESOS,
+  DESTINOS_DEL_QR,
   TIPOS_DOCUMENTO,
+  limpiarUrl,
   TESIS,
   digitalDisponible,
   vistaPublica,

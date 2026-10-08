@@ -181,6 +181,26 @@ function resumenDelDia(fecha) {
   };
 }
 
+// La semana completa, de lunes a domingo, para mostrarla en el sitio: las ventanas de reserva de cada día, cuál es hoy y los
+// cierres que vienen (los que ya terminaron no interesan).
+const SEMANA = ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'];
+
+function resumenDeLaSemana(hoy) {
+  const claveDeHoy = DIAS[diaDeLaSemana(hoy)];
+  return {
+    hoy: resumenDelDia(hoy),
+    semana: SEMANA.map((clave) => ({
+      clave,
+      nombre: NOMBRE_DEL_DIA[clave],
+      reservas: estado.reservas[clave] ?? [],
+      esHoy: clave === claveDeHoy,
+    })),
+    proximosCierres: listarCierres()
+      .filter((c) => c.hasta >= hoy)
+      .slice(0, 5),
+  };
+}
+
 module.exports = {
   DIAS,
   NOMBRE_DEL_DIA,
@@ -195,4 +215,5 @@ module.exports = {
   esDiaHabil,
   siguienteDiaHabil,
   resumenDelDia,
+  resumenDeLaSemana,
 };

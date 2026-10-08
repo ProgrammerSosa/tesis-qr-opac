@@ -10,6 +10,16 @@ export const LIBRARY = {
   ciudad: 'Guatemala',
   zonaHoraria: 'America/Guatemala',
 
+  // Dónde está la biblioteca y sus redes. Para cambiar una dirección o un enlace basta con editar esta lista.
+  ubicacion: 'Edificio S-5, primer nivel · Campus central',
+  direccion: 'Campus Central, Universidad de San Carlos de Guatemala, Ciudad Universitaria, Edificio S-5, Zona 12',
+  comoLlegar: 'https://www.google.com/maps/search/?api=1&query=Facultad+de+Ciencias+Jur%C3%ADdicas+y+Sociales+USAC+Ciudad+Universitaria+zona+12',
+  redes: {
+    facebook: 'https://www.facebook.com/bibliotecaderechousac',
+    instagram: 'https://www.instagram.com/biblioderechousac/',
+    youtube: 'https://www.youtube.com/channel/UCPYiQPb47qLB7FVNn_bwQ6A',
+  },
+
   // Logo de la biblioteca (archivo en frontend/public). Si el archivo falta, el sitio dibuja una marca sencilla en su lugar.
   logo: '/logo-biblioteca.png',
 };

@@ -55,7 +55,31 @@ Todos los ajustes del servidor están explicados en `backend/.env.example`.
 ### Cargar el catálogo
 
 En el panel, **Catálogo → Importar**: sube la hoja de cálculo del catálogo en CSV (hay una plantilla para descargar) o agrega
-las tesis una por una. El código de cada tesis no se cambia después: está impreso en el QR de su etiqueta.
+las tesis una por una. El código de cada tesis no se cambia después: está impreso en el QR de su etiqueta. Las columnas `url`
+(la URL de la tesis) y `acceso` (descarga, consulta o sin acceso) son opcionales: con ellas cada tesis llega con su documento digital.
+
+### Agregar una tesis y su código QR
+
+En **Catálogo → Agregar tesis** se escriben los datos de la tesis y su **URL** (el enlace de su versión digital). Con esa URL el
+sistema genera el código QR de la etiqueta: se ve al instante en el formulario, se puede descargar como imagen (PNG) y, al
+guardar, imprimir la etiqueta de contraportada. El nivel de acceso (descarga, solo consulta o sin acceso) se elige en el mismo
+formulario.
+
+El código puede llevar a dos destinos:
+
+- **Directo a la URL de la tesis** (lo que sale por defecto). Si la URL cambia, hay que reimprimir la etiqueta y no se cuentan los
+  escaneos en las estadísticas.
+- **A la ficha de la tesis en este sistema**: una dirección estable. Si el archivo cambia de lugar, el código ya impreso sigue
+  sirviendo, se cuentan los escaneos y el sistema controla el acceso (propuesta, sección 4.3).
+
+El destino se cambia tesis por tesis en **Códigos QR** («Que lleve a la ficha» / «Que lleve a la URL»). Si la tesis no tiene URL o
+está «sin acceso digital», el código siempre lleva a la ficha. Un código con una URL muy larga sale muy denso: conviene una URL corta.
+
+### Dirección y redes de la biblioteca
+
+La dirección, el enlace «Cómo llegar» y las redes (Facebook, Instagram y YouTube) que se ven en la franja superior, en el inicio
+(«Horarios y ubicación») y en el pie están en `frontend/src/shared/config/library.js`. En un kiosco no se muestran los enlaces a
+otros sitios.
 
 ### Horarios de reserva
 

@@ -1,16 +1,15 @@
-import { useEffect, useState } from 'react';
-import { createPortal } from 'react-dom';
+import { useState } from 'react';
 import { Loader2, Printer, ScanLine } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { useListaPaginada } from '../useListaPaginada';
-import ThesisQr, { enlaceCanonico } from '../../catalog/ThesisQr';
-import ThesisLabel from '../../catalog/ThesisLabel';
+import ThesisQr, { destinoDelQrDe } from '../../catalog/ThesisQr';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
 import Button from '../../../shared/components/Button';
 import Paginacion from '../../../shared/components/Paginacion';
 import BarraDeFiltros from '../componentes/BarraDeFiltros';
+import { useImpresionDeEtiquetas } from '../componentes/ImpresionDeEtiquetas';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { fechaLegible } from '../estados';
 
@@ -20,37 +19,28 @@ const RESULTADO = {
   enlace_roto: { tone: 'danger', label: 'Enlace roto' },
 };
 
-// Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): cuáles están activos, comprobar que sus enlaces
-// respondan e imprimir las etiquetas de contraportada. La selección para imprimir se conserva al cambiar de página.
+// Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): a dónde lleva cada uno (la URL de la tesis o su ficha), cuáles están
+// activos, comprobar que sus enlaces respondan e imprimir las etiquetas de contraportada. La selección para imprimir se conserva
+// al cambiar de página.
 export default function CodigosQrPage() {
   const lista = useListaPaginada(adminApi.codigosQr, { porPagina: 15 });
   const [error, setError] = useState('');
   const [verificando, setVerificando] = useState(() => new Set());
   const [seleccion, setSeleccion] = useState(() => new Map()); // código -> tesis
-  const [paraImprimir, setParaImprimir] = useState([]);
+  const { imprimir, portal } = useImpresionDeEtiquetas();
 
-  // Las etiquetas se dibujan solo mientras se imprimen; `afterprint` avisa cuando termina o se cancela.
-  useEffect(() => {
-    if (paraImprimir.length === 0) return undefined;
-    document.body.classList.add('imprimiendo-etiquetas');
-    const terminar = () => setParaImprimir([]);
-    window.addEventListener('afterprint', terminar, { once: true });
-    window.print();
-    return () => {
-      window.removeEventListener('afterprint', terminar);
-      document.body.classList.remove('imprimiendo-etiquetas');
-    };
-  }, [paraImprimir]);
-
-  async function cambiarActivo(t) {
+  async function cambiar(t, cambios, mensajeDeError) {
     try {
-      const res = await adminApi.actualizarQr(t.id, !t.qr.activo);
+      const res = await adminApi.actualizarQr(t.id, cambios);
       lista.reemplazar(res.data.data);
       setError('');
     } catch (err) {
-      setError(getErrorMessage(err, 'No se pudo cambiar el estado del código'));
+      setError(getErrorMessage(err, mensajeDeError));
     }
   }
+
+  const cambiarActivo = (t) => cambiar(t, { activo: !t.qr.activo }, 'No se pudo cambiar el estado del código');
+  const cambiarDestino = (t, destino) => cambiar(t, { destino }, 'No se pudo cambiar a dónde lleva el código');
 
   async function verificar(ids) {
     setVerificando((previos) => new Set([...previos, ...ids]));
@@ -97,9 +87,9 @@ export default function CodigosQrPage() {
     <PaginaAdmin
       descripcion={
         <>
-          Cada código QR lleva a la ficha de su tesis, una dirección que no cambia aunque cambie el archivo digital. Un código{' '}
-          <b>desactivado</b> avisa a quien lo escanea y deja de contarse en las estadísticas. <b>Verificar</b> comprueba que el
-          enlace responda.
+          El código QR de cada tesis se genera con su <b>URL</b>. Si prefieres una dirección que no cambie aunque cambie el archivo, haz que
+          lleve a la <b>ficha</b> de la tesis en este sistema: ahí se cuentan los escaneos. Un código <b>desactivado</b> avisa a quien lo
+          escanea y deja de contarse. <b>Verificar</b> comprueba que el enlace responda.
         </>
       }
     >
@@ -116,7 +106,7 @@ export default function CodigosQrPage() {
         <Button variant="secondary" icon={ScanLine} onClick={() => verificar(idsDeLaPagina)} disabled={verificando.size > 0 || idsDeLaPagina.length === 0}>
           Verificar los de esta página
         </Button>
-        <Button variant="brand" icon={Printer} disabled={seleccion.size === 0} onClick={() => setParaImprimir([...seleccion.values()])}>
+        <Button variant="brand" icon={Printer} disabled={seleccion.size === 0} onClick={() => imprimir([...seleccion.values()])}>
           Imprimir etiquetas ({seleccion.size})
         </Button>
         {seleccion.size > 0 ? (
@@ -139,7 +129,7 @@ export default function CodigosQrPage() {
                   className="h-4 w-4 accent-primary"
                 />
               </th>
-              {['Código', 'Tesis', 'Enlace', 'Estado', 'Última verificación', 'Acciones'].map((h) => (
+              {['Código', 'Tesis', 'Lleva a', 'Estado', 'Última verificación', 'Acciones'].map((h) => (
                 <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">
                   {h}
                 </th>
@@ -164,6 +154,9 @@ export default function CodigosQrPage() {
               lista.items.map((t) => {
                 const resultado = RESULTADO[t.qr.resultado];
                 const enVerificacion = verificando.has(t.id);
+                const destino = destinoDelQrDe(t);
+                // Elegir entre la URL y la ficha solo tiene sentido si la tesis tiene una URL que se pueda ofrecer.
+                const puedeElegir = Boolean(t.documentoDigital.urlExterna) && t.documentoDigital.disponible;
                 return (
                   <tr key={t.id} className="align-middle">
                     <td className="px-3 py-3">
@@ -176,13 +169,16 @@ export default function CodigosQrPage() {
                       />
                     </td>
                     <td className="px-3 py-3">
-                      <ThesisQr id={t.id} size={48} />
+                      <ThesisQr id={t.id} size={48} enlace={destino.enlace} />
                     </td>
                     <td className="px-3 py-3">
                       <p className="max-w-[16rem] font-semibold leading-snug text-slate-900">{t.titulo}</p>
                       <p className="mt-0.5 font-mono text-xs text-slate-500">{t.id}</p>
                     </td>
-                    <td className="px-3 py-3 font-mono text-xs text-slate-600">{enlaceCanonico(t.id)}</td>
+                    <td className="px-3 py-3 text-xs">
+                      <Badge tone={destino.tipo === 'url' ? 'status' : 'neutral'}>{destino.tipo === 'url' ? 'URL de la tesis' : 'Ficha de la tesis'}</Badge>
+                      <span className="mt-1 block max-w-[17rem] break-all font-mono text-slate-600">{destino.visible}</span>
+                    </td>
                     <td className="px-3 py-3">
                       <Badge tone={t.qr.activo ? 'status' : 'danger'} dot>
                         {t.qr.activo ? 'Activo' : 'Desactivado'}
@@ -212,9 +208,18 @@ export default function CodigosQrPage() {
                         <button type="button" onClick={() => cambiarActivo(t)} className="text-slate-700 hover:underline">
                           {t.qr.activo ? 'Desactivar' : 'Activar'}
                         </button>
-                        <button type="button" onClick={() => setParaImprimir([t])} className="text-primary hover:underline">
+                        <button type="button" onClick={() => imprimir([t])} className="text-primary hover:underline">
                           Imprimir etiqueta
                         </button>
+                        {puedeElegir ? (
+                          <button
+                            type="button"
+                            onClick={() => cambiarDestino(t, destino.tipo === 'url' ? 'ficha' : 'url')}
+                            className="text-slate-700 hover:underline"
+                          >
+                            {destino.tipo === 'url' ? 'Que lleve a la ficha' : 'Que lleve a la URL'}
+                          </button>
+                        ) : null}
                       </div>
                     </td>
                   </tr>
@@ -227,16 +232,7 @@ export default function CodigosQrPage() {
 
       <Paginacion pagina={lista.pagina} paginas={lista.paginas} onCambiar={lista.irAPagina} />
 
-      {paraImprimir.length > 0
-        ? createPortal(
-            <div id="etiquetas-impresion">
-              {paraImprimir.map((t) => (
-                <ThesisLabel key={t.id} tesis={t} />
-              ))}
-            </div>,
-            document.body
-          )
-        : null}
+      {portal}
     </PaginaAdmin>
   );
 }

@@ -1,6 +1,6 @@
 const express = require('express');
 const horarios = require('./horarios_data');
-const { esFechaISO } = require('../../utils/fechas');
+const { esFechaISO, fechaLocal } = require('../../utils/fechas');
 const { ok, fail } = require('../../utils/httpResponse');
 
 const router = express.Router();
@@ -14,5 +14,8 @@ router.get('/horarios/dia', (req, res) => {
   }
   return ok(res, horarios.resumenDelDia(fecha));
 });
+
+// La semana completa con las horas de reserva de cada día y los próximos cierres (el inicio del sitio la muestra).
+router.get('/horarios/semana', (req, res) => ok(res, horarios.resumenDeLaSemana(fechaLocal())));
 
 module.exports = router;

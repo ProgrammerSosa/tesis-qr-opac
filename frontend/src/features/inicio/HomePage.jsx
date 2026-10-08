@@ -6,6 +6,7 @@ import ServiceCard from '../../shared/components/ServiceCard';
 import { LIBRARY } from '../../shared/config/library';
 import { SERVICIOS } from '../../shared/config/navegacion';
 import { useTitulo } from '../../shared/hooks/useTitulo';
+import HorariosYUbicacion from './HorariosYUbicacion';
 
 const ATAJOS = [
   { to: '/catalogo?tipo=tesis_grado', etiqueta: 'Tesis de grado' },
@@ -16,6 +17,7 @@ const ATAJOS = [
 
 // Pantalla inicial del sitio y del kiosco (propuesta, sección 4.5): «Servicios de la biblioteca» con sus opciones, grandes y
 // claras (catálogo, reservas de espacios de estudio con los cubículos adentro, y solvencia), más el buscador del catálogo.
+// Debajo, los horarios de reserva y dónde está la biblioteca.
 export default function HomePage() {
   useTitulo(null);
 
@@ -69,6 +71,8 @@ export default function HomePage() {
           </ul>
         </Container>
       </section>
+
+      <HorariosYUbicacion />
     </>
   );
 }

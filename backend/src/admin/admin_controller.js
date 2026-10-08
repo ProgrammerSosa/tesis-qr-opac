@@ -1,6 +1,8 @@
 const {
   ACCESOS,
+  DESTINOS_DEL_QR,
   TESIS,
+  limpiarUrl,
   digitalDisponible,
   listarParaAdmin,
   obtenerPorId,
@@ -19,6 +21,7 @@ const { calcular } = require('./estadisticas');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
+const TEXTO_DE_DESTINO = { url: 'a la URL de la tesis', ficha: 'a la ficha de la tesis' };
 const TEXTO_DE_VERIFICACION = { ok: 'enlace correcto', solo_ficha: 'lleva a la ficha', enlace_roto: 'enlace roto' };
 
 // Qué cambió en el documento digital de una tesis, para la bitácora.
@@ -112,7 +115,8 @@ function getTesis(req, res) {
 function postTesis(req, res) {
   try {
     const tesis = crearTesis(req.body);
-    registrar(req.sesion, 'catalogo.creada', `${tesis.id}: ${tesis.titulo}`);
+    const conUrl = tesis.documentoDigital.urlExterna ? ' (con URL de la tesis y código QR)' : '';
+    registrar(req.sesion, 'catalogo.creada', `${tesis.id}: ${tesis.titulo}${conUrl}`);
     return ok(res, tesis, 'Tesis agregada', 201);
   } catch (err) {
     return fail(res, err.message, err.estado || 500);
@@ -121,9 +125,18 @@ function postTesis(req, res) {
 
 function patchTesis(req, res) {
   try {
+    const existente = obtenerPorId(req.params.id);
+    const documentoAntes = existente ? { ...existente.documentoDigital } : null;
+    const destinoAntes = existente?.qr.destino;
     const tesis = actualizarTesis(req.params.id, req.body);
     if (!tesis) return notFound(res, 'Tesis no encontrada');
     registrar(req.sesion, 'catalogo.actualizada', `${tesis.id}: ${tesis.titulo}`);
+    // Si el mismo formulario cambió la URL o el acceso, o a dónde lleva el QR, también queda en la bitácora.
+    const cambios = describirDocumento(documentoAntes, tesis.documentoDigital);
+    if (cambios !== 'sin cambios') registrar(req.sesion, 'tesis.documento', `${tesis.id}: ${cambios}`);
+    if (tesis.qr.destino !== destinoAntes && destinoAntes !== undefined) {
+      registrar(req.sesion, 'qr.destino', `${tesis.id}: el código lleva ${TEXTO_DE_DESTINO[tesis.qr.destino]}`);
+    }
     return ok(res, tesis, 'Tesis actualizada');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);
@@ -161,24 +174,40 @@ function patchDocumento(req, res) {
   if (acceso !== undefined && !ACCESOS.includes(acceso)) {
     return fail(res, 'Nivel de acceso invalido');
   }
-  if (urlExterna && !/^https?:\/\/\S+$/i.test(urlExterna)) {
-    return fail(res, 'El enlace debe empezar con http:// o https://');
+  let urlLimpia;
+  try {
+    if (urlExterna !== undefined) urlLimpia = limpiarUrl(urlExterna);
+  } catch (err) {
+    return fail(res, err.message, err.estado || 400);
   }
   const existente = obtenerPorId(req.params.id);
   const documentoAntes = existente ? { ...existente.documentoDigital } : null;
-  const tesis = actualizarDocumento(req.params.id, { acceso, activo, urlExterna });
+  const tesis = actualizarDocumento(req.params.id, { acceso, activo, urlExterna: urlLimpia });
   if (!tesis) return notFound(res, 'Tesis no encontrada');
   registrar(req.sesion, 'tesis.documento', `${tesis.id}: ${describirDocumento(documentoAntes, tesis.documentoDigital)}`);
   return ok(res, tesis);
 }
 
 function patchQr(req, res) {
-  if (typeof req.body.activo !== 'boolean') {
+  const { activo, destino } = req.body;
+  if (activo === undefined && destino === undefined) {
+    return fail(res, 'Indica si el código QR queda activo o a dónde lleva');
+  }
+  if (activo !== undefined && typeof activo !== 'boolean') {
     return fail(res, 'Indica si el código QR queda activo o no');
   }
-  const tesis = actualizarQr(req.params.id, { activo: req.body.activo });
+  if (destino !== undefined && !DESTINOS_DEL_QR.includes(destino)) {
+    return fail(res, 'El destino del código QR no es válido');
+  }
+  const antes = obtenerPorId(req.params.id)?.qr.destino;
+  const tesis = actualizarQr(req.params.id, { activo, destino });
   if (!tesis) return notFound(res, 'Tesis no encontrada');
-  registrar(req.sesion, 'qr.estado', `${tesis.id}: código ${tesis.qr.activo ? 'activado' : 'desactivado'}`);
+  if (activo !== undefined) {
+    registrar(req.sesion, 'qr.estado', `${tesis.id}: código ${tesis.qr.activo ? 'activado' : 'desactivado'}`);
+  }
+  if (destino !== undefined && destino !== antes) {
+    registrar(req.sesion, 'qr.destino', `${tesis.id}: el código lleva ${TEXTO_DE_DESTINO[destino]}`);
+  }
   return ok(res, tesis);
 }
 

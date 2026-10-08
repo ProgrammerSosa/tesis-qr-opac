@@ -75,6 +75,9 @@ const ALIAS = {
   estado: ['estado'],
   modalidadAcceso: ['modalidadacceso', 'modalidaddeacceso'],
   consultaFisica: ['consultafisica'],
+  // La URL de la tesis (de ella sale su código QR) y el nivel de acceso a su documento digital.
+  urlTesis: ['url', 'urltesis', 'urldelatesis', 'enlace', 'enlacedelatesis', 'enlacedeacceso', 'urldocumento', 'documentodigital'],
+  acceso: ['acceso', 'nivelacceso', 'niveldeacceso', 'accesodigital', 'accesoaldocumento'],
 };
 
 const TIPOS = {
@@ -82,6 +85,12 @@ const TIPOS = {
   tesis_posgrado: ['tesisposgrado', 'tesisdeposgrado', 'posgrado', 'maestria'],
   tesis_doctoral: ['tesisdoctoral', 'doctoral', 'doctorado'],
   seminario_posgrado: ['seminarioposgrado', 'seminariodeposgrado', 'seminario'],
+};
+
+const ACCESOS = {
+  acceso_descarga: ['accesodescarga', 'accesoydescarga', 'descarga', 'descargar', 'completo', 'abierto'],
+  consulta: ['consulta', 'consultadigital', 'soloconsulta', 'enlinea'],
+  sin_acceso: ['sinacceso', 'sinaccesodigital', 'ninguno', 'cerrado', 'no'],
 };
 
 function campoDeColumna(encabezado) {
@@ -92,6 +101,11 @@ function campoDeColumna(encabezado) {
 function tipoDeDocumento(valor) {
   const limpio = normalizar(valor);
   return Object.keys(TIPOS).find((tipo) => normalizar(tipo) === limpio || TIPOS[tipo].includes(limpio)) ?? String(valor).trim();
+}
+
+function nivelDeAcceso(valor) {
+  const limpio = normalizar(valor);
+  return Object.keys(ACCESOS).find((nivel) => normalizar(nivel) === limpio || ACCESOS[nivel].includes(limpio)) ?? String(valor).trim();
 }
 
 // Convierte las filas del CSV en registros del catálogo según los encabezados de la primera fila. Devuelve las columnas
@@ -105,7 +119,7 @@ export function filasDelCatalogo(filas) {
       if (!campo) return;
       const valor = (celdas[i] ?? '').trim();
       if (valor === '') return;
-      registro[campo] = campo === 'tipoDocumento' ? tipoDeDocumento(valor) : valor;
+      registro[campo] = campo === 'tipoDocumento' ? tipoDeDocumento(valor) : campo === 'acceso' ? nivelDeAcceso(valor) : valor;
     });
     return registro;
   });
@@ -128,6 +142,7 @@ export async function leerArchivoDelCatalogo(archivo) {
   return filasDelCatalogo(leerCsv(texto));
 }
 
+// `url` es la URL de la tesis (con ella se genera su código QR) y `acceso` es descarga, consulta o sin acceso; las dos son opcionales.
 export const PLANTILLA_CSV =
-  'codigo,titulo,autor,anio,tipo,programa,director,paginas,temas,resumen,signatura\n' +
-  'T14119,"Título completo de la tesis","Apellidos, Nombres",2022,grado,"Licenciatura en Ciencias Jurídicas y Sociales","Lic. Nombre Apellido",120,"Derecho civil; Conciliación","Resumen breve de la tesis.","T.DER 2022.119"\n';
+  'codigo,titulo,autor,anio,tipo,programa,director,paginas,temas,resumen,signatura,url,acceso\n' +
+  'T14119,"Título completo de la tesis","Apellidos, Nombres",2022,grado,"Licenciatura en Ciencias Jurídicas y Sociales","Lic. Nombre Apellido",120,"Derecho civil; Conciliación","Resumen breve de la tesis.","T.DER 2022.119",https://ejemplo.edu.gt/tesis/T14119.pdf,consulta\n';

@@ -47,6 +47,7 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'solicitud.rechazada': 'Rechazó una solicitud de solvencia',
   'tesis.documento': 'Cambió el documento digital de una tesis',
   'qr.estado': 'Cambió el estado de un código QR',
+  'qr.destino': 'Cambió a dónde lleva un código QR',
   'qr.verificado': 'Verificó un código QR',
   'catalogo.creada': 'Agregó una tesis al catálogo',
   'catalogo.actualizada': 'Modificó una tesis del catálogo',

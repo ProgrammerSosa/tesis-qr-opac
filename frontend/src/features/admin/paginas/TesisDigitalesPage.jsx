@@ -124,7 +124,8 @@ export default function TesisDigitalesPage() {
         <>
           El nivel de acceso decide qué ve el público: <b>Acceso y descarga</b> permite ver y bajar el documento,{' '}
           <b>Consulta digital</b> solo permite verlo en línea y <b>Sin acceso digital</b> deja únicamente el ejemplar físico.
-          Si escribes un enlace, el documento se toma de ahí; si lo dejas vacío, se usa el documento de ejemplo.
+          Si escribes un enlace, el documento se toma de ahí; si lo dejas vacío, se usa el documento de ejemplo. La URL de una tesis nueva se
+          escribe al agregarla en el catálogo, y con ella se genera su código QR.
         </>
       }
     >

@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
-import { Home, Menu, MonitorSmartphone, X } from 'lucide-react';
+import { Home, MapPin, Menu, MonitorSmartphone, X } from 'lucide-react';
 import Container from './Container';
 import MarcaBiblioteca from './MarcaBiblioteca';
+import Redes from './Redes';
 import { LIBRARY } from '../config/library';
 import { MENU } from '../config/navegacion';
 import { useKiosco } from '../kiosco/KioscoContext';
@@ -34,6 +35,17 @@ export default function SiteHeader() {
       >
         Saltar al contenido
       </a>
+
+      {/* Franja superior: dónde está la biblioteca y sus redes (las redes no se muestran en un kiosco). */}
+      <div className="bg-ink text-white print:hidden">
+        <Container className="flex items-center justify-between gap-x-6 gap-y-1 py-2">
+          <Link to="/#horarios-y-ubicacion" className="flex min-w-0 items-center gap-1.5 text-sm font-medium text-white/80 transition-colors hover:text-white">
+            <MapPin size={15} className="shrink-0" aria-hidden="true" />
+            <span className="truncate">{LIBRARY.ubicacion}</span>
+          </Link>
+          <Redes claro className="hidden shrink-0 md:flex" />
+        </Container>
+      </div>
 
       <div className={`sticky top-0 z-40 border-b border-border bg-white/95 backdrop-blur transition-shadow print:hidden ${conSombra ? 'shadow-card' : ''}`}>
         <Container className="flex items-center justify-between gap-4 py-3">

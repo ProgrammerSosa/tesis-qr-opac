@@ -123,7 +123,8 @@ export default function ImportarCatalogoModal({ esAdministrador, onCerrar, onTer
 
           <p className="leading-relaxed">
             Sube la hoja de cálculo del catálogo en formato <b>CSV</b> (puedes guardarla así desde Excel o Google Sheets) o un archivo <b>JSON</b>. La primera fila son
-            los encabezados. Obligatorias: <b>codigo</b>, <b>titulo</b>, <b>autor</b> y <b>anio</b>; las demás columnas son opcionales.
+            los encabezados. Obligatorias: <b>codigo</b>, <b>titulo</b>, <b>autor</b> y <b>anio</b>; las demás columnas son opcionales. Con <b>url</b> (la URL de
+            la tesis, de la que sale su código QR) y <b>acceso</b> (descarga, consulta o sin acceso) cada tesis queda con su documento digital.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
