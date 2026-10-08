@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { CalendarX, Clock, Info, Loader2 } from 'lucide-react';
+import { Clock, Info, Loader2 } from 'lucide-react';
 import { reservasApi } from './reservasApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
@@ -13,7 +13,9 @@ import Page from '../../shared/components/Page';
 import { Input } from '../../shared/components/FormField';
 import { fechaLarga, hoyISO, minutosDelDia, sumarDias, textoDeTramos } from '../../shared/utils/fechas';
 import { correoValido } from '../../shared/utils/validaciones';
+import DiaElegido from './DiaElegido';
 import RangoDeHoras from './RangoDeHoras';
+import SelectorDeDia from './SelectorDeDia';
 import StudyRoomMap from './StudyRoomMap';
 import { ZONAS } from './studyRoomLayout';
 import { horasFinalesPosibles, sumarHoras, textoDeHoras, tramosOcupados } from './rangosDeHoras';
@@ -39,6 +41,7 @@ export default function StudyRoomPage() {
   const [hora, setHora] = useState(''); // la hora de estaciones y sala de lectura (una hora); en los cubículos la persona elige `rango`
   const [porTipo, setPorTipo] = useState({});
   const [diaInfo, setDiaInfo] = useState(null);
+  const [dias, setDias] = useState(null); // cómo está cada día de los próximos días: lo usa el calendario para marcar los cierres
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
 
@@ -78,6 +81,15 @@ export default function StudyRoomPage() {
   useEffect(() => {
     cargarDisponibilidad();
   }, [cargarDisponibilidad]);
+
+  // El calendario marca los días de cierre. Es una ayuda: si no llega, el calendario funciona igual y el cierre se avisa al elegir el día.
+  useEffect(() => {
+    const hasta = sumarDias(hoy, Math.min(diasMaximos, 61));
+    reservasApi
+      .diasDeHorario(hoy, hasta)
+      .then((res) => setDias(Object.fromEntries(res.data.data.map((d) => [d.fecha, d]))))
+      .catch(() => setDias(null));
+  }, [hoy, diasMaximos]);
 
   // Las condiciones generales son informativas: si no llegan, la pantalla funciona igual con valores por defecto.
   useEffect(() => {
@@ -324,40 +336,29 @@ export default function StudyRoomPage() {
           </div>
         </div>
 
-        <div className="campos-grandes flex flex-col gap-5 rounded-2xl border border-border bg-white p-5 shadow-card sm:p-6">
-          <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-            <div className="sm:w-60">
-              <Input
-                label="Fecha"
-                type="date"
-                value={fecha}
-                min={hoy}
-                max={sumarDias(hoy, diasMaximos)}
-                onChange={(e) => setFecha(e.target.value || hoy)}
-                hint={fechaLarga(fecha)}
-              />
-            </div>
-            <div className="flex-1">
-              <p className="mb-1 text-[13px] font-semibold text-slate-500">{esCubiculos ? 'Horas' : 'Hora de inicio'}</p>
-              {diaCerrado ? (
-                <p className="flex items-center gap-2 rounded-lg bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
-                  <CalendarX size={18} aria-hidden="true" />
-                  Ese día la biblioteca está cerrada.
-                </p>
-              ) : horas.length === 0 ? (
-                <p className="rounded-lg bg-surface px-4 py-3 text-sm text-slate-600">
-                  {cargando ? 'Cargando los horarios...' : 'No hay horario de reservas ese día. Elige otra fecha.'}
-                </p>
-              ) : esCubiculos ? (
-                <>
+        <div className="campos-grandes grid gap-6 rounded-2xl border border-border bg-white p-5 shadow-card sm:p-6 lg:grid-cols-[minmax(0,23rem)_minmax(0,1fr)]">
+          <SelectorDeDia valor={fecha} onCambiar={setFecha} hoy={hoy} minimo={hoy} maximo={sumarDias(hoy, diasMaximos)} dias={dias} />
+
+          <div className="flex min-w-0 flex-col gap-5">
+            <DiaElegido fecha={fecha} rotulo={fecha === hoy ? 'Hoy' : fecha === sumarDias(hoy, 1) ? 'Mañana' : 'Día elegido'} />
+
+            {diaCerrado ? (
+              <Nota tono="aviso" titulo="Cerrado ese día">
+                {diaInfo.motivo ? `${diaInfo.motivo}. ` : ''}No hay atención ni reservas el {fechaLarga(fecha)}. Elige otra fecha en el calendario.
+              </Nota>
+            ) : horas.length === 0 ? (
+              <p className="rounded-lg bg-surface px-4 py-3 text-sm text-slate-600">
+                {cargando ? 'Cargando los horarios...' : 'No hay horario de reservas ese día. Elige otra fecha en el calendario.'}
+              </p>
+            ) : (
+              <div>
+                <p className="mb-1.5 text-[13px] font-semibold text-slate-500">{esCubiculos ? 'Horas' : 'Hora de inicio'}</p>
+                {esCubiculos ? (
                   <p className="rounded-lg bg-surface px-4 py-3 text-sm leading-relaxed text-slate-700">
                     Toca un cubículo en el plano y escribe <b>de qué hora a qué hora</b> lo necesitas. Si ya está reservado, te avisamos para que elijas
                     otro cubículo o cambies la hora.
                   </p>
-                  {lineaDeHorario}
-                </>
-              ) : (
-                <>
+                ) : (
                   <div className="flex flex-wrap gap-2">
                     {horas.map((h) => {
                       const pasada = horaPasada(h);
@@ -382,17 +383,11 @@ export default function StudyRoomPage() {
                       );
                     })}
                   </div>
-                  {lineaDeHorario}
-                </>
-              )}
-            </div>
+                )}
+                {lineaDeHorario}
+              </div>
+            )}
           </div>
-
-          {diaCerrado ? (
-            <Nota tono="aviso" titulo="Cerrado ese día">
-              {diaInfo.motivo ? `${diaInfo.motivo}. ` : ''}No hay atención ni reservas el {fechaLarga(fecha)}. Elige otra fecha.
-            </Nota>
-          ) : null}
         </div>
 
         <section className="rounded-2xl border border-border bg-white p-3 shadow-card sm:p-5" aria-label="Plano de la sala de estudio">

@@ -4,6 +4,8 @@ export const reservasApi = {
   disponibilidad: (tipo, fecha) => axiosClient.get(`/reservas/${tipo}/disponibilidad`, { params: { fecha } }),
   // Si hay servicio un día concreto y a qué horas se puede reservar (avisa de los días de cierre).
   diaDeHorario: (fecha) => axiosClient.get('/horarios/dia', { params: { fecha } }),
+  // Cómo está cada día de un rango (cerrado o no y cuántas horas se reservan): el calendario marca los cierres.
+  diasDeHorario: (desde, hasta) => axiosClient.get('/horarios/dias', { params: { desde, hasta } }),
   // La semana completa con las horas de reserva de cada día y los próximos cierres (para el inicio del sitio).
   horarioSemanal: () => axiosClient.get('/horarios/semana'),
   condiciones: () => axiosClient.get('/reservas/condiciones'),

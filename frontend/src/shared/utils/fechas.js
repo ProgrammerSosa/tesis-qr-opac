@@ -60,6 +60,44 @@ export function fechaCorta(iso) {
     .replace(/\./g, '');
 }
 
+// "jueves", "8", "oct" y "8 de octubre de 2026": las partes de una fecha para mostrarla con más estilo.
+export function nombreDelDia(iso) {
+  return new Intl.DateTimeFormat('es-GT', { weekday: 'long', timeZone: 'UTC' }).format(aFechaUTC(iso));
+}
+
+export function numeroDelDia(iso) {
+  return String(Number(iso.slice(8, 10)));
+}
+
+export function mesCorto(iso) {
+  return new Intl.DateTimeFormat('es-GT', { month: 'short', timeZone: 'UTC' }).format(aFechaUTC(iso)).replace(/\./g, '');
+}
+
+export function fechaSinDia(iso) {
+  return new Intl.DateTimeFormat('es-GT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(aFechaUTC(iso));
+}
+
+// Para el calendario de un mes: "octubre", "2026-10-01" a partir de cualquier día del mes, el mes anterior o siguiente, y cuántos
+// días tiene.
+export function nombreDelMes(iso) {
+  return new Intl.DateTimeFormat('es-GT', { month: 'long', timeZone: 'UTC' }).format(aFechaUTC(iso));
+}
+
+export function primerDiaDelMes(iso) {
+  return `${iso.slice(0, 7)}-01`;
+}
+
+export function sumarMeses(iso, meses) {
+  const [anio, mes] = iso.split('-').map(Number);
+  const total = anio * 12 + (mes - 1) + meses;
+  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, '0')}-01`;
+}
+
+export function diasDelMes(iso) {
+  const [anio, mes] = iso.split('-').map(Number);
+  return new Date(Date.UTC(anio, mes, 0)).getUTCDate();
+}
+
 // "7 de octubre de 2026"
 export function fechaConMes(iso) {
   return new Intl.DateTimeFormat('es-GT', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(aFechaUTC(iso));
