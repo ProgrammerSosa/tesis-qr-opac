@@ -105,18 +105,18 @@ function Silla({ id, cx, cy, giro, estado, interactivo, seleccionada, onSeleccio
 
   const cargado = Boolean(estado);
   const libre = cargado && estado.libre;
-  const etiqueta = cargado ? `${estado.nombre}, ${libre ? 'libre' : 'ocupado'}` : id;
+  // Una silla se puede tocar aunque no le queden horas: la reserva avisa que ya está reservada para que elija otra o cambie la hora.
+  const etiqueta = cargado ? `${estado.nombre}, ${libre ? 'con horas libres' : 'sin horas libres'}` : id;
   const tono = !cargado ? 'cargando' : libre ? 'libre' : 'ocupado';
 
   return (
     <g
       role="button"
-      tabIndex={libre ? 0 : -1}
+      tabIndex={cargado ? 0 : -1}
       aria-label={etiqueta}
-      aria-disabled={!libre}
-      onClick={libre ? () => onSeleccionar(id) : undefined}
-      onKeyDown={libre ? alActivar(() => onSeleccionar(id)) : undefined}
-      className={`group outline-none ${libre ? 'cursor-pointer' : 'cursor-not-allowed'}`}
+      onClick={cargado ? () => onSeleccionar(id) : undefined}
+      onKeyDown={cargado ? alActivar(() => onSeleccionar(id)) : undefined}
+      className={`group outline-none ${cargado ? 'cursor-pointer' : 'cursor-not-allowed'}`}
     >
       <title>{etiqueta}</title>
       <circle cx={cx} cy={cy} r={21} fill="transparent" />
@@ -236,23 +236,24 @@ function Estacion({ datos, estado, interactivo, seleccionada, onSeleccionar }) {
   else if (libre && seleccionada) relleno = 'fill-blue-100';
   else if (libre) relleno = 'fill-transparent group-hover:fill-blue-50 group-focus-visible:fill-blue-50';
 
+  // Una estación se puede tocar aunque no le queden horas: la reserva avisa que ya está reservada para que elija otra o cambie la hora.
+  const elegible = interactivo && cargado;
   const interaccion = interactivo
     ? {
         role: 'button',
-        tabIndex: libre ? 0 : -1,
-        'aria-label': `${nombre}, ${libre ? 'libre' : ocupada ? 'ocupada' : 'cargando'}`,
-        'aria-disabled': !libre,
-        onClick: libre ? () => onSeleccionar(id) : undefined,
-        onKeyDown: libre ? alActivar(() => onSeleccionar(id)) : undefined,
+        tabIndex: elegible ? 0 : -1,
+        'aria-label': `${nombre}, ${libre ? 'con horas libres' : ocupada ? 'sin horas libres' : 'cargando'}`,
+        onClick: elegible ? () => onSeleccionar(id) : undefined,
+        onKeyDown: elegible ? alActivar(() => onSeleccionar(id)) : undefined,
       }
     : {};
 
   return (
-    <g {...interaccion} className={`group outline-none ${interactivo ? (libre ? 'cursor-pointer' : 'cursor-not-allowed') : ''}`}>
+    <g {...interaccion} className={`group outline-none ${interactivo ? (elegible ? 'cursor-pointer' : 'cursor-not-allowed') : ''}`}>
       {interactivo ? (
         <title>
           {nombre}
-          {cargado ? (libre ? ' · libre' : ' · ocupada') : ''}
+          {cargado ? (libre ? ' · con horas libres' : ' · sin horas libres') : ''}
         </title>
       ) : null}
       <rect

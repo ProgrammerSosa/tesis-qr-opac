@@ -7,14 +7,14 @@ const { CONDICIONES } = require('../reservas/recursos_data');
 const TIPOS_DE_RESERVA = ['cubiculo', 'estacion', 'sala_lectura'];
 const TOLERANCIA_MINIMA = 5;
 const TOLERANCIA_MAXIMA = 60;
-const HORAS_MAXIMAS_DE_CUBICULO = 12; // el tope que el administrador puede fijar: más que eso ya no es una reserva de estudio
+const HORAS_MAXIMAS = 12; // el tope que el administrador puede fijar: más que eso ya no es una reserva de estudio
 
 const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'la sala de lectura' };
 
 const INICIAL = {
   toleranciaMinutos: CONDICIONES.toleranciaMinutos,
-  cubiculoMaxHorasPorReserva: CONDICIONES.cubiculoMaxHorasPorReserva,
-  cubiculoMaxHorasPorDia: CONDICIONES.cubiculoMaxHorasPorDia,
+  maxHorasPorReserva: CONDICIONES.maxHorasPorReserva,
+  maxHorasPorDia: CONDICIONES.maxHorasPorDia,
   reservasPausadas: Object.fromEntries(TIPOS_DE_RESERVA.map((tipo) => [tipo, false])),
   actualizadaEn: null,
   actualizadaPor: null,
@@ -23,16 +23,25 @@ const INICIAL = {
 // Lo guardado manda; lo que falte (por ejemplo un tipo de lugar nuevo) se completa con los valores iniciales.
 const guardado = almacen.cargar('configuracion', INICIAL);
 const estado = { ...INICIAL, ...guardado, reservasPausadas: { ...INICIAL.reservasPausadas, ...guardado.reservasPausadas } };
+// Los topes de horas se llamaban «cubiculoMaxHorasPor...» cuando solo valían para los cubículos: se conservan los valores guardados.
+if (guardado.maxHorasPorReserva === undefined && guardado.cubiculoMaxHorasPorReserva !== undefined) {
+  estado.maxHorasPorReserva = guardado.cubiculoMaxHorasPorReserva;
+}
+if (guardado.maxHorasPorDia === undefined && guardado.cubiculoMaxHorasPorDia !== undefined) {
+  estado.maxHorasPorDia = guardado.cubiculoMaxHorasPorDia;
+}
+delete estado.cubiculoMaxHorasPorReserva;
+delete estado.cubiculoMaxHorasPorDia;
 
 function obtener() {
   return {
     toleranciaMinutos: estado.toleranciaMinutos,
-    cubiculoMaxHorasPorReserva: estado.cubiculoMaxHorasPorReserva,
-    cubiculoMaxHorasPorDia: estado.cubiculoMaxHorasPorDia,
+    maxHorasPorReserva: estado.maxHorasPorReserva,
+    maxHorasPorDia: estado.maxHorasPorDia,
     reservasPausadas: { ...estado.reservasPausadas },
     actualizadaEn: estado.actualizadaEn,
     actualizadaPor: estado.actualizadaPor,
-    limites: { toleranciaMinima: TOLERANCIA_MINIMA, toleranciaMaxima: TOLERANCIA_MAXIMA, horasMaximasDeCubiculo: HORAS_MAXIMAS_DE_CUBICULO },
+    limites: { toleranciaMinima: TOLERANCIA_MINIMA, toleranciaMaxima: TOLERANCIA_MAXIMA, horasMaximas: HORAS_MAXIMAS },
   };
 }
 
@@ -40,9 +49,9 @@ function toleranciaMinutos() {
   return estado.toleranciaMinutos;
 }
 
-// Topes de horas para los cubículos: por reserva y por persona al día.
-function limitesDeCubiculo() {
-  return { maxHorasPorReserva: estado.cubiculoMaxHorasPorReserva, maxHorasPorDia: estado.cubiculoMaxHorasPorDia };
+// Topes de horas de las reservas (valen para todos los lugares de estudio): por reserva y por persona al día.
+function limitesDeHoras() {
+  return { maxHorasPorReserva: estado.maxHorasPorReserva, maxHorasPorDia: estado.maxHorasPorDia };
 }
 
 function reservasPausadas(tipo) {
@@ -57,19 +66,19 @@ function mensajeDePausa(tipo) {
   return `Las reservas de ${NOMBRE_DEL_SERVICIO[tipo]} están pausadas temporalmente. Consulta en el mostrador de la biblioteca.`;
 }
 
-// Valida todo antes de cambiar algo: o se aplican todos los cambios, o ninguno.
-// Devuelve la configuración nueva y la lista de cambios hechos, para la bitácora.
-function horasDeCubiculo(valor, actual, nombre) {
+function horasDeReserva(valor, actual, nombre) {
   if (valor === undefined) return actual;
   const horas = Number(valor);
-  if (!Number.isInteger(horas) || horas < 1 || horas > HORAS_MAXIMAS_DE_CUBICULO) {
-    throw rechazo(`${nombre} debe ser un número entero de 1 a ${HORAS_MAXIMAS_DE_CUBICULO} horas`);
+  if (!Number.isInteger(horas) || horas < 1 || horas > HORAS_MAXIMAS) {
+    throw rechazo(`${nombre} debe ser un número entero de 1 a ${HORAS_MAXIMAS} horas`);
   }
   return horas;
 }
 
+// Valida todo antes de cambiar algo: o se aplican todos los cambios, o ninguno.
+// Devuelve la configuración nueva y la lista de cambios hechos, para la bitácora.
 function actualizar(
-  { toleranciaMinutos: tolerancia, reservasPausadas: pausas, cubiculoMaxHorasPorReserva: porReserva, cubiculoMaxHorasPorDia: porDia } = {},
+  { toleranciaMinutos: tolerancia, reservasPausadas: pausas, maxHorasPorReserva: porReserva, maxHorasPorDia: porDia } = {},
   sesion
 ) {
   let nuevaTolerancia = estado.toleranciaMinutos;
@@ -80,8 +89,8 @@ function actualizar(
     }
   }
 
-  const nuevoPorReserva = horasDeCubiculo(porReserva, estado.cubiculoMaxHorasPorReserva, 'El máximo de horas por reserva de cubículo');
-  const nuevoPorDia = horasDeCubiculo(porDia, estado.cubiculoMaxHorasPorDia, 'El máximo de horas de cubículo por persona al día');
+  const nuevoPorReserva = horasDeReserva(porReserva, estado.maxHorasPorReserva, 'El máximo de horas por reserva');
+  const nuevoPorDia = horasDeReserva(porDia, estado.maxHorasPorDia, 'El máximo de horas por persona al día');
   if (nuevoPorDia < nuevoPorReserva) {
     throw rechazo('El máximo por persona al día no puede ser menor que el máximo por reserva');
   }
@@ -103,11 +112,11 @@ function actualizar(
   if (nuevaTolerancia !== estado.toleranciaMinutos) {
     cambios.push(`tolerancia ${estado.toleranciaMinutos} → ${nuevaTolerancia} min`);
   }
-  if (nuevoPorReserva !== estado.cubiculoMaxHorasPorReserva) {
-    cambios.push(`cubículos: máximo por reserva ${estado.cubiculoMaxHorasPorReserva} → ${nuevoPorReserva} h`);
+  if (nuevoPorReserva !== estado.maxHorasPorReserva) {
+    cambios.push(`horas por reserva: máximo ${estado.maxHorasPorReserva} → ${nuevoPorReserva} h`);
   }
-  if (nuevoPorDia !== estado.cubiculoMaxHorasPorDia) {
-    cambios.push(`cubículos: máximo por persona al día ${estado.cubiculoMaxHorasPorDia} → ${nuevoPorDia} h`);
+  if (nuevoPorDia !== estado.maxHorasPorDia) {
+    cambios.push(`horas por persona al día: máximo ${estado.maxHorasPorDia} → ${nuevoPorDia} h`);
   }
   TIPOS_DE_RESERVA.forEach((tipo) => {
     if (nuevasPausas[tipo] !== estado.reservasPausadas[tipo]) {
@@ -117,8 +126,8 @@ function actualizar(
 
   if (cambios.length > 0) {
     estado.toleranciaMinutos = nuevaTolerancia;
-    estado.cubiculoMaxHorasPorReserva = nuevoPorReserva;
-    estado.cubiculoMaxHorasPorDia = nuevoPorDia;
+    estado.maxHorasPorReserva = nuevoPorReserva;
+    estado.maxHorasPorDia = nuevoPorDia;
     estado.reservasPausadas = nuevasPausas;
     estado.actualizadaEn = new Date().toISOString();
     estado.actualizadaPor = sesion?.usuario ?? null;
@@ -131,7 +140,7 @@ module.exports = {
   TIPOS_DE_RESERVA,
   obtener,
   toleranciaMinutos,
-  limitesDeCubiculo,
+  limitesDeHoras,
   reservasPausadas,
   tiposPausados,
   mensajeDePausa,

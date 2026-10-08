@@ -30,8 +30,8 @@ export default function ConfiguracionPage() {
   function cargarEnFormulario(configuracion) {
     setGuardada(configuracion);
     setTolerancia(String(configuracion.toleranciaMinutos));
-    setHorasPorReserva(String(configuracion.cubiculoMaxHorasPorReserva));
-    setHorasPorDia(String(configuracion.cubiculoMaxHorasPorDia));
+    setHorasPorReserva(String(configuracion.maxHorasPorReserva));
+    setHorasPorDia(String(configuracion.maxHorasPorDia));
     setPausadas(configuracion.reservasPausadas);
   }
 
@@ -56,11 +56,11 @@ export default function ConfiguracionPage() {
     return <AlertBanner>{error || 'No se pudo cargar la configuración'}</AlertBanner>;
   }
 
-  const { toleranciaMinima, toleranciaMaxima, horasMaximasDeCubiculo } = guardada.limites;
+  const { toleranciaMinima, toleranciaMaxima, horasMaximas } = guardada.limites;
   const hayCambios =
     Number(tolerancia) !== guardada.toleranciaMinutos ||
-    Number(horasPorReserva) !== guardada.cubiculoMaxHorasPorReserva ||
-    Number(horasPorDia) !== guardada.cubiculoMaxHorasPorDia ||
+    Number(horasPorReserva) !== guardada.maxHorasPorReserva ||
+    Number(horasPorDia) !== guardada.maxHorasPorDia ||
     SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]);
 
   async function guardar(e) {
@@ -72,9 +72,9 @@ export default function ConfiguracionPage() {
     }
     const porReserva = Number(horasPorReserva);
     const porDia = Number(horasPorDia);
-    const horasValidas = (n) => Number.isInteger(n) && n >= 1 && n <= horasMaximasDeCubiculo;
+    const horasValidas = (n) => Number.isInteger(n) && n >= 1 && n <= horasMaximas;
     if (!horasValidas(porReserva) || !horasValidas(porDia)) {
-      setError(`Las horas de los cubículos deben ser números enteros de 1 a ${horasMaximasDeCubiculo}.`);
+      setError(`Las horas de las reservas deben ser números enteros de 1 a ${horasMaximas}.`);
       return;
     }
     if (porDia < porReserva) {
@@ -87,8 +87,8 @@ export default function ConfiguracionPage() {
     try {
       const res = await adminApi.guardarConfiguracion({
         toleranciaMinutos: minutos,
-        cubiculoMaxHorasPorReserva: porReserva,
-        cubiculoMaxHorasPorDia: porDia,
+        maxHorasPorReserva: porReserva,
+        maxHorasPorDia: porDia,
         reservasPausadas: pausadas,
       });
       cargarEnFormulario(res.data.data);
@@ -132,22 +132,23 @@ export default function ConfiguracionPage() {
         </section>
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">
-          <h2 className="text-base font-bold text-slate-900">Horas de los cubículos</h2>
+          <h2 className="text-base font-bold text-slate-900">Horas de las reservas</h2>
           <p className="text-sm text-slate-600">
-            Los cubículos se reservan por horas enteras, eligiendo de qué hora a qué hora. Para que una persona no se quede con todos,
-            fija cuántas horas seguidas puede reservar y cuántas en total al día entre todos los cubículos.
+            Los cubículos, las estaciones y las sillas de la sala de lectura se reservan por horas enteras, eligiendo de qué hora a qué hora.
+            Para que una persona no se quede con todos los lugares, fija cuántas horas seguidas puede reservar y cuántas en total al día
+            entre todos ellos.
           </p>
           <div className="flex flex-col gap-3 text-sm text-slate-700 sm:flex-row sm:gap-8">
             <label className="flex items-center gap-3">
               <input
                 type="number"
                 min={1}
-                max={horasMaximasDeCubiculo}
+                max={horasMaximas}
                 step={1}
                 required
                 value={horasPorReserva}
                 onChange={(e) => setHorasPorReserva(e.target.value)}
-                aria-label="Máximo de horas por reserva de cubículo"
+                aria-label="Máximo de horas por reserva"
                 className="w-20 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               horas como máximo por reserva
@@ -156,12 +157,12 @@ export default function ConfiguracionPage() {
               <input
                 type="number"
                 min={1}
-                max={horasMaximasDeCubiculo}
+                max={horasMaximas}
                 step={1}
                 required
                 value={horasPorDia}
                 onChange={(e) => setHorasPorDia(e.target.value)}
-                aria-label="Máximo de horas de cubículo por persona al día"
+                aria-label="Máximo de horas por persona al día"
                 className="w-20 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
               horas como máximo por persona al día

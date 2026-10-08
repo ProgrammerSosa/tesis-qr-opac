@@ -6,17 +6,17 @@ const MESAS_SALA = 5;
 const SILLAS_POR_MESA = 6;
 
 // Condiciones generales de uso (propuesta, sección 4.5.2): si quien reserva no se presenta dentro de la
-// tolerancia, la reserva se libera y el lugar vuelve a estar disponible. Las estaciones y las sillas
-// de la sala se reservan por una hora. `diasMaximosDeAnticipacion` es hasta cuántos días adelante se puede reservar.
-// Los cubículos se reservan por horas enteras, eligiendo desde qué hora hasta qué hora (como mínimo una hora): para que una
-// persona no se quede con todos, hay un tope de horas por reserva y otro por persona al día. Son los valores con los que arranca el
-// sistema; el administrador los cambia en la configuración.
+// tolerancia, la reserva se libera y el lugar vuelve a estar disponible. `diasMaximosDeAnticipacion` es hasta cuántos días adelante
+// se puede reservar.
+// Todos los lugares de estudio (cubículos, estaciones y sillas de la sala de lectura) se reservan por horas enteras, eligiendo
+// desde qué hora hasta qué hora (como mínimo una hora). Para que una persona no se quede con todos los lugares, hay un tope de horas
+// por reserva y otro por persona al día entre todos ellos. Son los valores con los que arranca el sistema; el administrador los
+// cambia en la configuración.
 const CONDICIONES = {
   toleranciaMinutos: 15,
-  duracionEspaciosHoras: 1,
   diasMaximosDeAnticipacion: 30,
-  cubiculoMaxHorasPorReserva: 8,
-  cubiculoMaxHorasPorDia: 8,
+  maxHorasPorReserva: 8,
+  maxHorasPorDia: 8,
 };
 
 const RECURSOS = {

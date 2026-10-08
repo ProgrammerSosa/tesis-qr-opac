@@ -83,11 +83,12 @@ function horasOcupadas(tipo, recursoId, fecha) {
     .flatMap(franjasDeReserva);
 }
 
-// Franjas en las que una persona ya tiene un cubículo reservado ese día.
-function horasDePersona(identificacion, fecha) {
-  return reservas
-    .filter((r) => r.tipo === 'cubiculo' && r.identificacion === identificacion && r.fecha === fecha && vigente(r))
-    .flatMap(franjasDeReserva);
+// El carné, el correo o el documento se comparan sin importar mayúsculas ni espacios de más: «AB123» y «ab123 » son la misma persona.
+const mismaPersona = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+// Las reservas vigentes de una persona ese día, en cualquier lugar de estudio.
+function reservasDePersona(identificacion, fecha) {
+  return reservas.filter((r) => r.fecha === fecha && vigente(r) && mismaPersona(r.identificacion, identificacion));
 }
 
 // Cada lugar con las horas de ese día y si están libres. Los días de cierre y las horas fuera de las ventanas de reserva
@@ -104,9 +105,9 @@ function disponibilidad(tipo, fecha) {
   });
 }
 
-// Cuántas horas dura una reserva de cubículo: se elige desde qué hora hasta qué hora (`horaFin`, una hora entera, p. ej. "13:00"),
-// o se indica la duración en horas (`duracion`). Sin ninguna de las dos es de una hora.
-function horasDeCubiculo({ hora, horaFin, duracion }) {
+// Cuántas horas dura una reserva (de cualquier lugar de estudio): se elige desde qué hora hasta qué hora (`horaFin`, una hora entera,
+// p. ej. "13:00"), o se indica la duración en horas (`duracion`). Sin ninguna de las dos es de una hora.
+function horasDeReserva({ hora, horaFin, duracion }) {
   if (horaFin !== undefined && horaFin !== null && horaFin !== '') {
     if (!/^([01]\d|2[0-3]):00$/.test(String(horaFin))) {
       throw rechazo('La hora final debe ser una hora entera, por ejemplo 13:00');
@@ -125,23 +126,28 @@ function horasDeCubiculo({ hora, horaFin, duracion }) {
   return horas;
 }
 
-// Reglas de los cubículos: por horas enteras, hasta un máximo de horas por reserva y por persona al día (el administrador
-// los fija en la configuración).
-function validarCubiculo({ fecha, horas, identificacion }) {
-  const { maxHorasPorReserva, maxHorasPorDia } = configuracion.limitesDeCubiculo();
+// Reglas de las reservas: horas enteras, hasta un máximo de horas por reserva y por persona al día entre todos los lugares de
+// estudio (el administrador los fija en la configuración).
+function validarLimites({ fecha, horas, identificacion }) {
+  const { maxHorasPorReserva, maxHorasPorDia } = configuracion.limitesDeHoras();
   if (horas > maxHorasPorReserva) {
-    throw rechazo(`Un cubículo se reserva por ${maxHorasPorReserva} horas como máximo; elige una hora final más cercana`);
+    throw rechazo(`Una reserva puede ser de ${maxHorasPorReserva} horas como máximo; elige una hora final más cercana`);
   }
 
-  const yaReservadas = reservas
-    .filter((r) => r.tipo === 'cubiculo' && r.identificacion === identificacion && r.fecha === fecha && vigente(r))
-    .reduce((total, r) => total + r.duracion, 0);
+  const yaReservadas = reservasDePersona(identificacion, fecha).reduce((total, r) => total + r.duracion, 0);
   if (yaReservadas + horas > maxHorasPorDia) {
     throw rechazo(
-      `Superarías el máximo de ${maxHorasPorDia} horas de cubículo al día por persona (ya tienes ${yaReservadas}). Elige menos horas u otro día.`
+      `Superarías el máximo de ${maxHorasPorDia} horas de reservas al día por persona (ya tienes ${yaReservadas}). Elige menos horas u otro día.`
     );
   }
 }
+
+// Cómo se nombra cada lugar en los avisos («Este cubículo ya está reservado…», «Esta silla ya está reservada…»).
+const LUGAR = {
+  cubiculo: { este: 'Este cubículo', reservado: 'reservado', otro: 'otro cubículo' },
+  estacion: { este: 'Esta estación', reservado: 'reservada', otro: 'otra estación' },
+  sala_lectura: { este: 'Esta silla', reservado: 'reservada', otro: 'otra silla' },
+};
 
 function kioscoValido(kiosco) {
   return typeof kiosco === 'string' && /^[0-9A-Za-z_-]{1,10}$/.test(kiosco) ? kiosco : null;
@@ -188,12 +194,9 @@ function crearReserva({ tipo, recursoId, fecha, hora, horaFin, solicitante, iden
     throw rechazo('El correo no es válido');
   }
 
-  // Los cubículos se reservan por horas (de la hora de inicio a la hora final); estaciones y sillas, una hora.
-  const esCubiculo = tipo === 'cubiculo';
-  const horas = esCubiculo ? horasDeCubiculo({ hora, horaFin, duracion }) : 1;
-  if (esCubiculo) {
-    validarCubiculo({ fecha, horas, identificacion: documento });
-  }
+  // Todos los lugares de estudio se reservan por horas: de la hora de inicio a la hora final.
+  const horas = horasDeReserva({ hora, horaFin, duracion });
+  validarLimites({ fecha, horas, identificacion: documento });
 
   const cubiertas = franjasCubiertas(fecha, hora, horas);
   if (cubiertas.length < horas) {
@@ -201,15 +204,13 @@ function crearReserva({ tipo, recursoId, fecha, hora, horaFin, solicitante, iden
   }
   const ocupadas = horasOcupadas(tipo, recursoId, fecha);
   if (cubiertas.some((franja) => ocupadas.includes(franja))) {
-    throw rechazo(
-      esCubiculo
-        ? 'Este cubículo ya está reservado en ese horario. Intenta con otro cubículo o cambia la hora.'
-        : 'Ese lugar ya está reservado a esa hora. Intenta con otro lugar o cambia la hora.',
-      409
-    );
+    const lugar = LUGAR[tipo];
+    throw rechazo(`${lugar.este} ya está ${lugar.reservado} en ese horario. Intenta con ${lugar.otro} o cambia la hora.`, 409);
   }
-  if (esCubiculo && cubiertas.some((franja) => horasDePersona(documento, fecha).includes(franja))) {
-    throw rechazo('Ya tienes otro cubículo reservado en ese horario');
+  // Una persona no puede estar en dos lugares de estudio a la vez.
+  const horasDeLaPersona = reservasDePersona(documento, fecha).flatMap(franjasDeReserva);
+  if (cubiertas.some((franja) => horasDeLaPersona.includes(franja))) {
+    throw rechazo('Ya tienes otro lugar de estudio reservado en ese horario');
   }
 
   const reserva = {

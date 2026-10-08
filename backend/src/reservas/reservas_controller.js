@@ -60,14 +60,14 @@ function postReserva(req, res) {
   }
 }
 
-// Condiciones generales de uso que se muestran antes de reservar, con los minutos de tolerancia, los topes de horas de los
-// cubículos y las reservas pausadas que el administrador tenga en la configuración.
+// Condiciones generales de uso que se muestran antes de reservar, con los minutos de tolerancia, los topes de horas de las
+// reservas (valen para todos los lugares de estudio) y las reservas pausadas que el administrador tenga en la configuración.
 function getCondiciones(req, res) {
-  const { cubiculoMaxHorasPorReserva, cubiculoMaxHorasPorDia, ...generales } = CONDICIONES;
+  const { maxHorasPorReserva, maxHorasPorDia, ...generales } = CONDICIONES;
   return ok(res, {
     ...generales,
     toleranciaMinutos: configuracion.toleranciaMinutos(),
-    cubiculo: configuracion.limitesDeCubiculo(),
+    limites: configuracion.limitesDeHoras(),
     pausadas: configuracion.tiposPausados(),
   });
 }
