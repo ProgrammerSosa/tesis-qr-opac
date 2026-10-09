@@ -142,6 +142,9 @@ Lo que conviene saber del plan gratuito ([documentación de Render](https://rend
 
 - El servicio se duerme tras 15 minutos sin visitas y la siguiente tarda cerca de un minuto en abrir; al despertar lee otra vez los datos
   de la base. Con un plan de pago no se duerme.
+- Para que no se duerma, el servidor se visita solo (`/health`) cada 10 minutos por su dirección pública (`RENDER_EXTERNAL_URL`, que
+  Render ya define): no necesita cuentas ni servicios externos. `KEEPALIVE=0` lo apaga. Solo funciona mientras está despierto; si ya se
+  durmió, la primera visita de cualquier persona lo despierta.
 - Las sesiones del panel viven en memoria: si se duerme o se publica una versión, el personal vuelve a entrar.
 - Son 750 horas gratis al mes por espacio de trabajo: un solo servicio encendido todo el mes cabe.
 - La base gratuita de Render caduca a los 30 días; por eso se usa Supabase, que además pausa los proyectos gratuitos tras una semana sin

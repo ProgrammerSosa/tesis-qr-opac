@@ -20,6 +20,7 @@ const cors = require('cors');
 
 const almacen = require('./utils/almacen');
 const { descripcionDelCorreo, comprobarAlArrancar } = require('./utils/correo');
+const { mantenerDespierto } = require('./utils/mantenerDespierto');
 const { limitar, soloEscrituras } = require('./utils/limitador');
 const { fail } = require('./utils/httpResponse');
 const { crearComprobadorDeDirecciones } = require('./utils/redes');
@@ -202,6 +203,7 @@ async function arrancar() {
   console.log(`Servidor escuchando en el puerto ${puerto}`);
   console.log(`  Zona horaria: ${process.env.TZ} · correo: ${descripcionDelCorreo()} · datos: ${almacen.descripcion()}`);
   avisarClavesTemporales();
+  mantenerDespierto();
   comprobarAlArrancar().catch((error) => console.warn(`[correo] No se pudo comprobar el correo: ${error.message}`));
 }
 
