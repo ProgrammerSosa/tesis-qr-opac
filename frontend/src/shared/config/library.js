@@ -18,6 +18,7 @@ export const LIBRARY = {
     facebook: 'https://www.facebook.com/bibliotecaderechousac',
     instagram: 'https://www.instagram.com/biblioderechousac/',
     youtube: 'https://www.youtube.com/channel/UCPYiQPb47qLB7FVNn_bwQ6A',
+    BibliotecaDigital: 'https://bibliotecadigital.usac.edu.gt/',
   },
 
   // Logo de la biblioteca (archivo en frontend/public). Si el archivo falta, el sitio dibuja una marca sencilla en su lugar.
