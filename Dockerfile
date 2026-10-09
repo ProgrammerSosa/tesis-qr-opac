@@ -3,8 +3,9 @@
 #   docker build -t biblioteca-opac .
 #   docker run -p 4001:4001 -v biblioteca-datos:/data --env-file backend/.env biblioteca-opac
 #
-# Los datos (reservas, solicitudes, cuentas, catálogo, horarios) quedan en /data: ahí hay que montar un volumen y
-# respaldarlo. Las claves del panel y los demás ajustes se pasan como variables de entorno (ver backend/.env.example).
+# Con DATABASE_URL los datos (reservas, solicitudes, cuentas, catálogo, horarios) van a PostgreSQL y no hace falta volumen. Sin ella
+# quedan en /data: ahí hay que montar un volumen y respaldarlo. Las claves del panel y los demás ajustes se pasan como variables
+# de entorno (ver backend/.env.example).
 
 # 1) Compila el sitio (React + Vite).
 FROM node:24-bookworm-slim AS sitio

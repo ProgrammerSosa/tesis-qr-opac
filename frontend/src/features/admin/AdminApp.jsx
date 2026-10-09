@@ -7,6 +7,7 @@ import { useSesionAdmin } from './SesionAdmin';
 import ActividadPage from './paginas/ActividadPage';
 import CatalogoPage from './paginas/CatalogoPage';
 import CodigosQrPage from './paginas/CodigosQrPage';
+import AlmacenamientoPage from './paginas/AlmacenamientoPage';
 import ConfiguracionPage from './paginas/ConfiguracionPage';
 import CorreoPage from './paginas/CorreoPage';
 import EstadisticasPage from './paginas/EstadisticasPage';
@@ -30,6 +31,7 @@ const PAGINAS = {
   estadisticas: EstadisticasPage,
   personal: PersonalPage,
   configuracion: ConfiguracionPage,
+  datos: AlmacenamientoPage,
   correo: CorreoPage,
   actividad: ActividadPage,
 };

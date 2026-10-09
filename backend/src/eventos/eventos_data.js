@@ -7,7 +7,8 @@ const TIPOS_DEL_CLIENTE = ['busqueda_opac', 'acceso_qr', 'comprobante_impreso', 
 const TIPOS_DEL_SERVIDOR = ['consulta_digital', 'descarga_digital', 'comprobante_correo'];
 
 const MAXIMO_DE_EVENTOS = 50000;
-const ESPERA_PARA_GUARDAR_MS = 5000; // cambian muy seguido: se escriben de a poco
+// Cambian muy seguido y el documento puede llegar a pesar varios MB: se escriben de a poco (con una base de datos, todavía más espaciado).
+const ESPERA_PARA_GUARDAR_MS = almacen.usaBaseDeDatos() ? 30000 : 5000;
 
 const estado = almacen.cargar('eventos', { eventos: [] });
 const eventos = estado.eventos;

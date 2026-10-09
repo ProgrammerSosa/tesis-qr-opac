@@ -43,8 +43,9 @@ se crean desde el panel («Cuentas del personal»).
    mantenga encendido, como pm2 o systemd).
 3. Detrás de nginx u otro proxy con HTTPS, define `TRUST_PROXY=1` para que los límites de uso y el candado de los kioscos vean la
    dirección real de cada equipo.
-4. **Respalda `backend/data`** (o la carpeta de `DATA_DIR`): ahí están las reservas, solicitudes, cuentas, catálogo, horarios y
-   actividad. Las sesiones del panel viven en memoria: al reiniciar el servidor el personal debe volver a entrar.
+4. **Respalda los datos.** Con `DATABASE_URL` están en PostgreSQL (ver «Base de datos» más abajo); sin ella, en `backend/data` (o la
+   carpeta de `DATA_DIR`): reservas, solicitudes, cuentas, catálogo, horarios y actividad. Las sesiones del panel viven en memoria:
+   al reiniciar el servidor el personal debe volver a entrar.
 5. Correo: sin configurarlo, los comprobantes por correo no salen (quedan simulados); ver «Correo» más abajo.
 6. Logo: el archivo es `frontend/public/logo-biblioteca.png` (y `icono-biblioteca.png` para la pestaña del navegador).
 
@@ -62,8 +63,9 @@ docker run -p 4001:4001 -v biblioteca-datos:/data --env-file backend/.env biblio
 Una plataforma que construye desde GitHub solo necesita apuntar a este repositorio: detecta el `Dockerfile` y usa el puerto de
 la variable `PORT`.
 
-- **Datos.** Reservas, solicitudes, cuentas, catálogo y horarios quedan en `/data` (`DATA_DIR`). Hay que montar ahí un volumen
-  persistente y respaldarlo; sin volumen, cada despliegue empieza de cero. Al apagar el servidor (`SIGTERM`) se guarda lo pendiente.
+- **Datos.** Con `DATABASE_URL` van a PostgreSQL y no hace falta ningún volumen. Sin ella quedan en `/data` (`DATA_DIR`): ahí hay
+  que montar un volumen persistente y respaldarlo, porque sin volumen cada despliegue empieza de cero. Al apagar el servidor
+  (`SIGTERM`) se guarda lo pendiente.
 - **Claves.** Define `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CONSULTA` como variables de la plataforma, nuevas y
   largas (no uses las de pruebas). Si falta alguna, el servidor inventa una temporal y la escribe en sus registros.
 - **Proxy.** Detrás del proxy de la plataforma define `TRUST_PROXY=1`; si no, los límites de uso ven una sola «persona» (el
@@ -71,10 +73,40 @@ la variable `PORT`.
 - **Kioscos.** `KIOSCOS_IP` solo sirve si el servidor ve la dirección propia de cada kiosco (servidor dentro de la misma red). En
   la nube todos los equipos de la facultad salen con la misma dirección pública: déjalo vacío. El candado de pantalla del kiosco y
   el inicio de sesión del panel siguen protegiendo.
-- **Una sola instancia.** Las sesiones del panel están en memoria y los datos son archivos: no se puede escalar a varias copias.
+- **Una sola instancia.** El servidor trabaja con sus datos en memoria y las sesiones del panel también: no se puede escalar a
+  varias copias. Con la base de datos, una segunda copia espera su turno (ver «Base de datos»).
 - **Primer arranque.** El catálogo trae siete tesis de ejemplo; en **Catálogo → Importar** se marca «Reemplazar todo el catálogo»
   para dejar solo el real.
 - **Salud.** `/health` responde `ok` cuando el servidor está listo.
+
+### Base de datos (PostgreSQL, Supabase)
+
+Sin configurar nada, el servidor guarda todo en archivos JSON (`backend/data`): sirve para desarrollar. Con `DATABASE_URL` guarda en una
+base de datos PostgreSQL (Supabase, Render, la de tu computadora...): los datos sobreviven a cada publicación del servidor y no hace
+falta un disco.
+
+- **Qué se guarda.** Cada tipo de dato (catálogo con sus QR, reservas, solicitudes de solvencia, cuentas, horarios, configuración,
+  actividad y estadísticas) es una fila de `biblioteca.almacen`, en formato JSON. El servidor trabaja con ellos en memoria y los guarda
+  un instante después de cada cambio (al apagarlo guarda lo que quede). El esquema se crea solo al arrancar (`backend/sql/esquema.sql`).
+- **Verlos como tablas.** El esquema trae vistas de solo lectura (`v_reservas`, `v_tesis`, `v_solicitudes_solvencia`, `v_cuentas`,
+  `v_actividad`, `v_eventos`, `v_cierres`): ábrelas en pgAdmin (Schemas → biblioteca → Views) o en el Table Editor de Supabase y
+  expórtalas a CSV. No se edita ahí: los cambios se hacen desde el panel.
+- **Privacidad.** Todo vive en el esquema `biblioteca`, que la API pública de Supabase no expone, y se le quita el acceso a los roles
+  públicos. Las cuentas se ven sin su clave cifrada.
+- **UTF8.** La base debe ser UTF8; si no, el servidor no arranca y explica cómo crearla (en pgAdmin: clic derecho en Databases →
+  Create → Database → pestaña Definition: Encoding UTF8, Template template0, Collation C, Character type C).
+- **Conexión.** Va cifrada, salvo hacia `localhost`. Con Supabase usa la cadena «Session pooler» (puerto 5432): la conexión directa
+  solo funciona por IPv6. Sirve cualquier PostgreSQL que dé una `DATABASE_URL`.
+- **Una sola copia a la vez.** El servidor toma un «turno» en la base (un candado de PostgreSQL). Una segunda copia espera hasta que la
+  primera termine (al publicar una versión nueva conviven unos segundos) o se rinde con un aviso a los `ESPERA_DEL_TURNO_S` segundos;
+  mientras espera, responde que se está iniciando.
+- **Si la base se cae.** El servidor sigue atendiendo con lo que tiene en memoria, avisa en la consola y en el panel y guarda lo
+  pendiente solo cuando la base vuelve.
+- **Pasar lo que ya tenías.** `npm run importar` (dentro de `backend`) sube a la base los archivos de `backend/data`, de otra carpeta o
+  un respaldo descargado del panel. No pisa lo que ya hay salvo con `--forzar`, y se niega si hay un servidor encendido.
+- **Respaldo.** En el panel, **Datos y respaldo** (solo el administrador) muestra dónde está guardado todo y descarga un respaldo en
+  JSON (sin las claves de las cuentas). Las bases gratuitas no suelen ofrecer copias descargables (la de Supabase tampoco): descarga
+  uno cada semana y antes de cambios grandes.
 
 ### Correo
 

@@ -63,6 +63,7 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'cuenta.clave': 'Cambió su propia clave',
   'configuracion.cambiada': 'Cambió la configuración',
   'correo.prueba': 'Envió un correo de prueba',
+  'respaldo.descargado': 'Descargó un respaldo de los datos',
 };
 
 // Los correos que manda el sistema (sección Correo): de qué eran y cómo les fue.
@@ -93,6 +94,7 @@ export const CATEGORIAS_DE_ACTIVIDAD = {
   cuenta: 'Cuenta propia',
   configuracion: 'Configuración',
   correo: 'Correo',
+  respaldo: 'Respaldos',
 };
 
 // Fecha y hora legibles para una marca de tiempo ISO, en hora de la biblioteca.
