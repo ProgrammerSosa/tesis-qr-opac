@@ -13,9 +13,11 @@ const ROLES = {
 // Cuentas con las que arranca el sistema; después el administrador puede crear más, cambiarlas o desactivarlas, y todo
 // se guarda en el almacén de datos. Aquí solo se definen el usuario, el nombre y el rol de las iniciales: las claves
 // nunca se escriben en el código (el repositorio es público). Cada una viene de una variable de entorno, normalmente
-// desde backend/.env, que no se sube a git (hay un modelo en backend/.env.example), y si está definida manda sobre la
-// clave guardada. Una cuenta inicial sin clave definida recibe una clave temporal al azar, que vale solo mientras el
-// servidor siga encendido y se muestra únicamente en la consola del servidor.
+// desde backend/.env, que no se sube a git (hay un modelo en backend/.env.example). La variable solo sirve para CREAR la
+// cuenta la primera vez: después manda la clave guardada, que cada persona cambia desde el panel (si no, cada reinicio
+// del servidor le devolvería la clave vieja). Para una clave olvidada está RESTABLECER_CLAVES=1: en ese arranque las
+// variables vuelven a mandar; hay que quitarla después. Una cuenta inicial sin clave definida recibe una clave temporal
+// al azar, que vale solo mientras el servidor siga encendido y se muestra únicamente en la consola del servidor.
 const CUENTAS_INICIALES = [
   { usuario: 'admin', nombre: 'Administración', rol: 'administrador', variable: 'CLAVE_ADMIN' },
   { usuario: 'circulacion', nombre: 'Circulación y Préstamo', rol: 'circulacion', variable: 'CLAVE_CIRCULACION' },
@@ -61,14 +63,18 @@ function guardar() {
   almacen.guardar('cuentas', { cuentas: guardables });
 }
 
+const RESTABLECER = ['1', 'true', 'si', 'sí'].includes(String(process.env.RESTABLECER_CLAVES || '').trim().toLowerCase());
+const restablecidas = []; // usuarios cuya clave se volvió a poner desde su variable en este arranque
+
 CUENTAS_INICIALES.forEach(({ variable, ...datos }) => {
   const claveDelEntorno = process.env[variable];
   const guardada = cuentas.find((c) => c.usuario === datos.usuario);
   if (guardada) {
-    // Una clave definida en el entorno manda sobre la guardada (por si se olvidó la clave de una cuenta inicial).
-    if (claveDelEntorno && !crypto.timingSafeEqual(guardada.hash, cifrar(claveDelEntorno, guardada.sal))) {
+    // La cuenta ya existe: su clave guardada manda. Solo con RESTABLECER_CLAVES se vuelve a poner la de la variable.
+    if (RESTABLECER && claveDelEntorno && !crypto.timingSafeEqual(guardada.hash, cifrar(claveDelEntorno, guardada.sal))) {
       guardada.sal = crypto.randomBytes(16);
       guardada.hash = cifrar(claveDelEntorno, guardada.sal);
+      restablecidas.push(guardada.usuario);
       guardar();
     }
     return;
@@ -86,6 +92,11 @@ CUENTAS_INICIALES.forEach(({ variable, ...datos }) => {
 // Entrega, una sola vez, las claves temporales para mostrarlas en la consola, y las olvida.
 function retirarClavesTemporales() {
   return clavesTemporales.splice(0);
+}
+
+// Qué pasó con RESTABLECER_CLAVES en este arranque, para avisarlo en la consola: si está puesta y a qué cuentas les cambió la clave.
+function restablecimiento() {
+  return { pedido: RESTABLECER, usuarios: restablecidas.slice() };
 }
 
 function buscar(usuario) {
@@ -220,6 +231,7 @@ function cambiarClave(usuario, clave) {
 module.exports = {
   ROLES,
   retirarClavesTemporales,
+  restablecimiento,
   listar,
   obtener,
   verificar,

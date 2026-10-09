@@ -21,7 +21,8 @@ services:
       # Dónde se guardan los datos: PostgreSQL. Con Supabase, la cadena «Session pooler» (puerto 5432).
       - key: DATABASE_URL
         sync: false
-      # Claves de las cuatro cuentas iniciales del panel (nuevas y largas; no las uses en ningún otro lado).
+      # Claves de las cuatro cuentas iniciales del panel (nuevas y largas; no las uses en ningún otro lado). Solo crean las cuentas la
+      # primera vez: después vale la clave que cada persona ponga desde el panel.
       - key: CLAVE_ADMIN
         sync: false
       - key: CLAVE_CIRCULACION

@@ -11,20 +11,18 @@
 // llevar «prueba» o «test»): antes de cada prueba se borra el esquema `biblioteca` de esa base.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
-import net from 'node:net';
-import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { BACKEND, ENTORNO_LIMPIO, arrancarServidor, carpetaTemporal } from './servidor.mjs';
 
 const AQUI = path.dirname(fileURLToPath(import.meta.url));
-const BACKEND = path.join(AQUI, '..');
 const SITIO = path.join(BACKEND, '..', 'frontend', 'dist', 'index.html');
 const require = createRequire(import.meta.url);
 
 // `servidor`: la prueba usa un servidor que arranca este programa (su dirección llega en BASE). `fases`: se corre una vez por fase,
 // reiniciando el servidor entre una y otra con los mismos datos. `sitio`: necesita el sitio compilado (frontend/dist).
-// `modulos`: paquetes de desarrollo que necesita.
+// `modulos`: paquetes de desarrollo que necesita. Las demás arrancan sus propios servidores o prueban un módulo directamente.
 const PRUEBAS = [
   { nombre: 'propuesta', servidor: true, fases: ['escribir', 'verificar'] },
   { nombre: 'horas', servidor: true },
@@ -32,31 +30,14 @@ const PRUEBAS = [
   { nombre: 'pdf', servidor: true },
   { nombre: 'proteccion', servidor: true, sitio: true },
   { nombre: 'kioscos', sitio: true },
+  { nombre: 'claves' },
   { nombre: 'salida' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },
   { nombre: 'correo', modulos: ['smtp-server', 'mailparser'] },
 ];
 
-const CLAVES = { CLAVE_ADMIN: 'Admin-prueba-1', CLAVE_CIRCULACION: 'Circ-prueba-1', CLAVE_TESIS: 'Tesis-prueba-1', CLAVE_CONSULTA: 'Consulta-prueba-1' };
-// Lo que haya en el entorno de quien corre las pruebas no debe colarse en los servidores de prueba.
-const ENTORNO_LIMPIO = Object.fromEntries(
-  ['DATABASE_URL', 'NODE_ENV', 'KIOSCOS_IP', 'TRUST_PROXY', 'CORS_ORIGIN', 'KEEPALIVE_URL', 'RENDER_EXTERNAL_URL', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM', 'SMTP_SECURE', 'CORREO_API', 'CORREO_API_KEY', 'CORREO_REMITENTE', 'CORREO_API_URL'].map((n) => [n, ''])
-);
 const BASE_DE_PRUEBA = String(process.env.DATABASE_URL_PRUEBA || '').trim();
-
-const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
-
-function puertoLibre() {
-  return new Promise((resolver, rechazar) => {
-    const s = net.createServer();
-    s.once('error', rechazar);
-    s.listen(0, () => {
-      const { port } = s.address();
-      s.close(() => resolver(port));
-    });
-  });
-}
 
 // Con PostgreSQL, cada prueba empieza con la base vacía.
 async function vaciarBaseDePrueba() {
@@ -73,37 +54,6 @@ async function vaciarBaseDePrueba() {
   } finally {
     await cliente.end();
   }
-}
-
-async function arrancarServidor({ datos, sitio }) {
-  const puerto = await puertoLibre();
-  const salida = [];
-  const hijo = spawn(process.execPath, ['server.js'], {
-    cwd: BACKEND,
-    env: { ...process.env, ...ENTORNO_LIMPIO, ...CLAVES, PORT: String(puerto), DATA_DIR: datos, DATABASE_URL: BASE_DE_PRUEBA, LIMITE_ESCRITURAS: '1000', SERVE_FRONTEND: sitio ? '1' : '' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  hijo.stdout.on('data', (d) => salida.push(String(d)));
-  hijo.stderr.on('data', (d) => salida.push(String(d)));
-  const terminado = new Promise((resolver) => hijo.once('exit', resolver));
-  const base = `http://localhost:${puerto}`;
-  const parar = async () => {
-    hijo.kill();
-    await terminado;
-  };
-  for (let i = 0; i < 100; i += 1) {
-    if (hijo.exitCode !== null) break;
-    try {
-      // «iniciando» es la respuesta mientras espera a la base de datos: todavía no atiende.
-      const r = await fetch(`${base}/health`);
-      if (r.ok && (await r.json()).data === 'ok') return { base, parar, salida };
-    } catch {
-      // todavía no abre el puerto
-    }
-    await pausa(150);
-  }
-  await parar();
-  throw new Error(`El servidor de prueba no arrancó:\n${salida.join('')}`);
 }
 
 function correrArchivo(archivo, env) {
@@ -134,19 +84,19 @@ const resumen = (salida) => salida.trim().split('\n').filter((l) => l.trim()).po
 
 async function correr(prueba, detalle) {
   const archivo = path.join(AQUI, `${prueba.nombre}.mjs`);
-  const datos = fs.mkdtempSync(path.join(os.tmpdir(), `biblioteca-prueba-${prueba.nombre}-`));
+  const datos = carpetaTemporal(prueba.nombre);
   const partes = [];
   let bien = true;
   try {
     if (prueba.servidor) await vaciarBaseDePrueba();
     for (const fase of prueba.fases ?? [null]) {
-      const servidor = prueba.servidor ? await arrancarServidor({ datos, sitio: prueba.sitio }) : null;
+      const servidor = prueba.servidor ? await arrancarServidor({ datos, sitio: prueba.sitio, env: { DATABASE_URL: BASE_DE_PRUEBA } }) : null;
       try {
         const r = await correrArchivo(archivo, { ...(servidor ? { BASE: servidor.base } : {}), ...(fase ? { FASE: fase } : {}) });
         partes.push(r.salida);
         if (r.codigo !== 0) {
           bien = false;
-          if (servidor) partes.push(`--- consola del servidor ---\n${servidor.salida.join('')}`);
+          if (servidor) partes.push(`--- consola del servidor ---\n${servidor.consola()}`);
           break;
         }
       } finally {

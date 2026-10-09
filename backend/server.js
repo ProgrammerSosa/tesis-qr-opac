@@ -160,7 +160,14 @@ function crearApp() {
 
 // Una cuenta sin clave definida recibe una clave temporal; se muestra aquí, en la consola, y en ningún otro lado.
 function avisarClavesTemporales() {
-  const { retirarClavesTemporales } = require('./src/auth/cuentas_data');
+  const { retirarClavesTemporales, restablecimiento } = require('./src/auth/cuentas_data');
+  const { pedido, usuarios } = restablecimiento();
+  if (pedido) {
+    console.warn(
+      `\n[panel del personal] RESTABLECER_CLAVES está activa: ${usuarios.length > 0 ? `se restableció la clave de ${usuarios.join(', ')}` : 'ninguna clave cambió'}.` +
+        ' Quita esa variable ahora: mientras siga puesta, cada reinicio vuelve a poner las claves de CLAVE_* sobre las que se cambien en el panel.\n'
+    );
+  }
   const temporales = retirarClavesTemporales();
   if (temporales.length === 0) return;
   console.warn('\n[panel del personal] Hay cuentas sin clave definida: usan una clave temporal, válida hasta que se reinicie el servidor.');

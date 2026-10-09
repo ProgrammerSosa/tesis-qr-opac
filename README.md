@@ -32,8 +32,9 @@ cd frontend && npm run dev     # sitio en http://localhost:5174 (reenvía /api a
 
 El panel está en `http://localhost:5174/privateAccess`. Sus cuatro cuentas iniciales (`admin`, `circulacion`, `tesis` y `consulta`)
 toman la clave de `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CONSULTA` en `backend/.env`. Si alguna queda
-vacía, el servidor genera una clave temporal y la muestra en su consola. **`backend/.env` no se sube a git.** Las demás cuentas
-se crean desde el panel («Cuentas del personal»).
+vacía, el servidor genera una clave temporal y la muestra en su consola. Esas variables solo crean las cuentas la primera vez:
+después vale la clave que cada persona ponga desde el panel. **`backend/.env` no se sube a git.** Las demás cuentas se crean desde
+el panel («Cuentas del personal»).
 
 ### Pruebas
 
@@ -78,7 +79,9 @@ la variable `PORT`.
   que montar un volumen persistente y respaldarlo, porque sin volumen cada despliegue empieza de cero. Al apagar el servidor
   (`SIGTERM`) se guarda lo pendiente.
 - **Claves.** Define `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CONSULTA` como variables de la plataforma, nuevas y
-  largas (no uses las de pruebas). Si falta alguna, el servidor inventa una temporal y la escribe en sus registros.
+  largas (no uses las de pruebas). Si falta alguna, el servidor inventa una temporal y la escribe en sus registros. Solo sirven para
+  crear las cuentas la primera vez: después vale la clave que cada persona ponga desde el panel (`RESTABLECER_CLAVES=1` las vuelve a
+  aplicar una vez, para una clave olvidada).
 - **Proxy.** Detrás del proxy de la plataforma define `TRUST_PROXY=1`; si no, los límites de uso ven una sola «persona» (el
   proxy) y bloquean a todos a la vez.
 - **Kioscos.** `KIOSCOS_IP` solo sirve si el servidor ve la dirección propia de cada kiosco (servidor dentro de la misma red). En
@@ -160,8 +163,10 @@ Lo que conviene saber del plan gratuito ([documentación de Render](https://rend
 - Son 750 horas gratis al mes por espacio de trabajo: un solo servicio encendido todo el mes cabe.
 - La base gratuita de Render caduca a los 30 días; por eso se usa Supabase, que además pausa los proyectos gratuitos tras una semana sin
   actividad (mientras haya visitas, no pasa).
-- Las claves `CLAVE_*` mandan sobre las que se guardan al cambiarlas en el panel: si cambias una cuenta inicial con «Cambiar mi clave» y
-  la variable sigue puesta, al reiniciar vuelve la de la variable. Cámbiala en Render, o bórrala después del primer arranque.
+- Las claves `CLAVE_*` solo crean las cuentas la primera vez. Después cada persona cambia la suya con «Cambiar mi clave» y esa es la que
+  vale, aunque el servidor se reinicie. Si alguien olvida la suya, el administrador le pone otra en «Cuentas del personal»; y si es la
+  del administrador, define `RESTABLECER_CLAVES=1` y `CLAVE_ADMIN` con la clave nueva, deja que reinicie, entra y **quita
+  `RESTABLECER_CLAVES`** (mientras siga puesta, cada reinicio vuelve a poner las claves de las variables).
 
 #### Ver los datos de Supabase con pgAdmin
 
