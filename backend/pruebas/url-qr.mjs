@@ -34,7 +34,7 @@ let r = await api('/admin/catalogo', { metodo: 'POST', token, cuerpo: { ...base,
 ok(r.estado === 201, `crea la tesis (${r.estado})`);
 ok(r.datos?.documentoDigital?.urlExterna === 'https://repositorio.ejemplo.edu.gt/tesis/U-001.pdf', 'guarda la URL sin espacios');
 ok(r.datos?.documentoDigital?.acceso === 'consulta', 'con URL y sin acceso indicado queda en consulta');
-ok(r.datos?.qr?.destino === 'url', 'el QR lleva a la URL por defecto');
+ok(r.datos?.qr?.destino === 'enlace', 'el QR usa el enlace corto por defecto');
 ok(r.datos?.documentoDigital?.disponible === true, 'el documento queda disponible');
 
 console.log('Alta con URL y acceso explícito');
@@ -115,7 +115,58 @@ ok(r.datos.items[0]?.documentoDigital.urlExterna === 'https://example.com/nueva'
 console.log('Vista pública');
 r = await api('/tesis/U-001');
 ok(r.estado === 200 && r.datos.documentoDigital.urlExterna === undefined && !JSON.stringify(r.datos).includes('localhost:9'), 'la ficha pública no muestra la URL');
-ok(r.datos?.qr?.destino === undefined, 'ni el destino del QR');
+ok(r.datos?.qr?.destino === 'ficha' && r.datos.qr.enlace === null, 'dice que el código lleva a la ficha, sin enlace');
+
+console.log('Enlace corto del QR (/r/<código>)');
+const corto = (id) => fetch(`${BASE}/r/${id}`, { redirect: 'manual' });
+const consulta = await entrar('consulta', 'Consulta-prueba-1');
+const escaneos = async (id) => (await api('/admin/estadisticas', { token: consulta })).datos.tesisMasConsultadas.find((t) => t.id === id)?.accesosQr ?? 0;
+const URL_1 = 'https://repositorio.ejemplo.edu.gt/tesis/E-001.pdf';
+const URL_2 = 'https://otro-servidor.ejemplo.edu.gt/nuevo/E-001.pdf';
+r = await api('/admin/catalogo', { metodo: 'POST', token, cuerpo: { ...base, id: 'E-001', urlTesis: URL_1 } });
+ok(r.estado === 201 && r.datos.qr.destino === 'enlace', 'tesis nueva con URL: su código usa el enlace corto');
+let salto = await corto('E-001');
+ok(salto.status === 302 && salto.headers.get('location') === URL_1, `el enlace corto abre la URL de la tesis (${salto.status} ${salto.headers.get('location')})`);
+ok(salto.headers.get('cache-control') === 'no-store', 'no se guarda en memoria intermedia: cada escaneo llega al servidor');
+ok((await escaneos('E-001')) === 1, 'el escaneo se cuenta');
+await corto('E-001');
+ok((await escaneos('E-001')) === 2, 'y el siguiente también');
+r = await api('/tesis/E-001');
+ok(r.datos.qr.destino === 'enlace' && r.datos.qr.enlace === null && !JSON.stringify(r.datos).includes('repositorio.ejemplo'), 'la ficha pública dice «enlace» sin mostrar la URL');
+
+await api('/admin/catalogo/E-001', { metodo: 'PATCH', token, cuerpo: { urlTesis: URL_2 } });
+salto = await corto('E-001');
+ok(salto.headers.get('location') === URL_2, 'al cambiar la URL, el mismo enlace corto abre la nueva (no hay que reimprimir)');
+
+r = await api('/admin/qr/E-001', { metodo: 'PATCH', token, cuerpo: { destino: 'url' } });
+ok(r.estado === 200 && r.datos.qr.destino === 'url', 'se puede elegir la URL tal cual');
+r = await api('/tesis/E-001');
+ok(r.datos.qr.destino === 'url' && r.datos.qr.enlace === URL_2, 'con la URL tal cual, la ficha pública trae la URL que lleva el código');
+salto = await corto('E-001');
+ok(salto.headers.get('location') === URL_2, 'el enlace corto sigue abriendo la URL aunque el código lleve la URL tal cual');
+
+await api('/admin/qr/E-001', { metodo: 'PATCH', token, cuerpo: { destino: 'ficha' } });
+const antes = await escaneos('E-001');
+salto = await corto('E-001');
+ok(salto.status === 302 && salto.headers.get('location') === '/tesis/E-001?origen=qr', `con destino «ficha» lleva a la ficha (${salto.headers.get('location')})`);
+ok((await escaneos('E-001')) === antes, 'ese escaneo lo cuenta la ficha, no el enlace corto');
+
+await api('/admin/qr/E-001', { metodo: 'PATCH', token, cuerpo: { destino: 'enlace', activo: false } });
+salto = await corto('E-001');
+ok(salto.headers.get('location') === '/tesis/E-001?origen=qr', 'un código desactivado lleva a la ficha (que lo explica)');
+r = await api('/tesis/E-001');
+ok(r.datos.qr.activo === false && r.datos.qr.destino === 'ficha', 'y la ficha pública lo sabe');
+await api('/admin/qr/E-001', { metodo: 'PATCH', token, cuerpo: { activo: true } });
+
+await api('/admin/tesis/E-001/documento', { metodo: 'PATCH', token, cuerpo: { acceso: 'sin_acceso' } });
+salto = await corto('E-001');
+ok(salto.headers.get('location') === '/tesis/E-001?origen=qr', 'sin acceso digital lleva a la ficha y no revela la URL');
+salto = await corto('U-003');
+ok(salto.headers.get('location') === '/tesis/U-003?origen=qr', 'una tesis sin URL lleva a su ficha');
+salto = await corto('NO-EXISTE');
+ok(salto.status === 302 && salto.headers.get('location') === '/tesis/NO-EXISTE?origen=qr', 'un código que no existe lleva a la ficha, que dice que no se encontró');
+salto = await corto('a%2F..%2Fb');
+ok(salto.status === 302 && salto.headers.get('location') === '/tesis/a%2F..%2Fb?origen=qr', `un código raro no puede sacar la redirección del sitio (${salto.headers.get('location')})`);
 
 console.log('Horario semanal público');
 r = await api('/horarios/semana');

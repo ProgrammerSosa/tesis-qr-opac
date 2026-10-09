@@ -31,7 +31,7 @@ const VACIA = {
   consultaFisica: '',
   urlTesis: '',
   acceso: 'sin_acceso',
-  destinoQr: 'url',
+  destinoQr: 'enlace',
 };
 
 // El borrador del formulario: vacío para una tesis nueva; con los datos de la tesis (y su URL, su acceso y el destino de su
@@ -46,7 +46,7 @@ function borradorDe(tesis) {
     paginas: tesis.paginas ?? '',
     urlTesis: documentoDigital?.urlExterna ?? '',
     acceso: documentoDigital?.acceso ?? 'sin_acceso',
-    destinoQr: qr?.destino ?? 'url',
+    destinoQr: qr?.destino ?? 'enlace',
   };
 }
 

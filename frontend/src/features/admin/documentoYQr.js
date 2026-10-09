@@ -12,7 +12,7 @@ export function calcularDocumentoYQr({ id, urlTesis, accesoElegido, accesoTocado
   const acceso = accesoTocado ? accesoElegido : revision.url ? 'consulta' : 'sin_acceso';
   const puedeUsarUrl = Boolean(revision.url) && acceso !== 'sin_acceso' && activo;
   const destino = destinoDelQr({ id: codigo, url: revision.url, acceso, activo, destino: destinoQr });
-  // Sin URL y sin código de la tesis todavía no hay nada que codificar.
-  const sinCodigo = destino.tipo === 'ficha' && !codigo;
+  // El enlace corto y la ficha se arman con el código de la tesis: sin él todavía no hay nada que codificar.
+  const sinCodigo = destino.tipo !== 'url' && !codigo;
   return { revision, acceso, puedeUsarUrl, destino, sinCodigo };
 }

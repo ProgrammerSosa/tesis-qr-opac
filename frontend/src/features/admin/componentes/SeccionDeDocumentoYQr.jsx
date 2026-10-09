@@ -32,7 +32,7 @@ function OpcionDeDestino({ valor, elegido, onElegir, deshabilitada, titulo, chil
 // al instante, el código QR que se genera con ella (propuesta, secciones 4.3 y 4.5.6). `calculo` viene de calcularDocumentoYQr.
 export default function SeccionDeDocumentoYQr({ id, urlTesis, onUrl, calculo, onAcceso, destinoQr, onDestino }) {
   const { revision, acceso, puedeUsarUrl, destino, sinCodigo } = calculo;
-  const efectivoEsUrl = destino.tipo === 'url';
+  const llevaAlDocumento = destino.tipo !== 'ficha';
 
   return (
     <section aria-labelledby="seccion-documento-qr" className="flex flex-col gap-4 rounded-xl border border-border bg-surface p-4">
@@ -92,37 +92,49 @@ export default function SeccionDeDocumentoYQr({ id, urlTesis, onUrl, calculo, on
             {sinCodigo ? (
               <p className="text-sm text-slate-500">—</p>
             ) : (
-              <p className="break-all font-mono text-xs leading-snug text-slate-800" data-testid="destino-del-qr">
-                {destino.visible}
-              </p>
+              <>
+                <p className="break-all font-mono text-xs leading-snug text-slate-800" data-testid="destino-del-qr">
+                  {destino.visible}
+                </p>
+                {destino.tipo === 'enlace' ? (
+                  <p className="mt-1 break-all text-xs leading-snug text-slate-500" data-testid="destino-del-qr-abre">
+                    que abre <span className="font-mono">{destino.abre}</span>
+                  </p>
+                ) : null}
+              </>
             )}
           </div>
 
           <fieldset className="flex flex-col gap-2">
             <legend className="sr-only">A dónde lleva el código QR</legend>
-            <OpcionDeDestino valor="url" elegido={efectivoEsUrl} onElegir={onDestino} deshabilitada={!puedeUsarUrl} titulo="La URL de la tesis">
-              Abre directamente el documento. Si la URL cambia, hay que reimprimir la etiqueta. No se cuentan los escaneos.
+            <OpcionDeDestino valor="enlace" elegido={destino.tipo === 'enlace'} onElegir={onDestino} deshabilitada={!puedeUsarUrl} titulo="El documento, con el enlace corto de la biblioteca (recomendado)">
+              Abre directamente el documento. Si la URL cambia, la etiqueta ya impresa sigue sirviendo, y se cuentan los escaneos. Necesita que este
+              sitio esté en línea.
             </OpcionDeDestino>
-            <OpcionDeDestino valor="ficha" elegido={!efectivoEsUrl} onElegir={onDestino} titulo="La ficha de la tesis en este sistema">
+            <OpcionDeDestino valor="url" elegido={destino.tipo === 'url'} onElegir={onDestino} deshabilitada={!puedeUsarUrl} titulo="El documento, con su URL tal cual">
+              El código lleva escrita la URL: sirve aunque este sitio no esté en línea, pero si la URL cambia hay que reimprimir la etiqueta y no se
+              cuentan los escaneos.
+            </OpcionDeDestino>
+            <OpcionDeDestino valor="ficha" elegido={destino.tipo === 'ficha'} onElegir={onDestino} titulo="La ficha de la tesis en este sistema">
               Dirección estable: si cambia el archivo, el código sigue sirviendo; se cuentan los escaneos y el sistema controla el acceso.
             </OpcionDeDestino>
           </fieldset>
 
-          {!puedeUsarUrl && destinoQr === 'url' ? (
+          {!puedeUsarUrl && destinoQr !== 'ficha' ? (
             <p className="text-xs leading-snug text-slate-500">
               {revision.url
                 ? 'Con «Sin acceso digital» el documento no se ofrece al público, por eso el código lleva a la ficha.'
                 : 'Mientras no haya una URL válida, el código lleva a la ficha de la tesis.'}
             </p>
-          ) : efectivoEsUrl && destino.enlace.length > 200 ? (
+          ) : destino.tipo === 'url' && destino.enlace.length > 200 ? (
             <p className="text-xs leading-snug text-amber-800">
-              La URL es muy larga: el código QR saldrá muy denso y será difícil de leer al imprimirlo. Usa una URL más corta o haz que el código lleve a
-              la ficha.
+              La URL es muy larga: el código QR saldrá muy denso y será difícil de leer al imprimirlo. Usa el enlace corto de la biblioteca, que
+              siempre da un código pequeño.
             </p>
-          ) : efectivoEsUrl && acceso === 'consulta' ? (
+          ) : llevaAlDocumento && acceso === 'consulta' ? (
             <p className="text-xs leading-snug text-amber-800">
-              Con la URL directa, el sitio de destino decide si el archivo se puede descargar. Para que la biblioteca controle el acceso, haz que el
-              código lleve a la ficha.
+              Al abrir el documento directamente, el sitio donde está decide si el archivo se puede descargar. Para que la biblioteca controle el
+              acceso, haz que el código lleve a la ficha.
             </p>
           ) : null}
         </div>

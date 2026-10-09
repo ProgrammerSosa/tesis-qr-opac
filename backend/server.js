@@ -21,7 +21,7 @@ const cors = require('cors');
 const almacen = require('./utils/almacen');
 const { descripcionDelCorreo, comprobarAlArrancar } = require('./utils/correo');
 const { mantenerDespierto } = require('./utils/mantenerDespierto');
-const { limitar, soloEscrituras } = require('./utils/limitador');
+const { limitar, soloEscrituras, dentroDelLimite } = require('./utils/limitador');
 const { fail } = require('./utils/httpResponse');
 const { crearComprobadorDeDirecciones } = require('./utils/redes');
 const { RUTA_DEL_PANEL } = require('./utils/rutas');
@@ -39,6 +39,7 @@ const esApiDelPersonal = (ruta) => empiezaCon(ruta, '/api/admin') || empiezaCon(
 // después de iniciar el almacén (con una base de datos, iniciarlo toma un momento y es asíncrono).
 function crearApp() {
   const catalogRoutes = require('./src/catalog/catalog_routes');
+  const { getEnlaceCorto } = require('./src/catalog/catalog_controller');
   const reservasRoutes = require('./src/reservas/reservas_routes');
   const solvenciaRoutes = require('./src/solvencia/solvencia_routes');
   const adminRoutes = require('./src/admin/admin_routes');
@@ -121,6 +122,11 @@ function crearApp() {
   app.use('/api', horariosRoutes);
 
   app.use('/api', (req, res) => fail(res, 'Ruta no encontrada', 404));
+
+  // Enlace corto de los códigos QR: /r/<código de la tesis> abre su URL (ver getEnlaceCorto). Nunca se niega, pero una misma
+  // dirección que lo pida sin parar deja de sumar escaneos a las estadísticas.
+  const cabeEnElLimite = dentroDelLimite({ maximo: porMinuto * 4 });
+  app.get('/r/:id', (req, res) => getEnlaceCorto(req, res, { contar: cabeEnElLimite(req) }));
 
   // Para publicar, el mismo servidor entrega el sitio ya compilado (frontend/dist). Se activa con NODE_ENV=production
   // o SERVE_FRONTEND=1, siempre que exista esa carpeta (se genera con "npm run build" dentro de frontend).

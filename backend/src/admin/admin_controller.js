@@ -21,7 +21,7 @@ const { calcular } = require('./estadisticas');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
-const TEXTO_DE_DESTINO = { url: 'a la URL de la tesis', ficha: 'a la ficha de la tesis' };
+const TEXTO_DE_DESTINO = { enlace: 'al enlace corto (abre la URL de la tesis)', url: 'a la URL de la tesis, tal cual', ficha: 'a la ficha de la tesis' };
 const TEXTO_DE_VERIFICACION = { ok: 'enlace correcto', solo_ficha: 'lleva a la ficha', enlace_roto: 'enlace roto' };
 
 // Qué cambió en el documento digital de una tesis, para la bitácora.

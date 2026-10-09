@@ -8,10 +8,14 @@ const { rechazo } = require('../../utils/errores');
 const ACCESOS = ['acceso_descarga', 'consulta', 'sin_acceso'];
 
 // A dónde lleva el código QR impreso en la etiqueta (propuesta, sección 4.3):
-//   url   = directo a la URL de la tesis, tal como la escribió el personal
-//   ficha = a la ficha de la tesis en este sistema: una dirección que no cambia aunque cambie el archivo digital
+//   enlace = al enlace corto de este sistema (/r/<código>), que abre la URL de la tesis: si la URL cambia, la etiqueta ya impresa
+//            sigue sirviendo, y se cuentan los escaneos. Es lo que se usa por defecto.
+//   url    = la URL de la tesis tal cual, escrita dentro del código: sirve aunque este sistema no esté en línea, pero si la URL
+//            cambia hay que reimprimir la etiqueta y no se cuentan los escaneos.
+//   ficha  = a la ficha de la tesis en este sistema: una dirección que no cambia aunque cambie el archivo digital
 // Sin URL de la tesis, o si el documento no se ofrece al público, el código siempre lleva a la ficha.
-const DESTINOS_DEL_QR = ['url', 'ficha'];
+const DESTINOS_DEL_QR = ['enlace', 'url', 'ficha'];
+const DESTINO_POR_DEFECTO = 'enlace';
 
 // Tipos de documento de la colección de tesis (propuesta, sección 3.2).
 const TIPOS_DOCUMENTO = ['tesis_grado', 'tesis_posgrado', 'tesis_doctoral', 'seminario_posgrado'];
@@ -49,7 +53,7 @@ function registroNuevo(base, acceso = 'sin_acceso') {
     signatura: '',
     ...base,
     documentoDigital: { acceso, activo: true, urlExterna: null, actualizadoEn: GENERADO },
-    qr: { activo: true, destino: 'url', generadoEn: GENERADO, verificadoEn: null, resultado: null },
+    qr: { activo: true, destino: DESTINO_POR_DEFECTO, generadoEn: GENERADO, verificadoEn: null, resultado: null },
   };
 }
 
@@ -183,17 +187,23 @@ function digitalDisponible(t) {
   return t.documentoDigital.activo && t.documentoDigital.acceso !== 'sin_acceso';
 }
 
-// Lo que ve cualquier visitante: sin el enlace interno del documento ni datos de gestión. La única excepción es `qr.enlace`: la
-// URL de la tesis, solo cuando el código QR está activo, el documento se ofrece y el personal eligió que el código vaya directo
-// a la URL. Es lo mismo que ya codifica el código impreso en la etiqueta, así que no revela nada que el código no revele.
+// A dónde lleva de verdad el código QR de una tesis: lo que eligió el personal, salvo que no haya URL que ofrecer (sin URL, sin
+// acceso, documento o código desactivados), en cuyo caso lleva a la ficha.
+function destinoEfectivoDelQr(t) {
+  const hayUrl = Boolean(t.documentoDigital.urlExterna) && t.qr.activo && digitalDisponible(t);
+  return hayUrl && DESTINOS_DEL_QR.includes(t.qr.destino) ? t.qr.destino : 'ficha';
+}
+
+// Lo que ve cualquier visitante: sin el enlace interno del documento ni datos de gestión. Del código QR se dice a dónde lleva
+// (`qr.destino`) para dibujar en el sitio el mismo código que va impreso en la etiqueta. La URL de la tesis (`qr.enlace`) solo
+// viaja cuando el código la lleva escrita tal cual: en ese caso es lo mismo que ya revela el código impreso.
 function vistaPublica(t) {
   const { documentoDigital, qr, ...resto } = t;
-  const url = documentoDigital.urlExterna;
-  const directo = Boolean(url) && qr.activo && qr.destino !== 'ficha' && digitalDisponible(t);
+  const destino = destinoEfectivoDelQr(t);
   return {
     ...resto,
     documentoDigital: { acceso: documentoDigital.acceso, disponible: digitalDisponible(t) },
-    qr: { activo: qr.activo, enlace: directo ? url : null },
+    qr: { activo: qr.activo, destino, enlace: destino === 'url' ? documentoDigital.urlExterna : null },
   };
 }
 
@@ -288,7 +298,7 @@ function documentoYQrNuevos(cambios, ahora) {
   const acceso = cambios.acceso ?? (cambios.urlExterna ? 'consulta' : 'sin_acceso');
   return {
     documentoDigital: { acceso, activo: true, urlExterna: cambios.urlExterna ?? null, actualizadoEn: ahora },
-    qr: { activo: true, destino: cambios.destinoQr ?? 'url', generadoEn: ahora, verificadoEn: null, resultado: null },
+    qr: { activo: true, destino: cambios.destinoQr ?? DESTINO_POR_DEFECTO, generadoEn: ahora, verificadoEn: null, resultado: null },
   };
 }
 
@@ -538,6 +548,7 @@ module.exports = {
   limpiarUrl,
   TESIS,
   digitalDisponible,
+  destinoEfectivoDelQr,
   vistaPublica,
   vistaAdmin,
   buscarTesis,

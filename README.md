@@ -202,15 +202,20 @@ sistema genera el código QR de la etiqueta: se ve al instante en el formulario,
 guardar, imprimir la etiqueta de contraportada. El nivel de acceso (descarga, solo consulta o sin acceso) se elige en el mismo
 formulario.
 
-El código puede llevar a dos destinos:
+El código puede llevar a tres destinos:
 
-- **Directo a la URL de la tesis** (lo que sale por defecto). Si la URL cambia, hay que reimprimir la etiqueta y no se cuentan los
-  escaneos en las estadísticas.
-- **A la ficha de la tesis en este sistema**: una dirección estable. Si el archivo cambia de lugar, el código ya impreso sigue
-  sirviendo, se cuentan los escaneos y el sistema controla el acceso (propuesta, sección 4.3).
+- **Al documento, con el enlace corto de la biblioteca** (lo que sale por defecto): el código lleva `https://<tu-sitio>/r/<código>`
+  y el servidor abre la URL de la tesis que esté guardada en ese momento. Si la URL cambia, la etiqueta ya impresa sigue sirviendo, y
+  cada escaneo se cuenta en las estadísticas. Necesita que el sitio esté en línea (y en la misma dirección: si cambias de dominio,
+  conserva el anterior o reimprime).
+- **Al documento, con su URL tal cual**: el código lleva escrita la URL. Sirve aunque este sitio no esté en línea, pero si la URL
+  cambia hay que reimprimir la etiqueta y no se cuentan los escaneos.
+- **A la ficha de la tesis en este sistema**: una dirección estable; se cuentan los escaneos y el sistema controla el acceso
+  (propuesta, sección 4.3).
 
-El destino se cambia tesis por tesis en **Códigos QR** («Que lleve a la ficha» / «Que lleve a la URL»). Si la tesis no tiene URL o
-está «sin acceso digital», el código siempre lleva a la ficha. Un código con una URL muy larga sale muy denso: conviene una URL corta.
+El destino se cambia tesis por tesis en **Códigos QR**. Si la tesis no tiene URL, está «sin acceso digital» o su código está
+desactivado, el código siempre lleva a la ficha. El código QR que se ve en la ficha pública es el mismo que va impreso en la etiqueta.
+Las tesis que ya tenían su código con la URL tal cual siguen así: las etiquetas impresas no cambian.
 
 Mientras una tesis no tiene URL, su documento digital es un PDF de ejemplo que el sistema arma con los datos del catálogo: portada
 con el logo, ficha, resumen con palabras clave, cómo citarla y condiciones de uso, con encabezado y número de página (y una marca de

@@ -5,7 +5,7 @@ import { catalogApi } from './catalogApi';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import { LIBRARY } from '../../shared/config/library';
-import ThesisQr from './ThesisQr';
+import ThesisQr, { enlacePublicoDelQr } from './ThesisQr';
 import ThesisCard from './ThesisCard';
 import { ACCESOS, TIPOS_DOCUMENTO } from './tiposDocumento';
 import { IsbdView, MarcView } from './ThesisRecordViews';
@@ -339,10 +339,10 @@ export default function ThesisDetailPage() {
                 Versión móvil QR
               </h2>
               <div className="rounded-xl border border-dashed border-border p-2">
-                <ThesisQr id={tesis.id} size={180} enlace={tesis.qr?.enlace || undefined} />
+                <ThesisQr id={tesis.id} size={180} enlace={enlacePublicoDelQr(tesis)} />
               </div>
               <p className="text-sm leading-relaxed text-slate-500">
-                {tesis.qr?.enlace
+                {['url', 'enlace'].includes(tesis.qr?.destino)
                   ? 'Escanea para abrir el documento de esta tesis en tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.'
                   : 'Escanea para llevar este registro a tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.'}
               </p>

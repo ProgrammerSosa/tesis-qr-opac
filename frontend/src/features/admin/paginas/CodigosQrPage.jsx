@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Loader2, Printer, ScanLine } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { useListaPaginada } from '../useListaPaginada';
-import ThesisQr, { destinoDelQrDe } from '../../catalog/ThesisQr';
+import ThesisQr, { destinoDelQrDe, NOMBRE_DEL_DESTINO } from '../../catalog/ThesisQr';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Badge from '../../../shared/components/Badge';
@@ -19,7 +19,7 @@ const RESULTADO = {
   enlace_roto: { tone: 'danger', label: 'Enlace roto' },
 };
 
-// Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): a dónde lleva cada uno (la URL de la tesis o su ficha), cuáles están
+// Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): a dónde lleva cada uno (el documento, por el enlace corto o con su URL tal cual, o la ficha), cuáles están
 // activos, comprobar que sus enlaces respondan e imprimir las etiquetas de contraportada. La selección para imprimir se conserva
 // al cambiar de página.
 export default function CodigosQrPage() {
@@ -155,7 +155,7 @@ export default function CodigosQrPage() {
                 const resultado = RESULTADO[t.qr.resultado];
                 const enVerificacion = verificando.has(t.id);
                 const destino = destinoDelQrDe(t);
-                // Elegir entre la URL y la ficha solo tiene sentido si la tesis tiene una URL que se pueda ofrecer.
+                // Elegir a dónde lleva solo tiene sentido si la tesis tiene una URL que se pueda ofrecer.
                 const puedeElegir = Boolean(t.documentoDigital.urlExterna) && t.documentoDigital.disponible;
                 return (
                   <tr key={t.id} className="align-middle">
@@ -176,8 +176,9 @@ export default function CodigosQrPage() {
                       <p className="mt-0.5 font-mono text-xs text-slate-500">{t.id}</p>
                     </td>
                     <td className="px-3 py-3 text-xs">
-                      <Badge tone={destino.tipo === 'url' ? 'status' : 'neutral'}>{destino.tipo === 'url' ? 'URL de la tesis' : 'Ficha de la tesis'}</Badge>
+                      <Badge tone={destino.tipo === 'ficha' ? 'neutral' : 'status'}>{NOMBRE_DEL_DESTINO[destino.tipo]}</Badge>
                       <span className="mt-1 block max-w-[17rem] break-all font-mono text-slate-600">{destino.visible}</span>
+                      {destino.tipo === 'enlace' ? <span className="mt-0.5 block max-w-[17rem] break-all text-slate-500">abre {destino.abre}</span> : null}
                     </td>
                     <td className="px-3 py-3">
                       <Badge tone={t.qr.activo ? 'status' : 'danger'} dot>
@@ -212,13 +213,18 @@ export default function CodigosQrPage() {
                           Imprimir etiqueta
                         </button>
                         {puedeElegir ? (
-                          <button
-                            type="button"
-                            onClick={() => cambiarDestino(t, destino.tipo === 'url' ? 'ficha' : 'url')}
-                            className="text-slate-700 hover:underline"
+                          <select
+                            aria-label={`A dónde lleva el código de ${t.id}`}
+                            value={destino.tipo}
+                            onChange={(e) => cambiarDestino(t, e.target.value)}
+                            className="rounded border border-border bg-white px-1.5 py-0.5 text-xs text-slate-700"
                           >
-                            {destino.tipo === 'url' ? 'Que lleve a la ficha' : 'Que lleve a la URL'}
-                          </button>
+                            {Object.entries(NOMBRE_DEL_DESTINO).map(([valor, nombre]) => (
+                              <option key={valor} value={valor}>
+                                Lleva a: {nombre}
+                              </option>
+                            ))}
+                          </select>
                         ) : null}
                       </div>
                     </td>

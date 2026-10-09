@@ -3,7 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Download, ExternalLink, FileText, Lock, Smartphone } from 'lucide-react';
 import { catalogApi, urlDelDocumento } from './catalogApi';
 import { ACCESOS } from './tiposDocumento';
-import ThesisQr, { enlaceDeDocumento } from './ThesisQr';
+import ThesisQr, { enlaceDeDocumento, enlacePublicoDelQr } from './ThesisQr';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 import { useKiosco } from '../../shared/kiosco/KioscoContext';
 import Badge from '../../shared/components/Badge';
@@ -160,7 +160,7 @@ export default function ThesisDocumentPage() {
               Llévalo a tu teléfono
             </h2>
             <div className="rounded-xl border border-dashed border-border p-2">
-              <ThesisQr id={tesis.id} size={150} enlace={tesis.qr?.enlace || enlaceDeDocumento(tesis.id)} />
+              <ThesisQr id={tesis.id} size={150} enlace={enlacePublicoDelQr(tesis, enlaceDeDocumento(tesis.id))} />
             </div>
             <p className="text-sm text-slate-500">Escanea el código con la cámara de tu teléfono para abrir este documento.</p>
           </div>

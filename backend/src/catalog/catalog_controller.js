@@ -1,4 +1,4 @@
-const { buscarTesis, obtenerPorId, tesisRelacionadas, digitalDisponible, vistaPublica } = require('./catalog_data');
+const { buscarTesis, obtenerPorId, tesisRelacionadas, digitalDisponible, destinoEfectivoDelQr, vistaPublica } = require('./catalog_data');
 const { pdfDeTesis } = require('./pdf_ejemplo');
 const { registrar } = require('../eventos/eventos_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
@@ -61,4 +61,22 @@ async function getDocumento(req, res) {
   }
 }
 
-module.exports = { listItems, getItem, getDocumento };
+// Enlace corto del código QR (/r/<código>): lo que va impreso en la etiqueta cuando el destino es «enlace». Abre la URL de la tesis
+// que esté guardada en ese momento, así que cambiarla no obliga a reimprimir, y cuenta el escaneo. Si la tesis no tiene URL que
+// ofrecer (o su código está desactivado, o ya no existe) lleva a su ficha, que explica qué pasa.
+function getEnlaceCorto(req, res, { contar = true } = {}) {
+  const id = String(req.params.id);
+  const tesis = obtenerPorId(id);
+  // Sin memoria intermedia: cada escaneo debe llegar hasta aquí para contarse y para tomar la URL vigente.
+  res.set('Cache-Control', 'no-store');
+  if (!tesis || destinoEfectivoDelQr(tesis) === 'ficha') {
+    return res.redirect(`/tesis/${encodeURIComponent(id)}?origen=qr`);
+  }
+  if (contar) {
+    registrar('acceso_qr', { tesisId: tesis.id });
+    registrar('consulta_digital', { tesisId: tesis.id });
+  }
+  return res.redirect(tesis.documentoDigital.urlExterna);
+}
+
+module.exports = { listItems, getItem, getDocumento, getEnlaceCorto };

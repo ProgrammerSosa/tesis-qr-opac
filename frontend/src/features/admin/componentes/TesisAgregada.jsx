@@ -30,7 +30,13 @@ export default function TesisAgregada({ tesis, onImprimir }) {
           <p className="break-all font-mono text-xs leading-snug text-slate-800" data-testid="destino-del-qr-guardado">
             {destino.visible}
           </p>
-          <p className="text-xs text-slate-500">{destino.tipo === 'url' ? 'Directo a la URL de la tesis.' : 'A la ficha de la tesis en este sistema.'}</p>
+          <p className="text-xs text-slate-500">
+            {destino.tipo === 'enlace'
+              ? 'Enlace corto de la biblioteca: abre la URL de la tesis y cuenta los escaneos.'
+              : destino.tipo === 'url'
+                ? 'Directo a la URL de la tesis, tal cual.'
+                : 'A la ficha de la tesis en este sistema.'}
+          </p>
           <div className="flex flex-wrap gap-2 pt-2">
             <Button type="button" variant="brand" icon={Printer} onClick={() => onImprimir(tesis)}>
               Imprimir etiqueta
