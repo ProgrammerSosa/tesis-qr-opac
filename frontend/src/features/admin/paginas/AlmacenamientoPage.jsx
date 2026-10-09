@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Download, Loader2, RefreshCw } from 'lucide-react';
+import { Download, Loader2, RefreshCw, Send } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { fechaLegible } from '../estados';
@@ -20,13 +20,30 @@ const DOCUMENTOS = {
   actividad: ['Actividad del personal', 'Qué hizo cada persona en el panel'],
   eventos: ['Uso del sitio y de los kioscos', 'Búsquedas, accesos por QR y sesiones (alimentan las estadísticas)'],
   sesiones: ['Sesiones del panel', 'Quién tiene el panel abierto (no entra en el respaldo)'],
+  respaldos: ['Registro de respaldos', 'Cuándo salió el último respaldo por correo (no entra en el respaldo)'],
 };
 
 const VISTAS_DE_LA_BASE = ['v_reservas', 'v_tesis', 'v_solicitudes_solvencia', 'v_cuentas', 'v_actividad', 'v_eventos', 'v_cierres'];
 
 function tamano(bytes) {
-  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024) return `${bytes} B`;
+  return bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+// Por qué el respaldo automático está apagado, y qué hacer.
+const POR_QUE_APAGADO = {
+  sin_destino: (
+    <>
+      Para recibirlo, define en el servidor <code className="rounded bg-white/70 px-1 font-mono text-[13px]">RESPALDO_CORREO</code> con el correo donde quieres que llegue.
+    </>
+  ),
+  destino_invalido: (
+    <>
+      <code className="rounded bg-white/70 px-1 font-mono text-[13px]">RESPALDO_CORREO</code> no es un correo válido: corrígelo en el servidor.
+    </>
+  ),
+  correo_simulado: 'El correo está en modo simulado, así que el respaldo no saldría. Configura el correo (sección «Correo») y empezará a enviarse solo.',
+};
 
 function Dato({ etiqueta, children, tono }) {
   return (
@@ -46,6 +63,9 @@ export default function AlmacenamientoPage() {
   const [descargando, setDescargando] = useState(false);
   const [aviso, setAviso] = useState('');
   const [errorDeRespaldo, setErrorDeRespaldo] = useState('');
+  const [enviando, setEnviando] = useState(false);
+  const [avisoDeEnvio, setAvisoDeEnvio] = useState('');
+  const [errorDeEnvio, setErrorDeEnvio] = useState('');
 
   const cargar = useCallback(async () => {
     try {
@@ -90,6 +110,22 @@ export default function AlmacenamientoPage() {
     }
   }
 
+  async function enviarAhora() {
+    setEnviando(true);
+    setAvisoDeEnvio('');
+    setErrorDeEnvio('');
+    try {
+      const res = await adminApi.enviarRespaldo();
+      const { para, simulado } = res.data.data;
+      setAvisoDeEnvio(simulado ? 'El correo está en modo simulado: el respaldo no salió de verdad.' : `Respaldo enviado a ${para}. Revisa que haya llegado (mira también en «correo no deseado»).`);
+    } catch (err) {
+      setErrorDeEnvio(getErrorMessage(err, 'No se pudo enviar el respaldo'));
+    } finally {
+      setEnviando(false);
+      cargar();
+    }
+  }
+
   if (cargando) {
     return (
       <div className="flex items-center gap-2 text-slate-400">
@@ -104,6 +140,7 @@ export default function AlmacenamientoPage() {
   }
 
   const enBaseDeDatos = datos.modo === 'postgres';
+  const automatico = datos.respaldoAutomatico;
 
   return (
     <PaginaAdmin
@@ -157,8 +194,8 @@ export default function AlmacenamientoPage() {
         <div>
           <h2 className="text-base font-bold text-slate-900">Respaldo</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Un archivo con todo lo guardado (sin las claves de las cuentas), para tener una copia fuera del servidor. Descarga uno cada semana y antes de cambios grandes:
-            el plan gratuito de Supabase no hace copias de seguridad que se puedan descargar.
+            Un archivo con todo lo guardado (sin las claves de las cuentas), para tener una copia fuera del servidor. Descarga uno antes de cambios grandes: el plan
+            gratuito de Supabase no hace copias de seguridad que se puedan descargar.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -174,6 +211,50 @@ export default function AlmacenamientoPage() {
         ) : null}
         <AlertBanner>{errorDeRespaldo}</AlertBanner>
       </section>
+
+      {automatico ? (
+        <section className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5" aria-labelledby="respaldo-automatico">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="respaldo-automatico" className="text-base font-bold text-slate-900">
+              Respaldo automático por correo
+            </h2>
+            <Badge tone={automatico.activo ? 'status' : 'warning'} dot>
+              {automatico.activo ? `Activo: cada ${automatico.dias} día${automatico.dias === 1 ? '' : 's'}` : 'Apagado'}
+            </Badge>
+          </div>
+          <p className="text-sm text-slate-600">
+            El servidor manda solo el respaldo (un archivo .zip) al correo que se le indique, para que siempre haya una copia reciente aunque nadie se acuerde de
+            descargarla.
+          </p>
+          {automatico.activo ? null : <Nota tono="aviso">{POR_QUE_APAGADO[automatico.motivo]}</Nota>}
+          <dl className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+            <Dato etiqueta="Se envía a">{automatico.para ?? 'Sin definir'}</Dato>
+            <Dato etiqueta="Próximo envío">{automatico.proximo ? fechaLegible(automatico.proximo) : '—'}</Dato>
+            <Dato etiqueta="Último enviado">
+              {automatico.ultimo
+                ? `${fechaLegible(automatico.ultimo.fecha)} · ${tamano(automatico.ultimo.bytes)}${automatico.ultimo.manual ? ' · pedido desde el panel' : ''}`
+                : 'Todavía ninguno'}
+            </Dato>
+            <Dato etiqueta="Último error" tono={automatico.ultimoError ? 'error' : undefined}>
+              {automatico.ultimoError ? `${fechaLegible(automatico.ultimoError.fecha)} · ${automatico.ultimoError.mensaje}` : 'Ninguno'}
+            </Dato>
+          </dl>
+          {automatico.para && automatico.motivo !== 'destino_invalido' ? (
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="secondary" icon={Send} onClick={enviarAhora} disabled={enviando}>
+                {enviando ? 'Enviando...' : 'Enviar respaldo ahora'}
+              </Button>
+              <span className="text-xs text-slate-500">Sirve para comprobar que llega. Lleva datos de estudiantes: que el correo sea de la biblioteca.</span>
+            </div>
+          ) : null}
+          {avisoDeEnvio ? (
+            <Nota tono="ok">
+              <span role="status">{avisoDeEnvio}</span>
+            </Nota>
+          ) : null}
+          <AlertBanner>{errorDeEnvio}</AlertBanner>
+        </section>
+      ) : null}
 
       <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">
         <h2 className="text-base font-bold text-slate-900">Lo que se guarda</h2>

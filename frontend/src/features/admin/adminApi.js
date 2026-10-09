@@ -28,6 +28,7 @@ export const adminApi = {
   actividad: (params) => axiosClient.get('/admin/actividad', { params }),
   almacenamiento: () => axiosClient.get('/admin/almacenamiento'),
   respaldo: () => axiosClient.get('/admin/respaldo', { responseType: 'blob' }),
+  enviarRespaldo: () => axiosClient.post('/admin/respaldo/enviar'),
   correo: () => axiosClient.get('/admin/correo'),
   verificarCorreo: () => axiosClient.post('/admin/correo/verificar'),
   probarCorreo: (para) => axiosClient.post('/admin/correo/prueba', { para }),

@@ -3,6 +3,7 @@
 //   npm run importar                         importa los archivos de DATA_DIR (o de backend/data)
 //   npm run importar -- ruta/a/una/carpeta   importa los .json de esa carpeta
 //   npm run importar -- respaldo.json        importa un respaldo descargado del panel (sección «Datos y respaldo»)
+//   npm run importar -- respaldo.zip         importa el respaldo que llega por correo (el .zip tal cual)
 //   npm run importar -- --forzar             reemplaza también los documentos que ya existan en la base de datos
 //
 // Hace falta DATABASE_URL (en backend/.env o en el entorno). Si hay un servidor encendido usando esa base de datos, se niega: el
@@ -17,11 +18,12 @@ try {
 }
 
 const base = require('../utils/postgres');
+const { leerZip, esZip } = require('../utils/zip');
 
 // Un respaldo no lleva la sal ni la clave cifrada de las cuentas (no deben viajar en un archivo): ese documento no se importa.
 const SIN_IMPORTAR = new Set(['cuentas']);
-// Las sesiones abiertas del panel no se pasan de un lado a otro: el personal vuelve a entrar.
-const NUNCA = new Set(['sesiones']);
+// Lo que es del funcionamiento del servidor y no de la biblioteca (sesiones abiertas, cuándo salió el último respaldo) no se importa.
+const NUNCA = new Set(['sesiones', 'respaldos']);
 
 function leerCarpeta(carpeta) {
   return Object.fromEntries(
@@ -33,10 +35,19 @@ function leerCarpeta(carpeta) {
   );
 }
 
+// El respaldo que llega por correo es un .zip con el .json adentro.
+function textoDelArchivo(origen) {
+  const datos = fs.readFileSync(origen);
+  if (!esZip(datos)) return datos.toString('utf8');
+  const json = leerZip(datos).find((archivo) => archivo.nombre.toLowerCase().endsWith('.json'));
+  if (!json) throw new Error(`${origen} no trae ningún archivo .json adentro`);
+  return json.contenido.toString('utf8');
+}
+
 function leerOrigen(origen) {
   const estado = fs.statSync(origen);
   if (estado.isDirectory()) return { documentos: leerCarpeta(origen), esRespaldo: false };
-  const contenido = JSON.parse(fs.readFileSync(origen, 'utf8'));
+  const contenido = JSON.parse(textoDelArchivo(origen));
   if (contenido && typeof contenido === 'object' && contenido.documentos && typeof contenido.documentos === 'object') {
     return { documentos: contenido.documentos, esRespaldo: true };
   }
@@ -70,7 +81,7 @@ async function principal() {
     let importados = 0;
     for (const nombre of nombres) {
       if (NUNCA.has(nombre)) {
-        console.log(`  omitido   ${nombre}: las sesiones abiertas no se importan`);
+        console.log(`  omitido   ${nombre}: es del funcionamiento del servidor, no se importa`);
       } else if (SIN_IMPORTAR.has(nombre) && esRespaldo) {
         console.log(`  omitido   ${nombre}: un respaldo no trae las claves; las cuentas se crean desde el panel`);
       } else if (existentes.has(nombre) && !forzar) {

@@ -50,7 +50,7 @@ function escribirArchivo(nombre, valor) {
 
 // --- Estado común ----------------------------------------------------------------------------------------------------
 
-const documentos = new Map(); // con base de datos: la copia de trabajo de cada documento
+const documentos = new Map(); // la copia de trabajo de cada documento (el mismo objeto que usa su módulo)
 const pendientes = new Map(); // nombre -> { valor, temporizador }
 let iniciado = false;
 let cola = Promise.resolve(); // las escrituras a la base de datos van una tras otra
@@ -82,7 +82,10 @@ async function iniciar({ esperaDelTurnoMs, alEsperarElTurno } = {}) {
 }
 
 function cargar(nombre, inicial) {
-  if (!usaBaseDeDatos()) return leerArchivo(nombre, inicial);
+  if (!usaBaseDeDatos()) {
+    documentos.set(nombre, leerArchivo(nombre, inicial));
+    return documentos.get(nombre);
+  }
   if (!iniciado) {
     throw new Error(`El almacén no está iniciado: «${nombre}» se pidió antes de abrir la base de datos (falta llamar a iniciar)`);
   }
@@ -97,6 +100,7 @@ function cargar(nombre, inicial) {
 // --- Guardar: archivos -----------------------------------------------------------------------------------------------
 
 function guardarEnArchivo(nombre, valor, esperaMs) {
+  documentos.set(nombre, valor);
   const previo = pendientes.get(nombre);
   if (previo) clearTimeout(previo.temporizador);
   const temporizador = setTimeout(() => {
@@ -250,11 +254,13 @@ async function situacion() {
   };
 }
 
-// Todos los documentos juntos, para descargarlos como respaldo.
+// Todos los documentos juntos, para el respaldo: lo que el servidor tiene ahora mismo en memoria, que incluye lo que todavía no
+// se terminó de guardar y lo que nunca cambió desde sus valores iniciales. Con archivos se suman los que haya en la carpeta y
+// ningún módulo haya cargado.
 function respaldo() {
-  if (usaBaseDeDatos()) return Object.fromEntries([...documentos.entries()].sort(([a], [b]) => a.localeCompare(b)));
-  guardarPendientes(); // lo que todavía no llegó al disco entra en el respaldo
-  return Object.fromEntries(archivosDeDatos().sort().map((nombre) => [nombre, leerArchivo(nombre, null)]));
+  const sueltos = usaBaseDeDatos() ? [] : archivosDeDatos().filter((nombre) => !documentos.has(nombre)).map((nombre) => [nombre, leerArchivo(nombre, null)]);
+  // Una copia: quien arma el respaldo le quita cosas, y no debe tocar lo que usan los módulos.
+  return structuredClone(Object.fromEntries([...sueltos, ...documentos.entries()].sort(([a], [b]) => a.localeCompare(b))));
 }
 
 module.exports = { usaBaseDeDatos, iniciar, cargar, guardar, guardarPendientes, vaciar, apagar, descripcion, situacion, respaldo };

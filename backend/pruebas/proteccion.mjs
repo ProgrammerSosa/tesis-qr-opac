@@ -55,6 +55,7 @@ const RUTAS = [
   ['GET', '/admin/actividad', SOLO_ADMIN],
   ['GET', '/admin/almacenamiento', SOLO_ADMIN],
   ['GET', '/admin/respaldo', SOLO_ADMIN],
+  ['POST', '/admin/respaldo/enviar', SOLO_ADMIN, {}],
   ['GET', '/admin/correo', SOLO_ADMIN],
   ['POST', '/admin/correo/verificar', SOLO_ADMIN, {}],
   ['POST', '/admin/correo/prueba', SOLO_ADMIN, {}],

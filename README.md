@@ -116,10 +116,14 @@ falta un disco.
 - **Si la base se cae.** El servidor sigue atendiendo con lo que tiene en memoria, avisa en la consola y en el panel y guarda lo
   pendiente solo cuando la base vuelve.
 - **Pasar lo que ya tenías.** `npm run importar` (dentro de `backend`) sube a la base los archivos de `backend/data`, de otra carpeta o
-  un respaldo descargado del panel. No pisa lo que ya hay salvo con `--forzar`, y se niega si hay un servidor encendido.
+  un respaldo (el .json descargado del panel o el .zip que llega por correo). No pisa lo que ya hay salvo con `--forzar`, y se niega si hay un servidor encendido.
 - **Respaldo.** En el panel, **Datos y respaldo** (solo el administrador) muestra dónde está guardado todo y descarga un respaldo en
-  JSON (sin las claves de las cuentas). Las bases gratuitas no suelen ofrecer copias descargables (la de Supabase tampoco): descarga
-  uno cada semana y antes de cambios grandes.
+  JSON (sin las claves de las cuentas). Las bases gratuitas no suelen ofrecer copias descargables (la de Supabase tampoco): por eso
+  conviene el respaldo automático.
+- **Respaldo automático por correo.** Con `RESPALDO_CORREO` (y el correo configurado, ver «Correo») el servidor manda solo, cada 7 días
+  (`RESPALDO_DIAS`), un .zip con el respaldo y un LEEME que explica cómo restaurarlo. En **Datos y respaldo** se ve a quién va, cuándo
+  salió el último, cuándo toca el próximo y el último error, y hay un botón para enviarlo ahora y comprobar que llega. Lleva datos de
+  estudiantes: que sea un correo de la biblioteca. Para restaurar: `npm run importar -- respaldo.zip --forzar` con el servidor apagado.
 
 #### Probar en tu computadora con pgAdmin
 
@@ -150,6 +154,8 @@ servicio casi listo.
    respaldo** debe decir «Base de datos PostgreSQL» y «Conectada».
 6. **Correo.** En Render gratis los puertos SMTP están bloqueados: en **Environment** agrega `CORREO_API` (`brevo` o `resend`),
    `CORREO_API_KEY` y `CORREO_REMITENTE` (ver «Correo»), y prueba desde el panel, sección **Correo**.
+7. **Respaldo automático.** Con el correo ya funcionando, agrega `RESPALDO_CORREO` con el correo de la biblioteca: cada semana llegará
+   ahí un .zip con todo lo guardado. Compruébalo en **Datos y respaldo → Enviar respaldo ahora**.
 
 Lo que conviene saber del plan gratuito ([documentación de Render](https://render.com/docs/free)):
 

@@ -216,6 +216,7 @@ async function arrancar() {
   console.log(`Servidor escuchando en el puerto ${puerto}`);
   console.log(`  Zona horaria: ${process.env.TZ} · correo: ${descripcionDelCorreo()} · datos: ${almacen.descripcion()}`);
   avisarClavesTemporales();
+  require('./src/respaldo/respaldo_data').iniciar();
   mantenerDespierto();
   comprobarAlArrancar().catch((error) => console.warn(`[correo] No se pudo comprobar el correo: ${error.message}`));
 }

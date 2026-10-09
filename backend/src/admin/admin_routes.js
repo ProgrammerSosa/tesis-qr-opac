@@ -17,7 +17,7 @@ const { getPersonal, postPersonal, patchPersonal, postClavePersonal } = require(
 const { getConfiguracion, patchConfiguracion } = require('./configuracion_controller');
 const { getActividad } = require('./actividad_controller');
 const { getCorreo, postVerificar, postPrueba } = require('./correo_controller');
-const { getAlmacenamiento, getRespaldo } = require('./almacenamiento_controller');
+const { getAlmacenamiento, getRespaldo, postEnviarRespaldo } = require('./almacenamiento_controller');
 const { autenticar, requiereRol } = require('../auth/auth_middleware');
 
 const router = express.Router();
@@ -52,6 +52,7 @@ router.patch('/configuracion', ...soloAdministrador, patchConfiguracion);
 router.get('/actividad', ...soloAdministrador, getActividad);
 router.get('/almacenamiento', ...soloAdministrador, getAlmacenamiento);
 router.get('/respaldo', ...soloAdministrador, getRespaldo);
+router.post('/respaldo/enviar', ...soloAdministrador, postEnviarRespaldo);
 router.get('/correo', ...soloAdministrador, getCorreo);
 router.post('/correo/verificar', ...soloAdministrador, postVerificar);
 router.post('/correo/prueba', ...soloAdministrador, postPrueba);

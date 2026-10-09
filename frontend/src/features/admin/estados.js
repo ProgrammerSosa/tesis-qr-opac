@@ -64,6 +64,8 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'configuracion.cambiada': 'Cambió la configuración',
   'correo.prueba': 'Envió un correo de prueba',
   'respaldo.descargado': 'Descargó un respaldo de los datos',
+  'respaldo.enviado': 'Se envió un respaldo por correo',
+  'respaldo.fallido': 'No se pudo enviar el respaldo por correo',
 };
 
 // Los correos que manda el sistema (sección Correo): de qué eran y cómo les fue.
@@ -74,6 +76,7 @@ export const TIPO_DE_CORREO = {
   reserva_cancelada: 'Reserva cancelada',
   reserva_liberada: 'Reserva liberada',
   prueba: 'Correo de prueba',
+  respaldo: 'Respaldo de los datos',
 };
 
 export const ESTADO_DE_CORREO = {

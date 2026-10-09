@@ -24,17 +24,31 @@ const PROVEEDORES_API = {
   brevo: {
     nombre: 'Brevo',
     url: 'https://api.brevo.com/v3/smtp/email',
-    peticion: ({ clave, remitente, para, asunto, texto, html }) => ({
+    peticion: ({ clave, remitente, para, asunto, texto, html, adjuntos }) => ({
       cabeceras: { 'api-key': clave, 'Content-Type': 'application/json', Accept: 'application/json' },
-      cuerpo: { sender: { name: remitente.nombre, email: remitente.correo }, to: [{ email: para }], subject: asunto, textContent: texto, htmlContent: html },
+      cuerpo: {
+        sender: { name: remitente.nombre, email: remitente.correo },
+        to: [{ email: para }],
+        subject: asunto,
+        textContent: texto,
+        htmlContent: html,
+        ...(adjuntos.length > 0 ? { attachment: adjuntos.map((a) => ({ name: a.nombre, content: a.contenido.toString('base64') })) } : {}),
+      },
     }),
   },
   resend: {
     nombre: 'Resend',
     url: 'https://api.resend.com/emails',
-    peticion: ({ clave, remitente, para, asunto, texto, html }) => ({
+    peticion: ({ clave, remitente, para, asunto, texto, html, adjuntos }) => ({
       cabeceras: { Authorization: `Bearer ${clave}`, 'Content-Type': 'application/json' },
-      cuerpo: { from: `${remitente.nombre.replace(/["<>,]/g, '')} <${remitente.correo}>`, to: [para], subject: asunto, text: texto, html },
+      cuerpo: {
+        from: `${remitente.nombre.replace(/["<>,]/g, '')} <${remitente.correo}>`,
+        to: [para],
+        subject: asunto,
+        text: texto,
+        html,
+        ...(adjuntos.length > 0 ? { attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.contenido.toString('base64') })) } : {}),
+      },
     }),
   },
 };
@@ -173,9 +187,9 @@ function mensajeDeApi(proveedor, estado, detalle) {
   return `${proveedor.nombre} respondió con el error ${estado}${cola}`;
 }
 
-async function enviarPorApi(config, { para, asunto, texto, html }) {
+async function enviarPorApi(config, { para, asunto, texto, html, adjuntos }) {
   const proveedor = PROVEEDORES_API[config.api];
-  const { cabeceras, cuerpo } = proveedor.peticion({ clave: config.claveApi, remitente: config.remitente, para, asunto, texto, html });
+  const { cabeceras, cuerpo } = proveedor.peticion({ clave: config.claveApi, remitente: config.remitente, para, asunto, texto, html, adjuntos });
   let respuesta;
   try {
     // CORREO_API_URL existe solo para las pruebas automáticas (apunta a un servidor falso en esta misma computadora).
@@ -194,7 +208,7 @@ async function enviarPorApi(config, { para, asunto, texto, html }) {
   }
 }
 
-async function enviarPorSmtp(config, { para, asunto, texto, html }) {
+async function enviarPorSmtp(config, { para, asunto, texto, html, adjuntos }) {
   try {
     await obtenerTransporte(config).sendMail({
       from: { name: config.remitente.nombre, address: config.remitente.correo },
@@ -202,6 +216,7 @@ async function enviarPorSmtp(config, { para, asunto, texto, html }) {
       subject: asunto,
       text: texto,
       html,
+      attachments: adjuntos.map((a) => ({ filename: a.nombre, content: a.contenido, contentType: a.tipo })),
     });
   } catch (error) {
     throw new Error(mensajeDeSmtp(error, config));
@@ -214,9 +229,9 @@ function guardarEnBandeja(registro) {
 }
 
 // Envía un correo. `texto` es obligatorio; `html` es opcional (si falta se arma uno sencillo). `tipo` solo sirve para que el
-// panel muestre de qué era el correo. Devuelve el registro con `simulado: true` si no salió de verdad y, si el envío real
+// panel muestre de qué era el correo. `adjuntos` es una lista de { nombre, contenido (Buffer), tipo }. Devuelve el registro con `simulado: true` si no salió de verdad y, si el envío real
 // falla, lanza el error (con un mensaje legible): quien llama decide si avisar a la persona o seguir.
-async function enviarCorreo({ para, asunto, texto, html, tipo = 'otro' }) {
+async function enviarCorreo({ para, asunto, texto, html, tipo = 'otro', adjuntos = [] }) {
   const config = leerConfiguracion();
   const registro = {
     id: (contador += 1),
@@ -233,7 +248,7 @@ async function enviarCorreo({ para, asunto, texto, html, tipo = 'otro' }) {
     if (config.modo !== 'simulado' && !config.remitente) {
       throw new Error('Falta CORREO_REMITENTE: no se sabe desde qué dirección enviar.');
     }
-    const mensaje = { para, asunto, texto, html: html ?? htmlDeTexto(texto) };
+    const mensaje = { para, asunto, texto, html: html ?? htmlDeTexto(texto), adjuntos };
     if (config.modo === 'smtp') await enviarPorSmtp(config, mensaje);
     else if (config.modo === 'api') await enviarPorApi(config, mensaje);
   } catch (error) {
