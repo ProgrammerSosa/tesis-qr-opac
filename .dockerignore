@@ -1,0 +1,10 @@
+# Lo que no debe entrar a la imagen: dependencias (se instalan adentro), datos y claves de este equipo, y el historial.
+**/node_modules
+**/dist
+backend/data
+**/.env
+**/.env.*
+!**/.env.example
+**/*.log
+.git
+.claude

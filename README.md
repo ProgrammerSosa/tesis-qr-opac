@@ -52,6 +52,32 @@ se crean desde el panel («Cuentas del personal»).
 
 Todos los ajustes del servidor están explicados en `backend/.env.example`.
 
+### Con Docker (Railway, Render, Fly.io o un servidor propio)
+
+El `Dockerfile` de la raíz arma una sola imagen con el servidor y el sitio ya compilado:
+
+```bash
+docker build -t biblioteca-opac .
+docker run -p 4001:4001 -v biblioteca-datos:/data --env-file backend/.env biblioteca-opac
+```
+
+Una plataforma que construye desde GitHub solo necesita apuntar a este repositorio: detecta el `Dockerfile` y usa el puerto de
+la variable `PORT`.
+
+- **Datos.** Reservas, solicitudes, cuentas, catálogo y horarios quedan en `/data` (`DATA_DIR`). Hay que montar ahí un volumen
+  persistente y respaldarlo; sin volumen, cada despliegue empieza de cero. Al apagar el servidor (`SIGTERM`) se guarda lo pendiente.
+- **Claves.** Define `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CONSULTA` como variables de la plataforma, nuevas y
+  largas (no uses las de pruebas). Si falta alguna, el servidor inventa una temporal y la escribe en sus registros.
+- **Proxy.** Detrás del proxy de la plataforma define `TRUST_PROXY=1`; si no, los límites de uso ven una sola «persona» (el
+  proxy) y bloquean a todos a la vez.
+- **Kioscos.** `KIOSCOS_IP` solo sirve si el servidor ve la dirección propia de cada kiosco (servidor dentro de la misma red). En
+  la nube todos los equipos de la facultad salen con la misma dirección pública: déjalo vacío. El candado de pantalla del kiosco y
+  el inicio de sesión del panel siguen protegiendo.
+- **Una sola instancia.** Las sesiones del panel están en memoria y los datos son archivos: no se puede escalar a varias copias.
+- **Primer arranque.** El catálogo trae siete tesis de ejemplo; en **Catálogo → Importar** se marca «Reemplazar todo el catálogo»
+  para dejar solo el real.
+- **Salud.** `/health` responde `ok` cuando el servidor está listo.
+
 ### Cargar el catálogo
 
 En el panel, **Catálogo → Importar**: sube la hoja de cálculo del catálogo en CSV (hay una plantilla para descargar) o agrega

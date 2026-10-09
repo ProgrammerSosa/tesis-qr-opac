@@ -1,0 +1,4 @@
+# El servidor corre en Linux: lo que se ejecuta o se lee allá debe quedar con saltos de línea LF aunque se edite en Windows.
+*.sh text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
