@@ -1,12 +1,47 @@
 const crypto = require('node:crypto');
+const almacen = require('../../utils/almacen');
 const cuentasData = require('./cuentas_data');
 
 const HORAS_DE_SESION = 8;
 const MAXIMO_DE_INTENTOS = 5;
 const MINUTOS_DE_BLOQUEO = 5;
+const MAXIMO_DE_SESIONES = 500;
 
-const sesiones = new Map(); // token -> { usuario, nombre, rol, expiraEn }
+// Las sesiones se guardan en el almacén para que reiniciar el servidor (o publicar una versión) no saque al personal. De cada una
+// se guarda la huella de su ficha de acceso (SHA-256), nunca la ficha: quien lea lo guardado no puede entrar con ello.
+const huellaDe = (token) => crypto.createHash('sha256').update(String(token)).digest('hex');
+
+const sesiones = new Map(); // huella de la ficha -> { usuario, nombre, rol, expiraEn }
 const intentos = new Map(); // usuario -> { cantidad, desde }
+
+function guardar() {
+  almacen.guardar('sesiones', { sesiones: [...sesiones].map(([huella, sesion]) => ({ huella, ...sesion })) });
+}
+
+// Al arrancar se recupera lo guardado. Solo valen las sesiones sin vencer de cuentas que siguen activas; el nombre y el rol se toman
+// de la cuenta, que es la que manda. Si en este arranque se restableció la clave de una cuenta, sus sesiones se cierran.
+{
+  const guardadas = almacen.cargar('sesiones', { sesiones: [] }).sesiones;
+  const restablecidas = cuentasData.restablecimiento().usuarios;
+  guardadas.forEach(({ huella, usuario, expiraEn }) => {
+    const cuenta = cuentasData.obtener(usuario);
+    if (typeof huella !== 'string' || !cuenta || !cuenta.activa || !(expiraEn > Date.now()) || restablecidas.includes(usuario)) return;
+    sesiones.set(huella, { usuario, nombre: cuenta.nombre, rol: cuenta.rol, expiraEn });
+  });
+  if (sesiones.size !== guardadas.length) guardar();
+}
+
+function quitarVencidas() {
+  const ahora = Date.now();
+  let quitadas = 0;
+  sesiones.forEach((sesion, huella) => {
+    if (sesion.expiraEn < ahora) {
+      sesiones.delete(huella);
+      quitadas += 1;
+    }
+  });
+  return quitadas;
+}
 
 function bloqueado(usuario) {
   const registro = intentos.get(usuario);
@@ -54,38 +89,58 @@ function iniciarSesion(usuario, clave) {
   if (!cuenta) return {};
 
   cuentasData.registrarAcceso(cuenta.usuario);
+  quitarVencidas();
+  // Tope de sesiones guardadas: si se llena, se cierran las que vencen antes.
+  if (sesiones.size >= MAXIMO_DE_SESIONES) {
+    [...sesiones].sort(([, a], [, b]) => a.expiraEn - b.expiraEn).slice(0, sesiones.size - MAXIMO_DE_SESIONES + 1).forEach(([huella]) => sesiones.delete(huella));
+  }
   const token = crypto.randomBytes(32).toString('hex');
   const datos = { usuario: cuenta.usuario, nombre: cuenta.nombre, rol: cuenta.rol };
-  sesiones.set(token, { ...datos, expiraEn: Date.now() + HORAS_DE_SESION * 60 * 60 * 1000 });
+  sesiones.set(huellaDe(token), { ...datos, expiraEn: Date.now() + HORAS_DE_SESION * 60 * 60 * 1000 });
+  guardar();
   return { sesion: { token, ...datos, rolNombre: cuentasData.ROLES[cuenta.rol] } };
 }
 
 function sesionDeToken(token) {
-  const sesion = sesiones.get(token);
+  if (!token) return null;
+  const huella = huellaDe(token);
+  const sesion = sesiones.get(huella);
   if (!sesion) return null;
   if (sesion.expiraEn < Date.now()) {
-    sesiones.delete(token);
+    sesiones.delete(huella);
+    guardar();
     return null;
   }
   return sesion;
 }
 
 function cerrarSesion(token) {
-  sesiones.delete(token);
+  if (sesiones.delete(huellaDe(token))) guardar();
 }
 
 // Cierra todas las sesiones de una cuenta (por ejemplo, al desactivarla o cambiarle el rol o la clave),
 // menos la del token indicado, para no sacar a quien está haciendo el cambio sobre su propia cuenta.
 function cerrarSesionesDe(usuario, { excepto } = {}) {
-  sesiones.forEach((sesion, token) => {
-    if (sesion.usuario === usuario && token !== excepto) sesiones.delete(token);
+  const huellaExcepto = excepto ? huellaDe(excepto) : null;
+  let cerradas = 0;
+  sesiones.forEach((sesion, huella) => {
+    if (sesion.usuario === usuario && huella !== huellaExcepto) {
+      sesiones.delete(huella);
+      cerradas += 1;
+    }
   });
+  if (cerradas > 0) guardar();
 }
 
 function actualizarNombreEnSesiones(usuario, nombre) {
+  let cambiadas = 0;
   sesiones.forEach((sesion) => {
-    if (sesion.usuario === usuario) sesion.nombre = nombre;
+    if (sesion.usuario === usuario && sesion.nombre !== nombre) {
+      sesion.nombre = nombre;
+      cambiadas += 1;
+    }
   });
+  if (cambiadas > 0) guardar();
 }
 
 module.exports = {

@@ -56,8 +56,8 @@ con una base solo de pruebas (su nombre debe llevar «prueba» o «test»; se va
 3. Detrás de nginx u otro proxy con HTTPS, define `TRUST_PROXY=1` para que los límites de uso y el candado de los kioscos vean la
    dirección real de cada equipo.
 4. **Respalda los datos.** Con `DATABASE_URL` están en PostgreSQL (ver «Base de datos» más abajo); sin ella, en `backend/data` (o la
-   carpeta de `DATA_DIR`): reservas, solicitudes, cuentas, catálogo, horarios y actividad. Las sesiones del panel viven en memoria:
-   al reiniciar el servidor el personal debe volver a entrar.
+   carpeta de `DATA_DIR`): reservas, solicitudes, cuentas, catálogo, horarios y actividad. Las sesiones del panel también se
+   guardan: reiniciar el servidor no saca al personal.
 5. Correo: sin configurarlo, los comprobantes por correo no salen (quedan simulados); ver «Correo» más abajo.
 6. Logo: el archivo es `frontend/public/logo-biblioteca.png` (y `icono-biblioteca.png` para la pestaña del navegador).
 
@@ -87,8 +87,7 @@ la variable `PORT`.
 - **Kioscos.** `KIOSCOS_IP` solo sirve si el servidor ve la dirección propia de cada kiosco (servidor dentro de la misma red). En
   la nube todos los equipos de la facultad salen con la misma dirección pública: déjalo vacío. El candado de pantalla del kiosco y
   el inicio de sesión del panel siguen protegiendo.
-- **Una sola instancia.** El servidor trabaja con sus datos en memoria y las sesiones del panel también: no se puede escalar a
-  varias copias. Con la base de datos, una segunda copia espera su turno (ver «Base de datos»).
+- **Una sola instancia.** El servidor trabaja con sus datos en memoria: no se puede escalar a varias copias. Con la base de datos, una segunda copia espera su turno (ver «Base de datos»).
 - **Primer arranque.** El catálogo trae siete tesis de ejemplo; en **Catálogo → Importar** se marca «Reemplazar todo el catálogo»
   para dejar solo el real.
 - **Salud.** `/health` responde `ok` cuando el servidor está listo.
@@ -159,7 +158,8 @@ Lo que conviene saber del plan gratuito ([documentación de Render](https://rend
 - Para que no se duerma, el servidor se visita solo (`/health`) cada 10 minutos por su dirección pública (`RENDER_EXTERNAL_URL`, que
   Render ya define): no necesita cuentas ni servicios externos. `KEEPALIVE=0` lo apaga. Solo funciona mientras está despierto; si ya se
   durmió, la primera visita de cualquier persona lo despierta.
-- Las sesiones del panel viven en memoria: si se duerme o se publica una versión, el personal vuelve a entrar.
+- Las sesiones del panel se guardan en la base: si el servicio se duerme o se publica una versión, el personal sigue dentro (hasta
+  que su sesión venza, a las 8 horas).
 - Son 750 horas gratis al mes por espacio de trabajo: un solo servicio encendido todo el mes cabe.
 - La base gratuita de Render caduca a los 30 días; por eso se usa Supabase, que además pausa los proyectos gratuitos tras una semana sin
   actividad (mientras haya visitas, no pasa).
@@ -304,5 +304,7 @@ El servidor comprueba el rol en cada petición; ocultar una sección en el panel
 - La dirección del panel se define en `frontend/src/shared/config/rutas.js` y en `backend/utils/rutas.js` (las dos deben coincidir, y
   hay que volver a compilar el sitio). `/admin` ya no existe. Un nombre poco evidente evita visitas por costumbre, pero lo que protege
   el panel es el inicio de sesión y los roles: este repositorio es público y el nombre se puede leer en él.
+- Las sesiones se guardan (de cada una, solo la huella de su ficha de acceso: con lo guardado no se puede entrar), así que sobreviven a
+  un reinicio del servidor. Se cierran al salir, al cambiar la clave, el rol o el estado de la cuenta, y al restablecer claves.
 - Las sesiones duran 8 horas, se cierran tras 20 minutos sin actividad y una cuenta se bloquea 5 minutos después de 5 intentos
   fallidos.

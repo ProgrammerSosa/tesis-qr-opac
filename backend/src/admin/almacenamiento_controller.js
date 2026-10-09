@@ -15,8 +15,10 @@ async function getAlmacenamiento(req, res) {
 }
 
 // Todos los documentos en un solo archivo JSON. Las cuentas van sin su sal ni su clave cifrada: eso no debe viajar en un archivo.
+// Las sesiones abiertas del panel tampoco: no son datos de la biblioteca.
 function getRespaldo(req, res) {
   const documentos = almacen.respaldo();
+  delete documentos.sesiones;
   if (documentos.cuentas && Array.isArray(documentos.cuentas.cuentas)) {
     documentos.cuentas = { cuentas: documentos.cuentas.cuentas.map(({ sal, hash, ...publica }) => publica) };
   }

@@ -31,6 +31,7 @@ const PRUEBAS = [
   { nombre: 'proteccion', servidor: true, sitio: true },
   { nombre: 'kioscos', sitio: true },
   { nombre: 'claves' },
+  { nombre: 'sesiones' },
   { nombre: 'salida' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },

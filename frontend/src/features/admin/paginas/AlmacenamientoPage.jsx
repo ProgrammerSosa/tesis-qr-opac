@@ -19,6 +19,7 @@ const DOCUMENTOS = {
   configuracion: ['Configuración', 'Tolerancia, topes de horas y reservas pausadas'],
   actividad: ['Actividad del personal', 'Qué hizo cada persona en el panel'],
   eventos: ['Uso del sitio y de los kioscos', 'Búsquedas, accesos por QR y sesiones (alimentan las estadísticas)'],
+  sesiones: ['Sesiones del panel', 'Quién tiene el panel abierto (no entra en el respaldo)'],
 };
 
 const VISTAS_DE_LA_BASE = ['v_reservas', 'v_tesis', 'v_solicitudes_solvencia', 'v_cuentas', 'v_actividad', 'v_eventos', 'v_cierres'];

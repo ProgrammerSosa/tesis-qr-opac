@@ -20,6 +20,8 @@ const base = require('../utils/postgres');
 
 // Un respaldo no lleva la sal ni la clave cifrada de las cuentas (no deben viajar en un archivo): ese documento no se importa.
 const SIN_IMPORTAR = new Set(['cuentas']);
+// Las sesiones abiertas del panel no se pasan de un lado a otro: el personal vuelve a entrar.
+const NUNCA = new Set(['sesiones']);
 
 function leerCarpeta(carpeta) {
   return Object.fromEntries(
@@ -67,7 +69,9 @@ async function principal() {
 
     let importados = 0;
     for (const nombre of nombres) {
-      if (SIN_IMPORTAR.has(nombre) && esRespaldo) {
+      if (NUNCA.has(nombre)) {
+        console.log(`  omitido   ${nombre}: las sesiones abiertas no se importan`);
+      } else if (SIN_IMPORTAR.has(nombre) && esRespaldo) {
         console.log(`  omitido   ${nombre}: un respaldo no trae las claves; las cuentas se crean desde el panel`);
       } else if (existentes.has(nombre) && !forzar) {
         console.log(`  omitido   ${nombre}: ya existe en la base de datos (usa --forzar para reemplazarlo)`);
