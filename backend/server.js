@@ -35,6 +35,27 @@ const empiezaCon = (ruta, base) => {
 const esDelPanel = (ruta) => empiezaCon(ruta, RUTA_DEL_PANEL);
 const esApiDelPersonal = (ruta) => empiezaCon(ruta, '/api/admin') || empiezaCon(ruta, '/api/auth');
 
+// Política de contenido (CSP): le dice al navegador de dónde puede cargar cosas una página del sitio. Si alguien lograra colar un
+// script en una página (en un título, en una URL...), el navegador no lo ejecuta: solo corren los scripts que sirve este servidor.
+// Lo que se permite es lo que el sitio usa de verdad; si se agrega algo de otro origen (un mapa, un video), hay que sumarlo aquí.
+// CSP=0 la apaga (por si un navegador viejo diera problemas).
+const POLITICA_DE_CONTENIDO = [
+  "default-src 'self'",
+  "script-src 'self'", // ni scripts en línea ni de otros sitios
+  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com", // React pone estilos en línea (tamaños, posiciones); las tipografías son de Google Fonts
+  "font-src 'self' data: https://fonts.gstatic.com",
+  "img-src 'self' data: blob:",
+  "connect-src 'self'", // el sitio solo habla con este servidor
+  "frame-src 'self' https: http:", // el visor muestra el documento de la tesis, que puede estar en cualquier sitio
+  "object-src 'none'",
+  "base-uri 'self'",
+  "form-action 'self'",
+  "frame-ancestors 'self'", // ningún otro sitio puede mostrar este dentro de un marco
+].join('; ');
+
+// HSTS: una vez que el navegador entró por HTTPS, durante este tiempo no acepta volver a HTTP (seis meses). HSTS=0 lo apaga.
+const SEGUNDOS_DE_HSTS = 180 * 24 * 60 * 60;
+
 // La aplicación se arma dentro de una función porque los módulos de datos leen lo guardado en cuanto se cargan: hay que cargarlos
 // después de iniciar el almacén (con una base de datos, iniciarlo toma un momento y es asíncrono).
 function crearApp() {
@@ -57,11 +78,19 @@ function crearApp() {
     app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY) ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
   }
 
+  const conPolitica = !['0', 'false', 'no'].includes(String(process.env.CSP ?? '').trim().toLowerCase());
+  const conHsts = !['0', 'false', 'no'].includes(String(process.env.HSTS ?? '').trim().toLowerCase());
   app.use((req, res, next) => {
     res.set('X-Content-Type-Options', 'nosniff');
     res.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     res.set('X-Frame-Options', 'SAMEORIGIN'); // ningún otro sitio puede mostrar este dentro de un marco (clickjacking)
     res.set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    // La política va en las páginas del sitio, no en la API: sus respuestas no son páginas, y el visor de PDF del navegador no
+    // muestra un documento que llegue con una política propia.
+    if (conPolitica && !empiezaCon(req.path, '/api') && req.path !== '/health') res.set('Content-Security-Policy', POLITICA_DE_CONTENIDO);
+    // Solo cuando la visita llegó por HTTPS (detrás de un proxy, eso se sabe con TRUST_PROXY): mandarla por HTTP no sirve, y a una
+    // instalación sin HTTPS la dejaría sin acceso.
+    if (conHsts && req.secure) res.set('Strict-Transport-Security', `max-age=${SEGUNDOS_DE_HSTS}`);
     next();
   });
 

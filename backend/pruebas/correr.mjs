@@ -30,6 +30,7 @@ const PRUEBAS = [
   { nombre: 'pdf', servidor: true },
   { nombre: 'proteccion', servidor: true, sitio: true },
   { nombre: 'kioscos', sitio: true },
+  { nombre: 'cabeceras', sitio: true },
   { nombre: 'claves' },
   { nombre: 'sesiones' },
   { nombre: 'respaldo' },

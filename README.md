@@ -335,5 +335,11 @@ El servidor comprueba el rol en cada petición; ocultar una sección en el panel
   el panel es el inicio de sesión y los roles: este repositorio es público y el nombre se puede leer en él.
 - Las sesiones se guardan (de cada una, solo la huella de su ficha de acceso: con lo guardado no se puede entrar), así que sobreviven a
   un reinicio del servidor. Se cierran al salir, al cambiar la clave, el rol o el estado de la cuenta, y al restablecer claves.
+- **Protecciones del navegador.** Cada página del sitio lleva una política de contenido (CSP): el navegador solo ejecuta los scripts que
+  sirve este servidor y solo deja que la página hable con él, así que un script colado en una página no corre ni puede mandar datos
+  afuera. Lo permitido es lo que el sitio usa (sus archivos, las tipografías de Google Fonts y el visor del documento de la tesis); si
+  se agrega algo de otro origen (un mapa, un video), hay que sumarlo en `POLITICA_DE_CONTENIDO` (`backend/server.js`). Cuando la visita
+  llega por HTTPS se manda además HSTS, para que el navegador no vuelva a HTTP (detrás de un proxy hace falta `TRUST_PROXY`).
+  `CSP=0` y `HSTS=0` las apagan.
 - Las sesiones duran 8 horas, se cierran tras 20 minutos sin actividad y una cuenta se bloquea 5 minutos después de 5 intentos
   fallidos.
