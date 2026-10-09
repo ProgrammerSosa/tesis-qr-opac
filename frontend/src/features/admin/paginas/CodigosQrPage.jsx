@@ -87,9 +87,10 @@ export default function CodigosQrPage() {
     <PaginaAdmin
       descripcion={
         <>
-          El código QR de cada tesis se genera con su <b>URL</b>. Si prefieres una dirección que no cambie aunque cambie el archivo, haz que
-          lleve a la <b>ficha</b> de la tesis en este sistema: ahí se cuentan los escaneos. Un código <b>desactivado</b> avisa a quien lo
-          escanea y deja de contarse. <b>Verificar</b> comprueba que el enlace responda.
+          El código QR de cada tesis abre su documento por el <b>enlace corto</b> de la biblioteca: si la URL cambia no hay que reimprimir la
+          etiqueta, y se cuentan los escaneos. También puede llevar escrita la <b>URL tal cual</b> (sirve aunque este sitio no esté en línea, pero
+          no se cuenta ni se puede desactivar) o ir a la <b>ficha</b> de la tesis. Un código <b>desactivado</b> avisa a quien lo escanea y deja de
+          contarse. <b>Verificar</b> comprueba que el enlace responda.
         </>
       }
     >
