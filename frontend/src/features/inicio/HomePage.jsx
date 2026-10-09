@@ -34,7 +34,6 @@ export default function HomePage() {
             <p className="mx-auto mt-3 max-w-2xl text-lg text-white/80">
               {LIBRARY.nombre}. Busca una tesis, reserva un lugar de estudio o solicita tu solvencia desde esta pantalla.
             </p>
-            <p className="mt-2 font-display text-lg italic text-blue-200">“{LIBRARY.lema}”</p>
             <div className="mx-auto mt-8 max-w-3xl text-left">
               <HeroSearch />
             </div>

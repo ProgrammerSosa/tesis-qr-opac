@@ -139,7 +139,7 @@ function pdfDeTesis(tesis, acceso, { enlace } = {}) {
     doc.font('Helvetica-Bold').fontSize(16).fillColor('#ffffff').text(biblioteca.nombre, 166, 54, { width: 370 });
     doc.font('Helvetica').fontSize(11).fillColor('#bfdbfe').text(tesis.facultad, 166, doc.y + 8, { width: 370 });
     doc.fillColor('#bfdbfe').text(tesis.institucion, 166, doc.y + 2, { width: 370 });
-    doc.font('Times-Italic').fontSize(12.5).fillColor('#dbeafe').text(`“${biblioteca.lema}”`, 166, 146, { width: 370 });
+    doc.font('Helvetica-Bold').fontSize(10).fillColor('#dbeafe').text('ACERVO DIGITAL DE TESIS', 166, 146, { width: 370, characterSpacing: 1.5 });
 
     // Tipo de documento, título y autoría.
     doc.font('Helvetica-Bold').fontSize(10).fillColor(ROJO).text(tipo.toUpperCase(), MARGEN, 262, { width: ANCHO_UTIL, characterSpacing: 3 });

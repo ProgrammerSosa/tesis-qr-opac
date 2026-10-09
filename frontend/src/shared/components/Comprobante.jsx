@@ -71,7 +71,7 @@ function Ticket({ titulo, operacion, filas, instrucciones }) {
       ))}
       <hr style={{ border: 0, borderTop: '1px dashed #000', margin: '6px 0' }} />
       <p>{instrucciones}</p>
-      <p style={{ textAlign: 'center', marginTop: '8px' }}>{LIBRARY.lema}</p>
+      <p style={{ textAlign: 'center', marginTop: '8px' }}>Gracias por usar la biblioteca.</p>
     </div>
   );
 }

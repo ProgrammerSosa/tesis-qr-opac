@@ -1,7 +1,6 @@
 # Biblioteca «Francisco Rolando Velázquez González»: autoservicio y kioscos
 
-Complemento digital de la biblioteca de la Facultad de Ciencias Jurídicas y Sociales (USAC), según la propuesta
-«Del anaquel cerrado al acceso inteligente»:
+Complemento digital de la biblioteca de la Facultad de Ciencias Jurídicas y Sociales (USAC), según su propuesta de modernización:
 
 - **Catálogo (OPAC)** de tesis, con ficha, documento digital (acceso y descarga, solo consulta o sin acceso) y código QR.
 - **Reserva de espacios de estudio** (cubículos, estaciones y sala de lectura), con plano de la sala.

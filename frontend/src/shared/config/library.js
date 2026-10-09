@@ -6,7 +6,8 @@ export const LIBRARY = {
   tituloSitio: 'Biblioteca Derecho USAC',
   facultad: 'Facultad de Ciencias Jurídicas y Sociales',
   universidad: 'Universidad de San Carlos de Guatemala',
-  lema: 'Del anaquel cerrado al acceso inteligente',
+  // Qué se puede hacer en el sitio y en el kiosco, dicho sin rodeos (aparece en la bienvenida del kiosco y en el pie).
+  descripcion: 'Busca tesis, reserva tu lugar de estudio y pide tu solvencia',
   ciudad: 'Guatemala',
   zonaHoraria: 'America/Guatemala',
 

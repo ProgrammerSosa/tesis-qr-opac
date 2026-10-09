@@ -24,11 +24,7 @@ export default function SiteFooter() {
           <p className="mt-3 text-sm text-white/70">
             {LIBRARY.facultad} · {LIBRARY.universidad}
           </p>
-          <p className="mt-3 font-display text-base italic text-blue-200">
-            <span className="text-red-400">“</span>
-            {LIBRARY.lema}
-            <span className="text-red-400">”</span>
-          </p>
+          <p className="mt-3 text-sm font-medium text-blue-200">{LIBRARY.descripcion}</p>
           <Redes claro variante="botones" className="mt-5" />
         </div>
 

@@ -3,5 +3,4 @@ module.exports = {
   nombre: 'Biblioteca «Francisco Rolando Velázquez González»',
   facultad: 'Facultad de Ciencias Jurídicas y Sociales',
   universidad: 'Universidad de San Carlos de Guatemala',
-  lema: 'Del anaquel cerrado al acceso inteligente',
 };

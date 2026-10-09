@@ -15,7 +15,7 @@ export default function PantallaDeBienvenida({ kiosco, onComenzar }) {
       <span className="flex max-w-3xl flex-col gap-3">
         <span className="font-display text-4xl font-semibold leading-tight sm:text-5xl">{LIBRARY.nombre}</span>
         <span className="text-lg text-white/80">{LIBRARY.facultad} · USAC</span>
-        <span className="font-display text-xl italic text-blue-200">“{LIBRARY.lema}”</span>
+        <span className="text-xl text-blue-100">{LIBRARY.descripcion}</span>
       </span>
       <span className="mt-4 animate-pulse rounded-full bg-action px-12 py-5 text-2xl font-bold shadow-2xl shadow-black/40">Toca la pantalla para comenzar</span>
       {kiosco ? <span className="text-sm font-semibold uppercase tracking-[0.25em] text-white/50">Kiosco {kiosco}</span> : null}
