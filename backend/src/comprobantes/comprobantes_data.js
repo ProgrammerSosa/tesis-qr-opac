@@ -1,6 +1,6 @@
 const { buscarReserva } = require('../reservas/reservas_data');
 const { buscarSolicitud } = require('../solvencia/solvencia_data');
-const { textoDeReserva, textoDeSolvencia } = require('../notificaciones/notificaciones');
+const { mensajeDeReserva, mensajeDeSolvencia } = require('../notificaciones/notificaciones');
 const { enviarCorreo } = require('../../utils/correo');
 const { registrar } = require('../eventos/eventos_data');
 
@@ -11,8 +11,7 @@ function buscarRegistro(tipo, id) {
 }
 
 function mensajeDe(tipo, registro) {
-  if (tipo === 'reserva') return { asunto: `Confirmación de reserva ${registro.id}`, texto: textoDeReserva(registro) };
-  return { asunto: `Solicitud de solvencia ${registro.id}`, texto: textoDeSolvencia(registro) };
+  return { ...(tipo === 'reserva' ? mensajeDeReserva(registro) : mensajeDeSolvencia(registro)), tipo: 'comprobante' };
 }
 
 // Manda el comprobante de una reserva o solicitud al correo que la persona indique. Para pedirlo hay que conocer el

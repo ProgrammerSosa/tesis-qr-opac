@@ -46,8 +46,7 @@ se crean desde el panel («Cuentas del personal»).
    dirección real de cada equipo.
 4. **Respalda `backend/data`** (o la carpeta de `DATA_DIR`): ahí están las reservas, solicitudes, cuentas, catálogo, horarios y
    actividad. Las sesiones del panel viven en memoria: al reiniciar el servidor el personal debe volver a entrar.
-5. Correo: sin `SMTP_*` los comprobantes por correo no salen (quedan simulados). Con `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS` y
-   `SMTP_FROM` se envían de verdad.
+5. Correo: sin configurarlo, los comprobantes por correo no salen (quedan simulados); ver «Correo» más abajo.
 6. Logo: el archivo es `frontend/public/logo-biblioteca.png` (y `icono-biblioteca.png` para la pestaña del navegador).
 
 Todos los ajustes del servidor están explicados en `backend/.env.example`.
@@ -77,6 +76,21 @@ la variable `PORT`.
 - **Primer arranque.** El catálogo trae siete tesis de ejemplo; en **Catálogo → Importar** se marca «Reemplazar todo el catálogo»
   para dejar solo el real.
 - **Salud.** `/health` responde `ok` cuando el servidor está listo.
+
+### Correo
+
+Los comprobantes de reservas y de solicitudes de solvencia llegan por correo (con el comprobante en HTML y en texto). Hay tres modos y
+el servidor elige según sus variables (modelo en `backend/.env.example`):
+
+- **API de un servicio de correo** (`CORREO_API=brevo` o `resend`, con `CORREO_API_KEY`): la opción para la nube. Railway (planes
+  Free, Trial y Hobby) y Render (servicios gratuitos) bloquean los puertos SMTP, y la API va por HTTPS.
+- **SMTP** (`SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`): Gmail, Microsoft 365 o el servidor de la universidad. Gmail y
+  Microsoft 365 piden una «contraseña de aplicación».
+- **Simulado** (sin nada configurado): los correos se arman pero no salen. La pantalla de comprobante lo explica a quien lo pide.
+
+`CORREO_REMITENTE` es la dirección desde la que se envía (en la API debe estar verificada en el servicio). En el panel, **Correo**
+(solo el administrador), se ve cómo quedó, se comprueba la conexión SMTP, se manda un correo de prueba y se ven los últimos
+envíos con sus errores. Si el correo falla, la reserva o la solicitud siguen adelante: la persona tiene su comprobante en pantalla.
 
 ### Cargar el catálogo
 

@@ -26,7 +26,7 @@ const authRoutes = require('./src/auth/auth_routes');
 const comprobantesRoutes = require('./src/comprobantes/comprobantes_routes');
 const horariosRoutes = require('./src/horarios/horarios_routes');
 const { retirarClavesTemporales } = require('./src/auth/cuentas_data');
-const { correoConfigurado } = require('./utils/correo');
+const { descripcionDelCorreo, comprobarAlArrancar } = require('./utils/correo');
 const { limitar, soloEscrituras } = require('./utils/limitador');
 const { fail } = require('./utils/httpResponse');
 const { crearComprobadorDeDirecciones } = require('./utils/redes');
@@ -164,8 +164,9 @@ function start() {
   const port = process.env.PORT || 4001;
   app.listen(port, () => {
     console.log(`Servidor escuchando en el puerto ${port}`);
-    console.log(`  Zona horaria: ${process.env.TZ} · correo: ${correoConfigurado() ? 'SMTP configurado' : 'simulado (sin SMTP)'}`);
+    console.log(`  Zona horaria: ${process.env.TZ} · correo: ${descripcionDelCorreo()}`);
     avisarClavesTemporales();
+    comprobarAlArrancar().catch((error) => console.warn(`[correo] No se pudo comprobar el correo: ${error.message}`));
   });
 }
 

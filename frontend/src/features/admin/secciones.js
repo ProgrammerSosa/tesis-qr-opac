@@ -7,6 +7,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Mail,
   QrCode,
   SlidersHorizontal,
   UserCog,
@@ -33,6 +34,7 @@ export const SECCIONES = [
   { clave: 'estadisticas', etiqueta: 'Estadísticas', titulo: 'Estadísticas de uso', icono: ChartColumn, grupo: 'Análisis', roles: ['administrador', 'consulta'] },
   { clave: 'personal', etiqueta: 'Cuentas del personal', titulo: 'Cuentas del personal', icono: UserCog, grupo: 'Administración', roles: ['administrador'] },
   { clave: 'configuracion', etiqueta: 'Configuración', titulo: 'Configuración general', icono: SlidersHorizontal, grupo: 'Administración', roles: ['administrador'] },
+  { clave: 'correo', etiqueta: 'Correo', titulo: 'Correo electrónico', icono: Mail, grupo: 'Administración', roles: ['administrador'] },
   { clave: 'horarios', etiqueta: 'Horarios y cierres', titulo: 'Horarios de reserva y días de cierre', icono: CalendarClock, grupo: 'Administración', roles: ['administrador'] },
   { clave: 'actividad', etiqueta: 'Actividad', titulo: 'Actividad del personal', icono: History, grupo: 'Administración', roles: ['administrador'] },
 ];

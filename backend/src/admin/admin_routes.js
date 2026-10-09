@@ -16,6 +16,7 @@ const { getHorarios, putHorarios, postCierre, deleteCierre } = require('./horari
 const { getPersonal, postPersonal, patchPersonal, postClavePersonal } = require('./personal_controller');
 const { getConfiguracion, patchConfiguracion } = require('./configuracion_controller');
 const { getActividad } = require('./actividad_controller');
+const { getCorreo, postVerificar, postPrueba } = require('./correo_controller');
 const { autenticar, requiereRol } = require('../auth/auth_middleware');
 
 const router = express.Router();
@@ -48,6 +49,9 @@ router.post('/personal/:usuario/clave', ...soloAdministrador, postClavePersonal)
 router.get('/configuracion', ...soloAdministrador, getConfiguracion);
 router.patch('/configuracion', ...soloAdministrador, patchConfiguracion);
 router.get('/actividad', ...soloAdministrador, getActividad);
+router.get('/correo', ...soloAdministrador, getCorreo);
+router.post('/correo/verificar', ...soloAdministrador, postVerificar);
+router.post('/correo/prueba', ...soloAdministrador, postPrueba);
 router.get('/horarios', ...soloAdministrador, getHorarios);
 router.put('/horarios', ...soloAdministrador, putHorarios);
 router.post('/horarios/cierres', ...soloAdministrador, postCierre);

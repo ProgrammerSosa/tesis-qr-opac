@@ -61,6 +61,21 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'personal.clave': 'Restableció la clave de una cuenta',
   'cuenta.clave': 'Cambió su propia clave',
   'configuracion.cambiada': 'Cambió la configuración',
+  'correo.prueba': 'Envió un correo de prueba',
+};
+
+// Los correos que manda el sistema (sección Correo): de qué eran y cómo les fue.
+export const TIPO_DE_CORREO = {
+  reserva: 'Confirmación de reserva',
+  solvencia: 'Solicitud de solvencia',
+  comprobante: 'Comprobante a pedido',
+  prueba: 'Correo de prueba',
+};
+
+export const ESTADO_DE_CORREO = {
+  enviado: { tone: 'status', label: 'Enviado' },
+  simulado: { tone: 'neutral', label: 'Simulado' },
+  fallido: { tone: 'danger', label: 'Falló' },
 };
 
 export const CATEGORIAS_DE_ACTIVIDAD = {
@@ -74,6 +89,7 @@ export const CATEGORIAS_DE_ACTIVIDAD = {
   personal: 'Cuentas del personal',
   cuenta: 'Cuenta propia',
   configuracion: 'Configuración',
+  correo: 'Correo',
 };
 
 // Fecha y hora legibles para una marca de tiempo ISO, en hora de la biblioteca.

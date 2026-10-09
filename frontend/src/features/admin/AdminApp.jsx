@@ -8,6 +8,7 @@ import ActividadPage from './paginas/ActividadPage';
 import CatalogoPage from './paginas/CatalogoPage';
 import CodigosQrPage from './paginas/CodigosQrPage';
 import ConfiguracionPage from './paginas/ConfiguracionPage';
+import CorreoPage from './paginas/CorreoPage';
 import EstadisticasPage from './paginas/EstadisticasPage';
 import HorariosPage from './paginas/HorariosPage';
 import PersonalPage from './paginas/PersonalPage';
@@ -29,6 +30,7 @@ const PAGINAS = {
   estadisticas: EstadisticasPage,
   personal: PersonalPage,
   configuracion: ConfiguracionPage,
+  correo: CorreoPage,
   actividad: ActividadPage,
 };
 
