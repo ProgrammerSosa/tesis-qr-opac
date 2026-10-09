@@ -8,3 +8,4 @@ backend/data
 **/*.log
 .git
 .claude
+backend/pruebas

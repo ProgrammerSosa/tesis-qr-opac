@@ -35,6 +35,17 @@ toman la clave de `CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y `CLAVE_CON
 vacía, el servidor genera una clave temporal y la muestra en su consola. **`backend/.env` no se sube a git.** Las demás cuentas
 se crean desde el panel («Cuentas del personal»).
 
+### Pruebas
+
+```bash
+cd frontend && npm run build   # algunas pruebas usan el sitio compilado
+cd backend  && npm test        # todas; «npm test -- horas url-qr» corre solo esas y «-- --detalle» muestra cada comprobación
+```
+
+Cada prueba arranca su propio servidor en un puerto libre, con datos temporales y claves de prueba: no toca los datos de desarrollo
+ni manda nada a internet (el correo se prueba con servidores falsos). Para correrlas contra PostgreSQL define `DATABASE_URL_PRUEBA`
+con una base solo de pruebas (su nombre debe llevar «prueba» o «test»; se vacía antes de cada prueba). Están en `backend/pruebas`.
+
 ## Para publicarlo
 
 1. Compila el sitio: `cd frontend && npm install && npm run build` (genera `frontend/dist`).
