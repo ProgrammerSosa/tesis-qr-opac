@@ -1,0 +1,32 @@
+# Blueprint de Render: crea el servicio web de la biblioteca a partir del Dockerfile de este repositorio.
+# En Render: New > Blueprint > elige este repositorio y la rama. Render pide los valores marcados con `sync: false` (son secretos, por eso
+# no están aquí). La guía completa está en el README, sección «Publicar en Render».
+#
+# La base de datos NO va aquí: se usa una PostgreSQL externa (por ejemplo Supabase) y su dirección se escribe en DATABASE_URL. La
+# base gratuita de Render caduca a los 30 días.
+services:
+  - type: web
+    name: biblioteca-opac
+    runtime: docker
+    plan: free # se duerme tras 15 minutos sin visitas y tarda cerca de un minuto en despertar; pasa a un plan de pago para que no se duerma
+    region: virginia # que quede cerca de la base de datos (Supabase: East US, North Virginia). Después no se puede cambiar.
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit # cada cambio que se suba a la rama se publica solo; usa `off` para publicar a mano
+    envVars:
+      # Detrás del proxy de Render hay un salto: así los límites de uso y el candado de kioscos ven la dirección real de cada equipo.
+      - key: TRUST_PROXY
+        value: '1'
+      # Dónde se guardan los datos: PostgreSQL. Con Supabase, la cadena «Session pooler» (puerto 5432).
+      - key: DATABASE_URL
+        sync: false
+      # Claves de las cuatro cuentas iniciales del panel (nuevas y largas; no las uses en ningún otro lado).
+      - key: CLAVE_ADMIN
+        sync: false
+      - key: CLAVE_CIRCULACION
+        sync: false
+      - key: CLAVE_TESIS
+        sync: false
+      - key: CLAVE_CONSULTA
+        sync: false

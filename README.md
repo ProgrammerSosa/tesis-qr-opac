@@ -108,6 +108,53 @@ falta un disco.
   JSON (sin las claves de las cuentas). Las bases gratuitas no suelen ofrecer copias descargables (la de Supabase tampoco): descarga
   uno cada semana y antes de cambios grandes.
 
+#### Probar en tu computadora con pgAdmin
+
+1. En pgAdmin: clic derecho en **Databases** → **Create** → **Database**. Nombre `biblioteca`; pestaña **Definition**: Encoding `UTF8`,
+   Template `template0`, Collation `C`, Character type `C`. **Save**.
+2. En `backend/.env` (no se sube a git) escribe `DATABASE_URL=postgresql://postgres:TU_CLAVE@localhost:5432/biblioteca`, con la clave que
+   le pusiste a PostgreSQL al instalarlo.
+3. `cd backend && npm run dev`. La consola debe decir `datos: PostgreSQL (localhost:5432/biblioteca)`.
+4. En pgAdmin, refresca la base: **Schemas → biblioteca → Tables** (`almacen`) y **Views** (clic derecho en `v_reservas` → View/Edit Data → All
+   Rows). Para pasar lo que ya tenías en `backend/data`: `npm run importar` con el servidor apagado.
+
+### Publicar en Render
+
+Render construye el `Dockerfile` desde GitHub y le da a la biblioteca una dirección con HTTPS. [`render.yaml`](render.yaml) deja el
+servicio casi listo.
+
+1. **La base de datos (Supabase).** En supabase.com crea, en tu cuenta, un proyecto gratuito (región *East US, North Virginia*) y guarda
+   la contraseña de la base. En el proyecto, botón **Connect** → **Session pooler**: copia la cadena
+   (`postgresql://postgres.<proyecto>:[YOUR-PASSWORD]@aws-...pooler.supabase.com:5432/postgres`) y cambia `[YOUR-PASSWORD]` por tu
+   contraseña (si lleva símbolos como `#` o `@`, escríbelos con `%` y su código). No uses la conexión directa: solo funciona por IPv6.
+2. **El código en GitHub.** Render publica la rama que elijas: sube la rama que lleva todo (por ejemplo `render/s5`).
+3. **Render.** En dashboard.render.com: **New → Blueprint**, conecta tu GitHub, elige este repositorio y esa rama, y escribe lo que
+   pide: `DATABASE_URL` (la cadena del paso 1) y las cuatro claves del panel (`CLAVE_ADMIN`, `CLAVE_CIRCULACION`, `CLAVE_TESIS` y
+   `CLAVE_CONSULTA`: nuevas y largas). **Apply**.
+4. **Primer arranque.** El primer build tarda varios minutos. En **Logs** debe aparecer `datos: PostgreSQL (...)`. Si la clave de la base
+   es incorrecta o la base no es UTF8, el mensaje dice qué corregir.
+5. **Entra al panel.** `https://<tu-servicio>.onrender.com/privateAccess` con el usuario `admin` y la clave de `CLAVE_ADMIN`. En **Datos y
+   respaldo** debe decir «Base de datos PostgreSQL» y «Conectada».
+6. **Correo.** En Render gratis los puertos SMTP están bloqueados: en **Environment** agrega `CORREO_API` (`brevo` o `resend`),
+   `CORREO_API_KEY` y `CORREO_REMITENTE` (ver «Correo»), y prueba desde el panel, sección **Correo**.
+
+Lo que conviene saber del plan gratuito ([documentación de Render](https://render.com/docs/free)):
+
+- El servicio se duerme tras 15 minutos sin visitas y la siguiente tarda cerca de un minuto en abrir; al despertar lee otra vez los datos
+  de la base. Con un plan de pago no se duerme.
+- Las sesiones del panel viven en memoria: si se duerme o se publica una versión, el personal vuelve a entrar.
+- Son 750 horas gratis al mes por espacio de trabajo: un solo servicio encendido todo el mes cabe.
+- La base gratuita de Render caduca a los 30 días; por eso se usa Supabase, que además pausa los proyectos gratuitos tras una semana sin
+  actividad (mientras haya visitas, no pasa).
+- Las claves `CLAVE_*` mandan sobre las que se guardan al cambiarlas en el panel: si cambias una cuenta inicial con «Cambiar mi clave» y
+  la variable sigue puesta, al reiniciar vuelve la de la variable. Cámbiala en Render, o bórrala después del primer arranque.
+
+#### Ver los datos de Supabase con pgAdmin
+
+Clic derecho en **Servers** → **Register** → **Server**. **General**: un nombre, por ejemplo «Biblioteca (Supabase)». **Connection**: Host =
+el de la cadena (`aws-...pooler.supabase.com`), Port `5432`, Maintenance database `postgres`, Username `postgres.<proyecto>`, la contraseña
+de tu base y «Save password». **Parameters**: SSL mode `require`. **Save**. Luego, **Databases → postgres → Schemas → biblioteca → Views**.
+
 ### Correo
 
 Los comprobantes de reservas y de solicitudes de solvencia llegan por correo (con el comprobante en HTML y en texto). Hay tres modos y
