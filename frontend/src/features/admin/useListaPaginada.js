@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 
 // Lista del panel que viene del servidor por páginas, con búsqueda por texto (con una pequeña espera mientras se escribe)
-// y un filtro por documento. `pedir(params)` es la función de la API; debe ser siempre la misma función.
+// y filtros por documento y por resultado de la verificación. `pedir(params)` es la función de la API; debe ser siempre la misma función.
 export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
   const [texto, setTexto] = useState('');
   const [consulta, setConsulta] = useState('');
   const [documento, setDocumento] = useState('');
+  const [verificacion, setVerificacion] = useState('');
   const [pagina, setPagina] = useState(1);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -25,7 +26,7 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     const numero = ++peticion.current;
     setCargando(true);
     try {
-      const res = await pedir({ q: consulta || undefined, documento: documento || undefined, pagina, porPagina });
+      const res = await pedir({ q: consulta || undefined, documento: documento || undefined, verificacion: verificacion || undefined, pagina, porPagina });
       if (numero !== peticion.current) return; // llegó una respuesta más nueva: esta ya no sirve
       setDatos(res.data.data);
       setError('');
@@ -35,7 +36,7 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     } finally {
       if (numero === peticion.current) setCargando(false);
     }
-  }, [pedir, consulta, documento, pagina, porPagina]);
+  }, [pedir, consulta, documento, verificacion, pagina, porPagina]);
 
   useEffect(() => {
     cargar();
@@ -43,6 +44,11 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
 
   const cambiarDocumento = useCallback((valor) => {
     setDocumento(valor);
+    setPagina(1);
+  }, []);
+
+  const cambiarVerificacion = useCallback((valor) => {
+    setVerificacion(valor);
     setPagina(1);
   }, []);
 
@@ -64,6 +70,8 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     setTexto,
     documento,
     cambiarDocumento,
+    verificacion,
+    cambiarVerificacion,
     irAPagina: setPagina,
     recargar: cargar,
     reemplazar,

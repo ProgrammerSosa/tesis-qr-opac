@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Loader2, Printer, ScanLine } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Loader2, Printer, RefreshCw, ScanLine } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { useListaPaginada } from '../useListaPaginada';
 import ThesisQr, { destinoDelQrDe, NOMBRE_DEL_DESTINO } from '../../catalog/ThesisQr';
@@ -17,7 +17,94 @@ const RESULTADO = {
   ok: { tone: 'status', label: 'Enlace correcto' },
   solo_ficha: { tone: 'neutral', label: 'Lleva a la ficha' },
   enlace_roto: { tone: 'danger', label: 'Enlace roto' },
+  sin_comprobar: { tone: 'warning', label: 'No se pudo comprobar' },
 };
+
+const FILTRO_DE_VERIFICACION = [
+  ['rotos', 'Enlace roto'],
+  ['sin_comprobar', 'No se pudo comprobar'],
+  ['sin_verificar', 'Sin verificar'],
+];
+
+const plural = (n, uno, varios) => `${n.toLocaleString('es-GT')} ${n === 1 ? uno : varios}`;
+
+// Cómo va la revisión automática de los enlaces y el botón para pedir una ahora. Mientras hay una en curso consulta cada pocos
+// segundos; al terminar avisa (`alTerminar`) para que la tabla muestre los resultados nuevos.
+function RevisionDeEnlaces({ alTerminar }) {
+  const [revision, setRevision] = useState(null);
+  const [error, setError] = useState('');
+  const estabaEnCurso = useRef(false);
+
+  const consultar = useCallback(async () => {
+    try {
+      const res = await adminApi.revisionDeEnlaces();
+      setRevision(res.data.data);
+      setError('');
+    } catch (err) {
+      setError(getErrorMessage(err, 'No se pudo consultar la revisión de enlaces'));
+    }
+  }, []);
+
+  useEffect(() => {
+    consultar();
+  }, [consultar]);
+
+  const enCurso = Boolean(revision?.enCurso);
+  useEffect(() => {
+    if (!enCurso) {
+      if (estabaEnCurso.current) alTerminar();
+      estabaEnCurso.current = false;
+      return undefined;
+    }
+    estabaEnCurso.current = true;
+    const reloj = setInterval(consultar, 3000);
+    return () => clearInterval(reloj);
+  }, [enCurso, consultar, alTerminar]);
+
+  async function revisarAhora() {
+    try {
+      await adminApi.revisarEnlaces();
+      setRevision((previa) => (previa ? { ...previa, enCurso: true } : previa));
+      setError('');
+    } catch (err) {
+      setError(getErrorMessage(err, 'No se pudo iniciar la revisión'));
+    }
+  }
+
+  if (!revision) return <AlertBanner>{error}</AlertBanner>;
+
+  const { ultimaPasada } = revision;
+  return (
+    <section aria-labelledby="revision-de-enlaces" className="flex flex-col gap-2 rounded-xl border border-border bg-white px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 id="revision-de-enlaces" className="text-sm font-bold text-slate-900">
+            Revisión automática de enlaces
+          </h2>
+          <Badge tone={revision.activa ? 'status' : 'warning'} dot>
+            {revision.activa ? `Cada ${plural(revision.dias, 'día', 'días')}` : 'Apagada'}
+          </Badge>
+        </div>
+        <Button variant="secondary" icon={enCurso ? Loader2 : RefreshCw} onClick={revisarAhora} disabled={enCurso}>
+          {enCurso ? 'Revisando...' : 'Revisar ahora'}
+        </Button>
+      </div>
+      <p className="text-sm text-slate-600" data-testid="resumen-de-la-revision">
+        El sistema comprueba solo que la URL de cada tesis siga respondiendo.{' '}
+        <b className={revision.rotos > 0 ? 'text-red-700' : 'text-slate-900'}>{plural(revision.rotos, 'enlace roto', 'enlaces rotos')}</b>
+        {revision.sinComprobar > 0 ? <> · {plural(revision.sinComprobar, 'que el sitio no dejó comprobar', 'que el sitio no dejó comprobar')}</> : null}
+        {revision.pendientes > 0 ? <> · {plural(revision.pendientes, 'tesis por revisar', 'tesis por revisar')}</> : null}
+        {ultimaPasada ? (
+          <>
+            {' '}
+            · Última pasada: {fechaLegible(ultimaPasada.fecha)} ({plural(ultimaPasada.revisadas, 'revisada', 'revisadas')})
+          </>
+        ) : null}
+      </p>
+      <AlertBanner>{error}</AlertBanner>
+    </section>
+  );
+}
 
 // Códigos QR de las tesis (propuesta, secciones 4.3 y 4.5.6): a dónde lleva cada uno (el documento, por el enlace corto o con su URL tal cual, o la ficha), cuáles están
 // activos, comprobar que sus enlaces respondan e imprimir las etiquetas de contraportada. La selección para imprimir se conserva
@@ -90,7 +177,7 @@ export default function CodigosQrPage() {
           El código QR de cada tesis abre su documento por el <b>enlace corto</b> de la biblioteca: si la URL cambia no hay que reimprimir la
           etiqueta, y se cuentan los escaneos. También puede llevar escrita la <b>URL tal cual</b> (sirve aunque este sitio no esté en línea, pero
           no se cuenta ni se puede desactivar) o ir a la <b>ficha</b> de la tesis. Un código <b>desactivado</b> avisa a quien lo escanea y deja de
-          contarse. <b>Verificar</b> comprueba que el enlace responda.
+          contarse. <b>Verificar</b> comprueba que el enlace responda; el sistema también lo revisa solo.
         </>
       }
     >
@@ -100,8 +187,11 @@ export default function CodigosQrPage() {
         busqueda={lista.texto}
         onBusqueda={lista.setTexto}
         placeholder="Código, título o autor"
+        filtros={[{ etiqueta: 'Todas las verificaciones', valor: lista.verificacion, onCambio: lista.cambiarVerificacion, opciones: FILTRO_DE_VERIFICACION }]}
         resumen={lista.primeraCarga ? '' : `${lista.total.toLocaleString('es-GT')} tesis`}
       />
+
+      <RevisionDeEnlaces alTerminar={lista.recargar} />
 
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" icon={ScanLine} onClick={() => verificar(idsDeLaPagina)} disabled={verificando.size > 0 || idsDeLaPagina.length === 0}>
@@ -191,6 +281,11 @@ export default function CodigosQrPage() {
                         <>
                           {resultado ? <Badge tone={resultado.tone}>{resultado.label}</Badge> : null}
                           <span className="mt-1 block text-slate-500">{fechaLegible(t.qr.verificadoEn)}</span>
+                          {t.qr.resultado === 'sin_comprobar' ? (
+                            <a href={t.documentoDigital.urlExterna} target="_blank" rel="noreferrer" className="mt-1 block max-w-[11rem] text-primary hover:underline">
+                              El sitio rechaza la revisión automática: ábrelo para comprobarlo
+                            </a>
+                          ) : null}
                         </>
                       ) : (
                         <span className="text-slate-400">Sin verificar</span>

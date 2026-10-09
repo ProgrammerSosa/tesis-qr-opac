@@ -34,6 +34,7 @@ const PRUEBAS = [
   { nombre: 'sesiones' },
   { nombre: 'respaldo' },
   { nombre: 'busqueda' },
+  { nombre: 'enlaces' },
   { nombre: 'salida' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },

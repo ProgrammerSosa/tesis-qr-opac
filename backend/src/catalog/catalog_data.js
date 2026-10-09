@@ -292,12 +292,17 @@ function tesisRelacionadas(tesisBase, limite = 3) {
 // --- Gestión del personal: documentos digitales y códigos QR ---------------------------------
 
 // Lista para el panel, con búsqueda y paginación (el catálogo real tiene miles de tesis).
-function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '' } = {}) {
+// `verificacion` deja solo las tesis con el enlace roto ('rotos'), las que el sitio no dejó comprobar ('sin_comprobar') o las que
+// todavía no se verifican ('sin_verificar').
+function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '', verificacion = '' } = {}) {
   // Lo escrito se busca a la vez en el código, el título, el autor y la signatura (ver «Búsqueda por texto»).
   const buscadas = palabrasDe(q);
   const filtradas = TESIS.filter((t) => {
     if (documento === 'con' && !digitalDisponible(t)) return false;
     if (documento === 'sin' && digitalDisponible(t)) return false;
+    if (verificacion === 'rotos' && t.qr.resultado !== 'enlace_roto') return false;
+    if (verificacion === 'sin_comprobar' && t.qr.resultado !== 'sin_comprobar') return false;
+    if (verificacion === 'sin_verificar' && t.qr.verificadoEn) return false;
     return buscadas.length === 0 || tieneTodas(textosDe(t).panel, buscadas);
   }).sort(masRecientesPrimero);
 
@@ -407,28 +412,61 @@ function actualizarQr(id, { activo, destino }) {
   return vistaAdmin(t);
 }
 
-// Pide la dirección sin descargarla: primero con HEAD; si el sitio no lo admite (Drive, blogs y muchos servidores responden
-// 400, 403, 405 o 501 a HEAD aunque el documento exista), se repite con GET y se descarta el cuerpo.
-async function responde(url) {
-  const opciones = { redirect: 'follow', signal: AbortSignal.timeout(6000) };
+// --- Verificación de los enlaces ----------------------------------------------------------------
+// Resultado de verificar el código de una tesis (`qr.resultado`):
+//   ok            = su documento responde (el de ejemplo del sistema siempre; una URL, si el sitio contesta bien)
+//   solo_ficha    = no hay documento que ofrecer: el código lleva a la ficha
+//   enlace_roto   = la URL no responde, ya no existe o el sitio falla
+//   sin_comprobar = el sitio contestó pero rechaza las revisiones automáticas (401, 403 o 429): puede estar bien; hay que abrirlo a mano
+
+const pausa = (ms) => new Promise((resolver) => setTimeout(resolver, ms));
+const ESPERA_POR_PEDIDO_MS = 6000;
+// Antes de dar un enlace por roto se intenta una vez más un momento después (VERIFICAR_ENLACES_REINTENTO_MS existe para las pruebas).
+const ESPERA_ANTES_DE_REINTENTAR_MS = Number(process.env.VERIFICAR_ENLACES_REINTENTO_MS) || 2000;
+const SITIO_QUE_NO_DEJA_REVISAR = [401, 403, 429];
+
+// Pide la dirección sin descargarla y devuelve el código con el que contestó el sitio: primero con HEAD; si el sitio no lo admite
+// (Drive, blogs y muchos servidores responden 400, 403, 405 o 501 a HEAD aunque el documento exista), se repite con GET y se descarta
+// el cuerpo.
+async function estadoDe(url) {
+  const opciones = { redirect: 'follow', signal: AbortSignal.timeout(ESPERA_POR_PEDIDO_MS) };
   let respuesta = await fetch(url, { ...opciones, method: 'HEAD' });
   if (!respuesta.ok && [400, 403, 405, 501].includes(respuesta.status)) {
     respuesta = await fetch(url, { ...opciones, method: 'GET' });
     respuesta.body?.cancel().catch(() => {});
   }
-  return respuesta.ok;
+  return respuesta.status;
 }
 
-// Comprueba que el documento responda: los internos siempre existen; los externos se consultan por red.
-async function documentoResponde(t) {
-  if (!digitalDisponible(t)) return null;
-  const url = t.documentoDigital.urlExterna;
-  if (!url) return true;
-  try {
-    return await responde(url);
-  } catch {
-    return false;
+// Comprueba una URL: 'ok', 'enlace_roto' o 'sin_comprobar'. Lo que puede ser pasajero (no conecta, tarda demasiado o el sitio falla)
+// se reintenta una vez; lo definitivo (404, 410...) no.
+async function comprobarUrl(url) {
+  for (let intento = 1; ; intento += 1) {
+    let estado = null;
+    try {
+      estado = await estadoDe(url);
+    } catch {
+      // no conectó o tardó demasiado
+    }
+    if (estado !== null && estado >= 200 && estado < 300) return 'ok';
+    if (SITIO_QUE_NO_DEJA_REVISAR.includes(estado)) return 'sin_comprobar';
+    const puedeSerPasajero = estado === null || estado === 408 || estado >= 500;
+    if (!puedeSerPasajero || intento === 2) return 'enlace_roto';
+    await pausa(ESPERA_ANTES_DE_REINTENTAR_MS);
   }
+}
+
+const necesitaRed = (t) => digitalDisponible(t) && Boolean(t.documentoDigital.urlExterna);
+
+// Verifica una tesis y anota el resultado (sin guardar: quien llama decide cuándo). Devuelve { antes, despues }.
+async function verificar(t) {
+  const antes = t.qr.resultado ?? null;
+  let despues = 'solo_ficha';
+  if (necesitaRed(t)) despues = await comprobarUrl(t.documentoDigital.urlExterna);
+  else if (digitalDisponible(t)) despues = 'ok'; // el documento de ejemplo del sistema siempre está
+  t.qr.verificadoEn = new Date().toISOString();
+  t.qr.resultado = despues;
+  return { antes, despues };
 }
 
 // Verifica el código QR: lleva a la ficha de la tesis o directo a su URL (según el destino) y, si la tesis tiene documento
@@ -436,11 +474,63 @@ async function documentoResponde(t) {
 async function verificarQr(id) {
   const t = obtenerPorId(id);
   if (!t) return null;
-  const responde = await documentoResponde(t);
-  t.qr.verificadoEn = new Date().toISOString();
-  t.qr.resultado = responde === null ? 'solo_ficha' : responde ? 'ok' : 'enlace_roto';
+  await verificar(t);
   guardar();
   return vistaAdmin(t);
+}
+
+const DIA_MS = 24 * 60 * 60 * 1000;
+
+// A qué tesis les toca verificarse: las que nunca se verificaron (o cambiaron de URL), las correctas cada `dias` días y las rotas cada
+// día, para que un enlace que vuelve a funcionar deje pronto de figurar como roto.
+function leTocaVerificarse(t, dias, ahora = Date.now()) {
+  if (!t.qr.verificadoEn) return true;
+  const cada = t.qr.resultado === 'enlace_roto' ? 1 : dias;
+  return ahora - Date.parse(t.qr.verificadoEn) >= cada * DIA_MS;
+}
+
+function contarVerificaciones(dias) {
+  let pendientes = 0;
+  let rotos = 0;
+  let sinComprobar = 0;
+  const ahora = Date.now();
+  TESIS.forEach((t) => {
+    if (leTocaVerificarse(t, dias, ahora)) pendientes += 1;
+    if (t.qr.resultado === 'enlace_roto') rotos += 1;
+    if (t.qr.resultado === 'sin_comprobar') sinComprobar += 1;
+  });
+  return { pendientes, rotos, sinComprobar };
+}
+
+// Verifica hasta `maximo` de las tesis a las que les toca, primero las que nunca se verificaron y después las más antiguas. Entre un
+// pedido de red y el siguiente espera `pausaMs`, para no cargar al sitio donde están los documentos. Guarda de a tandas.
+// Devuelve cuántas revisó y cuáles quedaron rotas o volvieron a funcionar.
+async function verificarPendientes({ dias, maximo = 200, pausaMs = 1000 } = {}) {
+  const ahora = Date.now();
+  const lista = TESIS.filter((t) => leTocaVerificarse(t, dias, ahora))
+    .sort((a, b) => {
+      const deA = a.qr.verificadoEn ?? '';
+      const deB = b.qr.verificadoEn ?? '';
+      return deA === deB ? 0 : deA < deB ? -1 : 1;
+    })
+    .slice(0, maximo);
+  const rotas = [];
+  const recuperadas = [];
+  let sinGuardar = 0;
+  for (const t of lista) {
+    const usaRed = necesitaRed(t);
+    const { antes, despues } = await verificar(t);
+    if (despues === 'enlace_roto' && antes !== 'enlace_roto') rotas.push(t.id);
+    if (antes === 'enlace_roto' && despues !== 'enlace_roto') recuperadas.push(t.id);
+    sinGuardar += 1;
+    if (sinGuardar >= 25) {
+      guardar();
+      sinGuardar = 0;
+    }
+    if (usaRed && pausaMs > 0) await pausa(pausaMs);
+  }
+  if (sinGuardar > 0) guardar();
+  return { revisadas: lista.length, rotas, recuperadas };
 }
 
 // --- Gestión del catálogo: alta, cambios, baja e importación ---------------------------------
@@ -612,6 +702,8 @@ module.exports = {
   actualizarDocumento,
   actualizarQr,
   verificarQr,
+  verificarPendientes,
+  contarVerificaciones,
   crearTesis,
   actualizarTesis,
   eliminarTesis,

@@ -239,6 +239,13 @@ El destino se cambia tesis por tesis en **Códigos QR**. Si la tesis no tiene UR
 desactivado, el código siempre lleva a la ficha. El código QR que se ve en la ficha pública es el mismo que va impreso en la etiqueta.
 Las tesis que ya tenían su código con la URL tal cual siguen así: las etiquetas impresas no cambian.
 
+**Enlaces rotos.** El servidor revisa solo que la URL de cada tesis siga respondiendo: cada hora pasa por las que toca (las nuevas o
+con la URL cambiada, las correctas una vez por semana y las rotas cada día), a un pedido por segundo para no cargar al sitio donde están
+los documentos. En **Códigos QR** se ve cuántos enlaces están rotos, se filtran y hay un botón «Revisar ahora»; el resumen del panel y
+el menú avisan de los rotos, y la actividad anota cuáles dejaron de responder o volvieron a funcionar. Antes de dar un enlace por roto
+lo intenta dos veces, y si el sitio contesta pero rechaza las revisiones automáticas (errores 401, 403 o 429) lo marca «No se pudo
+comprobar» en vez de «roto», para abrirlo a mano. `VERIFICAR_ENLACES_DIAS` cambia cada cuántos días (0 la apaga).
+
 Mientras una tesis no tiene URL, su documento digital es un PDF de ejemplo que el sistema arma con los datos del catálogo: portada
 con el logo, ficha, resumen con palabras clave, cómo citarla y condiciones de uso, con encabezado y número de página (y una marca de
 agua «solo consulta» si ese es su nivel de acceso). Al escribir la URL, el documento y el QR pasan a ese archivo.

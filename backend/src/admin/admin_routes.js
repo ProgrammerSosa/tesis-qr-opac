@@ -10,6 +10,8 @@ const {
   patchDocumento,
   patchQr,
   postVerificarQr,
+  getRevisionDeEnlaces,
+  postRevisionDeEnlaces,
   getEstadisticas,
 } = require('./admin_controller');
 const { getHorarios, putHorarios, postCierre, deleteCierre } = require('./horarios_controller');
@@ -38,6 +40,8 @@ router.patch('/catalogo/:id', ...tesis, patchTesis);
 router.delete('/catalogo/:id', ...soloAdministrador, deleteTesis);
 router.patch('/tesis/:id/documento', ...tesis, patchDocumento);
 router.get('/qr', ...tesis, getTesis);
+router.get('/qr/revision', ...tesis, getRevisionDeEnlaces);
+router.post('/qr/revision', ...tesis, postRevisionDeEnlaces);
 router.patch('/qr/:id', ...tesis, patchQr);
 router.post('/qr/:id/verificar', ...tesis, postVerificarQr);
 router.get('/estadisticas', ...estadisticas, getEstadisticas);

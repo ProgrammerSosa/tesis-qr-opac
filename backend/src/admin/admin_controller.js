@@ -17,12 +17,13 @@ const {
 const reservasData = require('../reservas/reservas_data');
 const solvenciaData = require('../solvencia/solvencia_data');
 const { registrar } = require('../actividad/actividad_data');
+const revisionDeEnlaces = require('../catalog/revision_de_enlaces');
 const { calcular } = require('./estadisticas');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TEXTO_DE_ACCESO = { acceso_descarga: 'acceso y descarga', consulta: 'consulta digital', sin_acceso: 'sin acceso digital' };
 const TEXTO_DE_DESTINO = { enlace: 'al enlace corto (abre la URL de la tesis)', url: 'a la URL de la tesis, tal cual', ficha: 'a la ficha de la tesis' };
-const TEXTO_DE_VERIFICACION = { ok: 'enlace correcto', solo_ficha: 'lleva a la ficha', enlace_roto: 'enlace roto' };
+const TEXTO_DE_VERIFICACION = { ok: 'enlace correcto', solo_ficha: 'lleva a la ficha', enlace_roto: 'enlace roto', sin_comprobar: 'el sitio no dejó comprobarlo' };
 
 // Qué cambió en el documento digital de una tesis, para la bitácora.
 function describirDocumento(antes, despues) {
@@ -106,8 +107,8 @@ function getUsuarios(req, res) {
 // Tesis con su documento digital y su código QR, para que el personal de tesis los gestione.
 // Con búsqueda (q), filtro por documento (con o sin) y por páginas.
 function getTesis(req, res) {
-  const { q, pagina, porPagina, documento } = req.query;
-  return ok(res, listarParaAdmin({ q, pagina, porPagina, documento }));
+  const { q, pagina, porPagina, documento, verificacion } = req.query;
+  return ok(res, listarParaAdmin({ q, pagina, porPagina, documento, verificacion }));
 }
 
 // --- Catálogo: alta, cambios, baja e importación ---
@@ -218,6 +219,16 @@ async function postVerificarQr(req, res) {
   return ok(res, tesis);
 }
 
+// Revisión automática de los enlaces: cómo va y pedir una ahora (ver catalog/revision_de_enlaces.js).
+function getRevisionDeEnlaces(req, res) {
+  return ok(res, revisionDeEnlaces.situacion());
+}
+
+function postRevisionDeEnlaces(req, res) {
+  const iniciada = revisionDeEnlaces.revisarAhora(req.sesion);
+  return ok(res, { iniciada }, iniciada ? 'Revisión iniciada' : 'Ya hay una revisión en curso', iniciada ? 202 : 200);
+}
+
 function getEstadisticas(req, res) {
   return ok(res, calcular());
 }
@@ -233,5 +244,7 @@ module.exports = {
   patchDocumento,
   patchQr,
   postVerificarQr,
+  getRevisionDeEnlaces,
+  postRevisionDeEnlaces,
   getEstadisticas,
 };

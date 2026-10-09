@@ -50,6 +50,7 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'qr.estado': 'Cambió el estado de un código QR',
   'qr.destino': 'Cambió a dónde lleva un código QR',
   'qr.verificado': 'Verificó un código QR',
+  'qr.revision': 'Revisión de los enlaces de las tesis',
   'catalogo.creada': 'Agregó una tesis al catálogo',
   'catalogo.actualizada': 'Modificó una tesis del catálogo',
   'catalogo.eliminada': 'Eliminó una tesis del catálogo',
