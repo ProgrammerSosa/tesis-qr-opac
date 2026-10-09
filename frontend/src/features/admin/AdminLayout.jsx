@@ -7,6 +7,7 @@ import MiCuentaModal from './MiCuentaModal';
 import { SECCIONES } from './secciones';
 import { ProveedorDeSesion } from './SesionAdmin';
 import { useCierrePorInactividad } from './useCierrePorInactividad';
+import { useContadoresDelPanel } from './useContadoresDelPanel';
 import { ROLES_DEL_PERSONAL } from './estados';
 import { EVENTO_SESION_EXPIRADA } from '../../shared/api/axiosClient';
 import { borrarSesion, leerSesion } from '../../shared/auth/sesion';
@@ -83,6 +84,8 @@ export default function AdminLayout() {
     return () => window.removeEventListener('keydown', alTeclear);
   }, [menuAbierto]);
 
+  const avisos = useContadoresDelPanel(sesion?.rol, location.pathname);
+
   const seccionSinPermiso = SECCIONES.find((s) => s.clave === parametros.get('sinpermiso'));
   const seccion = SECCIONES.find((s) => location.pathname === `${RUTA_DEL_PANEL}/${s.clave}`);
   const titulo = seccion?.titulo ?? 'Panel del personal';
@@ -112,8 +115,8 @@ export default function AdminLayout() {
   return (
     <ProveedorDeSesion value={valor}>
       <div className="flex min-h-screen bg-surface">
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 lg:block print:hidden">
-          <BarraLateral sesion={sesion} onMiCuenta={() => setMiCuentaAbierta(true)} onSalir={() => cerrarSesion()} />
+        <aside className="sticky top-0 hidden h-screen w-72 shrink-0 lg:block print:hidden">
+          <BarraLateral sesion={sesion} avisos={avisos} onMiCuenta={() => setMiCuentaAbierta(true)} onSalir={() => cerrarSesion()} />
         </aside>
 
         {menuAbierto ? (
@@ -122,6 +125,7 @@ export default function AdminLayout() {
             <div className="absolute left-0 top-0 h-full w-72 max-w-[85vw] shadow-2xl">
               <BarraLateral
                 sesion={sesion}
+                avisos={avisos}
                 onNavegar={() => setMenuAbierto(false)}
                 onMiCuenta={() => {
                   setMenuAbierto(false);
@@ -143,7 +147,10 @@ export default function AdminLayout() {
             >
               <Menu size={22} />
             </button>
-            <h1 className="min-w-0 flex-1 truncate text-lg font-bold text-slate-900 sm:text-xl">{titulo}</h1>
+            <div className="min-w-0 flex-1 leading-tight">
+              {seccion?.grupo ? <p className="truncate text-[11px] font-semibold uppercase tracking-wider text-slate-400">{seccion.grupo}</p> : null}
+              <h1 className="truncate text-lg font-bold text-slate-900 sm:text-xl">{titulo}</h1>
+            </div>
             <div className="hidden items-center gap-2.5 text-sm sm:flex">
               <span className="font-semibold text-slate-800">{sesion.nombre}</span>
               <Badge tone="status">{ROLES_DEL_PERSONAL[sesion.rol]?.nombre ?? sesion.rolNombre}</Badge>

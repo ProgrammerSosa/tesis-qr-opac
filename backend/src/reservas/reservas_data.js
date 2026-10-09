@@ -291,6 +291,8 @@ function resumen() {
     total: reservas.length,
     hoy: reservas.filter((r) => r.fecha === hoy).length,
     activas: reservas.filter((r) => ['reservado', 'en_uso'].includes(r.estado)).length,
+    // Las de hoy que el personal todavía tiene que atender (esperando a la persona o con la persona adentro): el aviso del menú.
+    porAtenderHoy: reservas.filter((r) => r.fecha === hoy && ['reservado', 'en_uso'].includes(r.estado)).length,
     liberadas: reservas.filter((r) => r.estado === 'liberada').length,
   };
 }

@@ -3,12 +3,15 @@ import {
   CalendarCheck,
   CalendarClock,
   ChartColumn,
+  ConciergeBell,
   FileCheck2,
   FileText,
   History,
   LayoutDashboard,
+  Library,
   Mail,
   QrCode,
+  ShieldCheck,
   SlidersHorizontal,
   UserCog,
   Users,
@@ -21,7 +24,13 @@ const TESIS = ['administrador', 'tesis'];
 // Secciones de la consola del personal (propuesta, sección 4.5.6) y qué roles entran a cada una.
 // El servidor repite la comprobación en cada petición: ocultar una sección es comodidad, no seguridad.
 // `clave` es también la dirección de la sección: RUTA_DEL_PANEL/<clave> (ver shared/config/rutas.js).
-export const GRUPOS = ['Atención', 'Acervo digital', 'Análisis', 'Administración'];
+// Los grupos del menú lateral: cada uno se despliega y muestra sus secciones (`grupo` de cada sección es su `nombre`).
+export const GRUPOS = [
+  { nombre: 'Atención', icono: ConciergeBell },
+  { nombre: 'Acervo digital', icono: Library },
+  { nombre: 'Análisis', icono: ChartColumn },
+  { nombre: 'Administración', icono: ShieldCheck },
+];
 
 export const SECCIONES = [
   { clave: 'resumen', etiqueta: 'Resumen', titulo: 'Resumen del día', icono: LayoutDashboard, grupo: null, roles: TODOS },
