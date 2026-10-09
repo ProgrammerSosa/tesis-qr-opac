@@ -210,6 +210,13 @@ En el panel, **Catálogo → Importar**: sube la hoja de cálculo del catálogo 
 las tesis una por una. El código de cada tesis no se cambia después: está impreso en el QR de su etiqueta. Las columnas `url`
 (la URL de la tesis) y `acceso` (descarga, consulta o sin acceso) son opcionales: con ellas cada tesis llega con su documento digital.
 
+### Buscar en el catálogo
+
+La búsqueda (la del sitio y la del panel) no distingue tildes, eñes ni mayúsculas, y no pide escribir el título exacto: basta con
+algunas palabras, en cualquier orden («conciliacion familia» encuentra «La conciliación extrajudicial… en los procesos de familia»).
+El autor se puede escribir con el apellido primero («Fonseca, Mariana»). Un código con guion o punto («T-2021-00045») se busca como un
+bloque, así encuentra su tesis y no otras. Los resultados salen del año más reciente al más antiguo.
+
 ### Agregar una tesis y su código QR
 
 En **Catálogo → Agregar tesis** se escriben los datos de la tesis y su **URL** (el enlace de su versión digital). Con esa URL el

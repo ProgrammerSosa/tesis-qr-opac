@@ -214,18 +214,71 @@ function vistaAdmin(t) {
 
 const normalizar = (valor) => String(valor).trim().toLowerCase();
 
+// Orden de las listas: primero las más recientes y, dentro de un año, por título como en un diccionario en español. Se usa un solo
+// comparador ya preparado: pedirle a cada título que se compare «en español» (localeCompare) tarda segundos con miles de tesis.
+const ORDEN_EN_ESPANOL = new Intl.Collator('es');
+function masRecientesPrimero(a, b) {
+  if (a.anio !== b.anio) return a.anio < b.anio ? 1 : -1;
+  return ORDEN_EN_ESPANOL.compare(a.titulo, b.titulo);
+}
+
+// --- Búsqueda por texto ------------------------------------------------------------------------
+// La gente escribe como le sale: sin tildes, en mayúsculas, con el apellido primero o solo algunas palabras del título. Para comparar,
+// los textos se «aplanan» (sin tildes ni eñes, en minúsculas y con cualquier signo convertido en espacio) y lo buscado se parte en
+// palabras por sus espacios y comas: una tesis coincide si tiene TODAS, en cualquier orden y aunque sea como parte de una palabra más
+// larga. Lo que se escribe pegado con un signo en medio («T-2021-00045», «2015–2023») se busca como un solo bloque seguido: así un
+// código encuentra su tesis y no todas las que tengan sus pedazos.
+const MARCAS_DE_TILDE = /\p{M}/gu; // las marcas que quedan sueltas al separar la letra de su tilde (NFD)
+
+function aplanar(valor) {
+  return String(valor ?? '')
+    .normalize('NFD')
+    .replace(MARCAS_DE_TILDE, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+const palabrasDe = (valor) =>
+  String(valor ?? '')
+    .split(/[\s,;]+/)
+    .map(aplanar)
+    .filter(Boolean);
+const tieneTodas = (texto, palabras) => palabras.every((palabra) => texto.includes(palabra));
+
+// Aplanar miles de títulos en cada búsqueda es trabajo repetido: se guarda el texto aplanado de cada tesis mientras no cambie.
+const textosAplanados = new WeakMap(); // tesis -> { origen, titulo, autor, temas, panel }
+
+function textosDe(t) {
+  const origen = [t.titulo, t.autor, t.temas.join('\n'), t.id, t.signatura].join('\n');
+  const guardado = textosAplanados.get(t);
+  if (guardado && guardado.origen === origen) return guardado;
+  const nuevo = {
+    origen,
+    titulo: aplanar(t.titulo),
+    autor: aplanar(t.autor),
+    temas: aplanar(t.temas.join(' ')),
+    panel: aplanar([t.id, t.titulo, t.autor, t.signatura].join(' ')),
+  };
+  textosAplanados.set(t, nuevo);
+  return nuevo;
+}
+
 // Busca por los criterios que se indiquen (todos a la vez). Devuelve primero las más recientes.
 function buscarTesis({ autor = '', titulo = '', anio = '', tema = '', tipo = '', digital = '' } = {}) {
   const soloDigital = ['1', 'true', 'si'].includes(normalizar(digital));
+  const delAutor = palabrasDe(autor);
+  const delTitulo = palabrasDe(titulo);
+  const delTema = palabrasDe(tema);
+  const porTexto = delAutor.length + delTitulo.length + delTema.length > 0;
   return TESIS.filter((t) => {
-    if (autor && !normalizar(t.autor).includes(normalizar(autor))) return false;
-    if (titulo && !normalizar(t.titulo).includes(normalizar(titulo))) return false;
     if (anio && t.anio !== String(anio).trim()) return false;
-    if (tema && !t.temas.some((x) => normalizar(x).includes(normalizar(tema)))) return false;
     if (tipo && t.tipoDocumento !== normalizar(tipo)) return false;
     if (soloDigital && !digitalDisponible(t)) return false;
-    return true;
-  }).sort((a, b) => b.anio.localeCompare(a.anio) || a.titulo.localeCompare(b.titulo, 'es'));
+    if (!porTexto) return true;
+    const textos = textosDe(t);
+    return tieneTodas(textos.autor, delAutor) && tieneTodas(textos.titulo, delTitulo) && tieneTodas(textos.temas, delTema);
+  }).sort(masRecientesPrimero);
 }
 
 function obtenerPorId(id) {
@@ -240,12 +293,13 @@ function tesisRelacionadas(tesisBase, limite = 3) {
 
 // Lista para el panel, con búsqueda y paginación (el catálogo real tiene miles de tesis).
 function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '' } = {}) {
-  const texto = normalizar(q);
+  // Lo escrito se busca a la vez en el código, el título, el autor y la signatura (ver «Búsqueda por texto»).
+  const buscadas = palabrasDe(q);
   const filtradas = TESIS.filter((t) => {
     if (documento === 'con' && !digitalDisponible(t)) return false;
     if (documento === 'sin' && digitalDisponible(t)) return false;
-    return !texto || [t.id, t.titulo, t.autor, t.signatura].some((v) => normalizar(v ?? '').includes(texto));
-  }).sort((a, b) => b.anio.localeCompare(a.anio) || a.titulo.localeCompare(b.titulo, 'es'));
+    return buscadas.length === 0 || tieneTodas(textosDe(t).panel, buscadas);
+  }).sort(masRecientesPrimero);
 
   const tamano = Math.min(Math.max(Number(porPagina) || 25, 1), 100);
   const paginas = Math.max(Math.ceil(filtradas.length / tamano), 1);
