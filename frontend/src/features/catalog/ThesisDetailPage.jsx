@@ -339,10 +339,12 @@ export default function ThesisDetailPage() {
                 Versión móvil QR
               </h2>
               <div className="rounded-xl border border-dashed border-border p-2">
-                <ThesisQr id={tesis.id} size={180} />
+                <ThesisQr id={tesis.id} size={180} enlace={tesis.qr?.enlace || undefined} />
               </div>
               <p className="text-sm leading-relaxed text-slate-500">
-                Escanea para llevar este registro a tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.
+                {tesis.qr?.enlace
+                  ? 'Escanea para abrir el documento de esta tesis en tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.'
+                  : 'Escanea para llevar este registro a tu dispositivo. Así no es necesario pedir el ejemplar físico para consultarlo.'}
               </p>
             </div>
           </aside>

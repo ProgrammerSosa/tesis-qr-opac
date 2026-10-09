@@ -160,7 +160,7 @@ export default function ThesisDocumentPage() {
               Llévalo a tu teléfono
             </h2>
             <div className="rounded-xl border border-dashed border-border p-2">
-              <ThesisQr id={tesis.id} size={150} enlace={enlaceDeDocumento(tesis.id)} />
+              <ThesisQr id={tesis.id} size={150} enlace={tesis.qr?.enlace || enlaceDeDocumento(tesis.id)} />
             </div>
             <p className="text-sm text-slate-500">Escanea el código con la cámara de tu teléfono para abrir este documento.</p>
           </div>

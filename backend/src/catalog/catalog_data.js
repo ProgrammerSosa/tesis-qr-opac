@@ -183,13 +183,17 @@ function digitalDisponible(t) {
   return t.documentoDigital.activo && t.documentoDigital.acceso !== 'sin_acceso';
 }
 
-// Lo que ve cualquier visitante: sin el enlace interno del documento ni datos de gestión.
+// Lo que ve cualquier visitante: sin el enlace interno del documento ni datos de gestión. La única excepción es `qr.enlace`: la
+// URL de la tesis, solo cuando el código QR está activo, el documento se ofrece y el personal eligió que el código vaya directo
+// a la URL. Es lo mismo que ya codifica el código impreso en la etiqueta, así que no revela nada que el código no revele.
 function vistaPublica(t) {
   const { documentoDigital, qr, ...resto } = t;
+  const url = documentoDigital.urlExterna;
+  const directo = Boolean(url) && qr.activo && qr.destino !== 'ficha' && digitalDisponible(t);
   return {
     ...resto,
     documentoDigital: { acceso: documentoDigital.acceso, disponible: digitalDisponible(t) },
-    qr: { activo: qr.activo },
+    qr: { activo: qr.activo, enlace: directo ? url : null },
   };
 }
 
