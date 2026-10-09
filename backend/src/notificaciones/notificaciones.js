@@ -68,6 +68,45 @@ function mensajeDeSolvencia(s) {
   };
 }
 
+// Cuando el personal cancela o libera una reserva, quien dejó su correo se entera y sabe que puede reservar de nuevo.
+function mensajeDeReservaCancelada(r) {
+  return {
+    tipo: 'reserva_cancelada',
+    asunto: `Reserva ${r.id} cancelada`,
+    ...plantilla({
+      titulo: 'Tu reserva fue cancelada',
+      previa: `${r.recursoNombre}, ${fechaLarga(r.fecha)}`,
+      filas: [
+        ['Número de reserva', r.id, 'codigo'],
+        ['Lugar', r.recursoNombre],
+        ['Horario', `${fechaLarga(r.fecha)}, de ${r.hora} a ${r.horaFin}`],
+        ['A nombre de', r.solicitante],
+      ],
+      parrafos: ['La biblioteca canceló esta reserva y el lugar quedó disponible para otras personas. Si todavía lo necesitas, puedes hacer una reserva nueva en el kiosco o en el sitio.'],
+    }),
+  };
+}
+
+function mensajeDeReservaLiberada(r) {
+  return {
+    tipo: 'reserva_liberada',
+    asunto: `Reserva ${r.id} liberada`,
+    ...plantilla({
+      titulo: 'Tu reserva se liberó',
+      previa: `${r.recursoNombre}, ${fechaLarga(r.fecha)}`,
+      filas: [
+        ['Número de reserva', r.id, 'codigo'],
+        ['Lugar', r.recursoNombre],
+        ['Horario', `${fechaLarga(r.fecha)}, de ${r.hora} a ${r.horaFin}`],
+        ['A nombre de', r.solicitante],
+      ],
+      parrafos: [
+        'El personal de la biblioteca liberó este lugar porque no te presentaste a tiempo o porque avisaste que no ibas a llegar. Ya está disponible para otras personas. Si todavía lo necesitas, puedes hacer una reserva nueva en el kiosco o en el sitio.',
+      ],
+    }),
+  };
+}
+
 // Para que el administrador compruebe desde el panel que el servidor sí puede enviar correos.
 function mensajeDePrueba({ quien, cuando = new Date() }) {
   const { fecha, hora } = fechaYHora(cuando.toISOString());
@@ -101,12 +140,24 @@ function solvenciaRecibida(solicitud) {
   return avisarPorCorreo({ para: solicitud.correo, ...mensajeDeSolvencia(solicitud) });
 }
 
+function reservaCancelada(reserva) {
+  return avisarPorCorreo({ para: reserva.correo, ...mensajeDeReservaCancelada(reserva) });
+}
+
+function reservaLiberada(reserva) {
+  return avisarPorCorreo({ para: reserva.correo, ...mensajeDeReservaLiberada(reserva) });
+}
+
 module.exports = {
   mensajeDeReserva,
+  mensajeDeReservaCancelada,
+  mensajeDeReservaLiberada,
   mensajeDeSolvencia,
   mensajeDePrueba,
   textoDeReserva,
   textoDeSolvencia,
   reservaConfirmada,
+  reservaCancelada,
+  reservaLiberada,
   solvenciaRecibida,
 };

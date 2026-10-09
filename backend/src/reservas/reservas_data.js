@@ -54,15 +54,19 @@ function horaFinal(franjas) {
   return horaEntera(Number(franjas[franjas.length - 1].slice(0, 2)) + 1);
 }
 
-function inicioDeReserva(reserva) {
+function momentoDeReserva(reserva, hora) {
   const [anio, mes, dia] = reserva.fecha.split('-').map(Number);
-  const [hora, minuto] = reserva.hora.split(':').map(Number);
-  return new Date(anio, mes - 1, dia, hora, minuto, 0, 0);
+  const [horas, minutos] = hora.split(':').map(Number);
+  return new Date(anio, mes - 1, dia, horas, minutos, 0, 0);
 }
 
-// Si quien reservó no se presenta dentro de la tolerancia (no se "sella el ingreso"), la reserva se libera
-// sola y el lugar vuelve a estar disponible (propuesta, sección 4.5.2). Se revisa cada vez que se consulta.
-// Los minutos de tolerancia los fija el administrador en la configuración.
+const inicioDeReserva = (reserva) => momentoDeReserva(reserva, reserva.hora);
+const finDeReserva = (reserva) => momentoDeReserva(reserva, reserva.horaFin);
+
+// Pone al día las reservas según la hora que es, y se revisa cada vez que se consulta:
+//  - Si quien reservó no se presenta dentro de la tolerancia (no se "sella el ingreso"), la reserva se libera sola y el lugar
+//    vuelve a estar disponible (propuesta, sección 4.5.2). Los minutos de tolerancia los fija el administrador.
+//  - Si la persona está adentro y su hora terminó, la reserva se da por finalizada: el personal no tiene que cerrarla a mano.
 function liberarVencidas(ahora = new Date()) {
   const tolerancia = configuracion.toleranciaMinutos() * 60 * 1000;
   let huboCambios = false;
@@ -71,6 +75,11 @@ function liberarVencidas(ahora = new Date()) {
       reserva.estado = 'liberada';
       reserva.liberadaEn = ahora.toISOString();
       reserva.motivoLiberacion = 'no_presentado';
+      huboCambios = true;
+    } else if (reserva.estado === 'en_uso' && ahora.getTime() >= finDeReserva(reserva).getTime()) {
+      reserva.estado = 'finalizado';
+      reserva.salidaEn = finDeReserva(reserva).toISOString();
+      reserva.salidaAutomatica = true;
       huboCambios = true;
     }
   });
@@ -249,21 +258,52 @@ function buscarReserva(id) {
 
 const SIGUIENTE_ESTADO = { reservado: 'en_uso', en_uso: 'finalizado' };
 
-function avanzarEstado(id) {
-  liberarVencidas();
+// Quien se va antes de que termine su reserva deja libres las horas que no usó, para que otra persona las reserve. La hora que ya
+// empezó cuenta como usada (las reservas son de horas enteras) y siempre queda al menos una hora. Solo cuenta si la reserva es de
+// hoy: una de otro día no libera nada con salir.
+function liberarHorasSinUsar(reserva, ahora) {
+  if (reserva.fecha !== fechaLocal(ahora)) return;
+  const inicio = Number(reserva.hora.slice(0, 2));
+  const fin = Number(reserva.horaFin.slice(0, 2));
+  const horaActual = ahora.getHours() + ahora.getMinutes() / 60 + ahora.getSeconds() / 3600;
+  const nuevoFin = Math.max(Math.ceil(horaActual), inicio + 1);
+  if (nuevoFin >= fin) return;
+  reserva.horaFinOriginal = reserva.horaFin;
+  reserva.horaFin = horaEntera(nuevoFin);
+  reserva.duracion = nuevoFin - inicio;
+  reserva.salioAntes = true;
+}
+
+// Sella el ingreso (reservado → en uso) o la salida (en uso → finalizado). Al sellar la salida de alguien que se va antes de que
+// termine su hora, las horas que no usó quedan libres. `ahora` solo se cambia en las pruebas.
+function avanzarEstado(id, ahora = new Date()) {
+  liberarVencidas(ahora);
   const reserva = buscarReserva(id);
   if (!reserva) return null;
   const siguiente = SIGUIENTE_ESTADO[reserva.estado];
   if (!siguiente) return reserva;
+  if (siguiente === 'en_uso') {
+    reserva.ingresoEn = ahora.toISOString();
+  } else {
+    reserva.salidaEn = ahora.toISOString();
+    liberarHorasSinUsar(reserva, ahora);
+  }
   reserva.estado = siguiente;
   guardar();
   return reserva;
 }
 
+// Cancela una reserva que sigue vigente (esperando a la persona o con ella adentro). Una ya finalizada, liberada o cancelada no
+// se toca: es parte del historial.
 function cancelarReserva(id) {
+  liberarVencidas();
   const reserva = buscarReserva(id);
   if (!reserva) return null;
+  if (!['reservado', 'en_uso'].includes(reserva.estado)) {
+    throw rechazo('Solo se puede cancelar una reserva que sigue reservada o en uso', 409);
+  }
   reserva.estado = 'cancelado';
+  reserva.canceladaEn = new Date().toISOString();
   guardar();
   return reserva;
 }
@@ -284,10 +324,24 @@ function liberarReserva(id) {
   return reserva;
 }
 
+// Cuántos lugares de cada tipo hay ocupados en esta hora: con la persona adentro, o reservados y esperando a que llegue.
+function ocupacionAhora(ahora = new Date()) {
+  const hoy = fechaLocal(ahora);
+  const horaActual = ahora.getHours();
+  const porTipo = Object.fromEntries(Object.keys(RECURSOS).map((tipo) => [tipo, { total: RECURSOS[tipo].length, enUso: 0, esperando: 0 }]));
+  reservas.forEach((r) => {
+    if (r.fecha !== hoy || !['reservado', 'en_uso'].includes(r.estado) || !porTipo[r.tipo]) return;
+    if (horaActual < Number(r.hora.slice(0, 2)) || horaActual >= Number(r.horaFin.slice(0, 2))) return; // no cubre esta hora
+    porTipo[r.tipo][r.estado === 'en_uso' ? 'enUso' : 'esperando'] += 1;
+  });
+  return porTipo;
+}
+
 function resumen() {
   liberarVencidas();
   const hoy = fechaLocal();
   return {
+    lugares: ocupacionAhora(),
     total: reservas.length,
     hoy: reservas.filter((r) => r.fecha === hoy).length,
     activas: reservas.filter((r) => ['reservado', 'en_uso'].includes(r.estado)).length,
@@ -308,5 +362,6 @@ module.exports = {
   cancelarReserva,
   liberarReserva,
   franjasDeReserva,
+  ocupacionAhora,
   resumen,
 };

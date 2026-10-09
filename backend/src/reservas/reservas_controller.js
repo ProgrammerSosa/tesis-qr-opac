@@ -81,23 +81,34 @@ function patchAvanzar(req, res) {
   const reserva = avanzarEstado(req.params.id);
   if (!reserva) return notFound(res, 'Reserva no encontrada');
   if (reserva.estado === ESTADO_SIGUIENTE[antes]) {
-    registrar(req.sesion, 'reserva.avanzada', `${reserva.id}: ${TEXTO_DE_ESTADO[antes]} → ${TEXTO_DE_ESTADO[reserva.estado]}`);
+    if (reserva.salioAntes) {
+      registrar(req.sesion, 'reserva.salida_anticipada', `${reserva.id} (${reserva.recursoNombre}): liberó de ${reserva.horaFin} a ${reserva.horaFinOriginal}`);
+    } else {
+      registrar(req.sesion, 'reserva.avanzada', `${reserva.id}: ${TEXTO_DE_ESTADO[antes]} → ${TEXTO_DE_ESTADO[reserva.estado]}`);
+    }
   }
   return ok(res, reserva);
 }
 
+// Si la persona dejó su correo, se entera de que su reserva se canceló o se liberó (el correo no detiene la acción).
 function patchCancelar(req, res) {
-  const reserva = cancelarReserva(req.params.id);
-  if (!reserva) return notFound(res, 'Reserva no encontrada');
-  registrar(req.sesion, 'reserva.cancelada', reserva.id);
-  return ok(res, reserva);
+  try {
+    const reserva = cancelarReserva(req.params.id);
+    if (!reserva) return notFound(res, 'Reserva no encontrada');
+    registrar(req.sesion, 'reserva.cancelada', `${reserva.id} (${reserva.recursoNombre})`);
+    notificaciones.reservaCancelada(reserva);
+    return ok(res, reserva, 'Reserva cancelada');
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
 }
 
 function patchLiberar(req, res) {
   try {
     const reserva = liberarReserva(req.params.id);
     if (!reserva) return notFound(res, 'Reserva no encontrada');
-    registrar(req.sesion, 'reserva.liberada', reserva.id);
+    registrar(req.sesion, 'reserva.liberada', `${reserva.id} (${reserva.recursoNombre})`);
+    notificaciones.reservaLiberada(reserva);
     return ok(res, reserva, 'Lugar liberado');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);

@@ -43,6 +43,7 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'reserva.avanzada': 'Cambió el estado de una reserva',
   'reserva.cancelada': 'Canceló una reserva',
   'reserva.liberada': 'Liberó un lugar reservado',
+  'reserva.salida_anticipada': 'Registró una salida antes de tiempo',
   'solicitud.avanzada': 'Avanzó una solicitud de solvencia',
   'solicitud.rechazada': 'Rechazó una solicitud de solvencia',
   'tesis.documento': 'Cambió el documento digital de una tesis',
@@ -69,6 +70,8 @@ export const TIPO_DE_CORREO = {
   reserva: 'Confirmación de reserva',
   solvencia: 'Solicitud de solvencia',
   comprobante: 'Comprobante a pedido',
+  reserva_cancelada: 'Reserva cancelada',
+  reserva_liberada: 'Reserva liberada',
   prueba: 'Correo de prueba',
 };
 

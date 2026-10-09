@@ -139,6 +139,22 @@ La reserva debe ser de horas seguidas dentro del horario del día: no cruza la p
 lugares reservados a la misma hora. En **Configuración** el administrador fija cuántas horas puede reservar una persona por vez y en
 total al día entre todos los lugares (al empezar, 8 y 8).
 
+### Atención de las reservas (personal)
+
+En el panel, **Reservas** (administración y circulación) muestra cuánto lugar queda de cada tipo, quién está adentro y a quién se
+espera, y cada reserva con el lugar que tomó («Cubículo 3», «Estación 12», «Mesa 2 · Silla 3»). Con cada una el personal puede:
+
+- **Llegó**: sella el ingreso.
+- **No llegó**: libera el lugar ahora mismo, por ejemplo si la persona avisó que no vendrá. Si nadie lo hace, el sistema lo libera solo
+  pasado el tiempo de tolerancia.
+- **Se fue**: sella la salida. Si la persona se va antes de que termine su hora, las horas que no usó quedan libres para que otra
+  persona las reserve (la hora que ya empezó cuenta como usada y siempre se conserva al menos una), y su tope de horas del día baja
+  con ellas. Una reserva en uso se da por finalizada sola cuando termina su hora.
+- **Cancelar**: cancela una reserva vigente. Las ya finalizadas, liberadas o canceladas no se tocan: son el historial.
+
+Si la persona dejó su correo al reservar, se entera por correo de que su reserva se canceló o se liberó. Todo queda en la actividad del
+personal.
+
 ## Kioscos
 
 Cada kiosco abre el sitio con su número: `https://tu-servidor/?kiosco=1`, `?kiosco=2`... Con eso el sitio:

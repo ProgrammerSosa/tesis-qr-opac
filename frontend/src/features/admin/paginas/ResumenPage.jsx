@@ -4,6 +4,7 @@ import { ArrowRight, BookMarked, CalendarCheck, Clock, FileCheck2, FileText, Loa
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
 import { solvenciaApi } from '../../solvencia/solvenciaApi';
+import LugarDeReserva from '../componentes/LugarDeReserva';
 import PaginaAdmin from '../componentes/PaginaAdmin';
 import { puedeVer } from '../secciones';
 import { useSesionAdmin } from '../SesionAdmin';
@@ -24,6 +25,7 @@ const PEDIDOS = {
 };
 
 const MAXIMO_POR_LISTA = 6;
+const NOMBRE_DE_LOS_LUGARES = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'sillas de la sala' };
 
 function Bloque({ titulo, enlace, textoEnlace, children }) {
   return (
@@ -139,6 +141,16 @@ export default function ResumenPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         {datos.reservas ? (
           <Bloque titulo="Reservas de hoy por atender" enlace={`${RUTA_DEL_PANEL}/reservas`} textoEnlace="Ver las reservas">
+            {cifras?.reservas?.lugares ? (
+              <p className="flex flex-wrap gap-2 text-xs" aria-label="Lugares ocupados ahora">
+                {Object.entries(cifras.reservas.lugares).map(([tipo, o]) => (
+                  <span key={tipo} className="rounded-full bg-surface px-2.5 py-1 text-slate-600">
+                    <b className="text-slate-900">{o.enUso + o.esperando}</b> de {o.total} {NOMBRE_DE_LOS_LUGARES[tipo]}
+                  </span>
+                ))}
+                <span className="py-1 text-slate-400">ocupados ahora</span>
+              </p>
+            ) : null}
             {reservasDeHoy.length === 0 ? (
               <Vacio>No hay reservas pendientes para hoy.</Vacio>
             ) : (
@@ -146,13 +158,15 @@ export default function ResumenPage() {
                 {reservasDeHoy.slice(0, MAXIMO_POR_LISTA).map((r) => {
                   const estado = ESTADO_RESERVA[r.estado];
                   return (
-                    <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                      <span className="min-w-0">
-                        <span className="font-mono text-slate-700">
+                    <li key={r.id} className="flex items-center gap-3 py-2.5 text-sm">
+                      <div className="min-w-0 flex-1">
+                        <LugarDeReserva reserva={r} />
+                      </div>
+                      <span className="min-w-0 text-right text-xs">
+                        <span className="block font-mono text-slate-700">
                           {r.hora}–{r.horaFin}
-                        </span>{' '}
-                        <span className="font-semibold text-slate-900">{r.recursoNombre}</span>
-                        <span className="block truncate text-xs text-slate-500">{r.solicitante}</span>
+                        </span>
+                        <span className="block max-w-[9rem] truncate text-slate-500">{r.solicitante}</span>
                       </span>
                       <Badge tone={estado.tone}>{estado.label}</Badge>
                     </li>
