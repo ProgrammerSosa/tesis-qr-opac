@@ -1,3 +1,4 @@
+const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
 const base = require('./postgres');
@@ -7,8 +8,10 @@ const base = require('./postgres');
 //
 // Dónde se guarda depende de una variable del servidor:
 //  - Con DATABASE_URL, en PostgreSQL (Supabase u otro): una fila por documento en `biblioteca.almacen` (ver backend/sql/esquema.sql).
-//    Al arrancar `iniciar` trae todo a memoria; después `cargar` lee de ahí. Así los datos sobreviven a cada publicación del
-//    servidor y se pueden ver y exportar desde el panel de Supabase. Solo puede haber una copia del servidor a la vez.
+//    Las listas largas (las de COLECCIONES: tesis, reservas, solicitudes y eventos) van aparte, con una fila por registro en
+//    `biblioteca.registros`: así cambiar una reserva escribe esa reserva y no todas. Al arrancar `iniciar` trae todo a memoria; después
+//    `cargar` lee de ahí. Los datos sobreviven a cada publicación del servidor y se pueden ver y exportar desde el panel de Supabase.
+//    Solo puede haber una copia del servidor a la vez.
 //  - Sin ella, en archivos JSON dentro de la carpeta de datos: backend/data, o la que indique DATA_DIR. Sirve para desarrollar y para
 //    un servidor propio con disco que se conserve. Hay que incluir la carpeta en las copias de seguridad.
 //
@@ -51,6 +54,17 @@ function escribirArchivo(nombre, valor) {
 // --- Estado común ----------------------------------------------------------------------------------------------------
 
 const documentos = new Map(); // la copia de trabajo de cada documento (el mismo objeto que usa su módulo)
+
+// Documentos cuya lista se guarda con una fila por registro: en qué campo está la lista y qué campo identifica a cada registro.
+// Para los módulos nada cambia: siguen cargando y guardando el documento entero.
+const COLECCIONES = {
+  catalogo: { campo: 'tesis', clave: 'id' },
+  reservas: { campo: 'reservas', clave: 'id' },
+  solvencia: { campo: 'solicitudes', clave: 'id' },
+  eventos: { campo: 'eventos', clave: 'id' },
+};
+const escritas = new Map(); // colección -> Map(id -> { huella, orden }): lo que ya está en la base de datos, para escribir solo lo que cambió
+const huellaDe = (texto) => crypto.createHash('md5').update(texto).digest('base64');
 const pendientes = new Map(); // nombre -> { valor, temporizador }
 let iniciado = false;
 let cola = Promise.resolve(); // las escrituras a la base de datos van una tras otra
@@ -67,7 +81,7 @@ async function iniciar({ esperaDelTurnoMs, alEsperarElTurno } = {}) {
       await base.abrir();
       await base.tomarElTurno({ esperaMaxMs: esperaDelTurnoMs, alEsperar: alEsperarElTurno });
       await base.prepararEsquema();
-      (await base.leerTodo()).forEach((valor, nombre) => documentos.set(nombre, valor));
+      await traerDeLaBase();
     } catch (error) {
       await base.cerrar();
       throw error;
@@ -79,6 +93,96 @@ async function iniciar({ esperaDelTurnoMs, alEsperarElTurno } = {}) {
     base.iniciarLatido();
   }
   iniciado = true;
+}
+
+// Trae a memoria lo guardado y arma cada colección con sus filas. Un documento que todavía trae su lista adentro (guardado por una
+// versión anterior, o recién importado) se pasa a filas en ese momento: su lista manda sobre las filas que hubiera.
+async function traerDeLaBase() {
+  const guardados = await base.leerTodo();
+  const registros = await base.leerRegistros();
+  const porPasar = [];
+  guardados.forEach((valor, nombre) => {
+    const coleccion = COLECCIONES[nombre];
+    if (coleccion && valor && typeof valor === 'object') {
+      if (Array.isArray(valor[coleccion.campo])) {
+        porPasar.push(nombre);
+      } else {
+        const filas = registros.get(nombre) ?? [];
+        valor[coleccion.campo] = filas.map((fila) => fila.datos);
+        escritas.set(nombre, new Map(filas.map((fila) => [fila.id, { huella: huellaDe(JSON.stringify(fila.datos)), orden: fila.orden }])));
+      }
+    }
+    documentos.set(nombre, valor);
+  });
+  for (const nombre of porPasar) {
+    await escribirEnBase(nombre, documentos.get(nombre), { reemplazar: true });
+    console.log(`[base de datos] «${nombre}» pasó a guardarse con una fila por registro (${documentos.get(nombre)[COLECCIONES[nombre].campo].length})`);
+  }
+}
+
+// Qué hay que escribir para que las filas de una colección queden como `lista`: las que cambiaron o son nuevas y las que ya no están.
+// El orden de la lista se conserva con un número que solo crece: quitar un registro no obliga a tocar los demás.
+// Devuelve null si algún registro no tiene identificador o está repetido: esa lista no se puede guardar por filas.
+function planDeColeccion(nombre, { clave }, lista, reemplazar) {
+  const antes = reemplazar ? new Map() : escritas.get(nombre) ?? new Map();
+  let mayor = 0;
+  antes.forEach(({ orden }) => {
+    if (orden > mayor) mayor = orden;
+  });
+  const filas = [];
+  const vistos = new Set();
+  let anterior = 0;
+  let enOrden = true;
+  for (const registro of lista) {
+    const valor = registro?.[clave];
+    const id = typeof valor === 'string' || typeof valor === 'number' ? String(valor) : '';
+    if (!id || vistos.has(id)) return null;
+    vistos.add(id);
+    const texto = JSON.stringify(registro);
+    const huella = huellaDe(texto);
+    const previo = antes.get(id);
+    const orden = previo ? previo.orden : (mayor += 1);
+    if (orden <= anterior) enOrden = false;
+    anterior = orden;
+    const cambio = !previo || previo.huella !== huella;
+    filas.push({ id, huella, orden, previo, registro, texto: cambio ? texto : null });
+  }
+  // Si alguien reordenó la lista, se numera de nuevo entera.
+  if (!enOrden) {
+    filas.forEach((fila, i) => {
+      fila.orden = i + 1;
+    });
+  }
+  const despues = new Map();
+  const cambiadas = [];
+  filas.forEach((fila) => {
+    despues.set(fila.id, { huella: fila.huella, orden: fila.orden });
+    if (fila.texto !== null || fila.previo.orden !== fila.orden) {
+      cambiadas.push({ id: fila.id, orden: fila.orden, texto: fila.texto ?? JSON.stringify(fila.registro) });
+    }
+  });
+  const borradas = [...antes.keys()].filter((id) => !vistos.has(id));
+  return { despues, cambios: { cambiadas, borradas, reemplazar } };
+}
+
+async function escribirEnBase(nombre, valor, { reemplazar = false } = {}) {
+  const coleccion = COLECCIONES[nombre];
+  const lista = coleccion && valor && typeof valor === 'object' ? valor[coleccion.campo] : null;
+  if (!Array.isArray(lista)) {
+    await base.escribir(nombre, JSON.stringify(valor));
+    return;
+  }
+  const plan = planDeColeccion(nombre, coleccion, lista, reemplazar);
+  if (!plan) {
+    // No debería pasar; si pasa, no se pierde nada: la lista se guarda entera dentro del documento, como antes.
+    console.warn(`[base de datos] «${nombre}» tiene registros sin identificador o repetidos: por ahora se guarda como un solo documento`);
+    await base.escribirColeccion(nombre, JSON.stringify(valor), { reemplazar: true });
+    escritas.delete(nombre);
+    return;
+  }
+  const { [coleccion.campo]: _lista, ...resto } = valor;
+  await base.escribirColeccion(nombre, JSON.stringify(resto), plan.cambios);
+  escritas.set(nombre, plan.despues);
 }
 
 function cargar(nombre, inicial) {
@@ -139,7 +243,7 @@ async function escribirPendiente(nombre) {
   pendientes.delete(nombre);
   enVuelo += 1;
   try {
-    await base.escribir(nombre, JSON.stringify(item.valor));
+    await escribirEnBase(nombre, item.valor);
     ultimoGuardado = new Date().toISOString();
     ultimoError = null;
     reintentos.delete(nombre);
@@ -263,4 +367,10 @@ function respaldo() {
   return structuredClone(Object.fromEntries([...sueltos, ...documentos.entries()].sort(([a], [b]) => a.localeCompare(b))));
 }
 
-module.exports = { usaBaseDeDatos, iniciar, cargar, guardar, guardarPendientes, vaciar, apagar, descripcion, situacion, respaldo };
+// Para el importador (con el servidor apagado y la base ya abierta): escribe un documento tal cual, reemplazando lo que hubiera.
+// Una colección queda de una vez con una fila por registro.
+function escribirDirecto(nombre, valor) {
+  return escribirEnBase(nombre, valor, { reemplazar: true });
+}
+
+module.exports = { usaBaseDeDatos, iniciar, cargar, guardar, guardarPendientes, vaciar, apagar, descripcion, situacion, respaldo, escribirDirecto };

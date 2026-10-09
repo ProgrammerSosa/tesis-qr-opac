@@ -18,6 +18,7 @@ try {
 }
 
 const base = require('../utils/postgres');
+const almacen = require('../utils/almacen');
 const { leerZip, esZip } = require('../utils/zip');
 
 // Un respaldo no lleva la sal ni la clave cifrada de las cuentas (no deben viajar en un archivo): ese documento no se importa.
@@ -87,7 +88,7 @@ async function principal() {
       } else if (existentes.has(nombre) && !forzar) {
         console.log(`  omitido   ${nombre}: ya existe en la base de datos (usa --forzar para reemplazarlo)`);
       } else {
-        await base.escribir(nombre, JSON.stringify(documentos[nombre]));
+        await almacen.escribirDirecto(nombre, documentos[nombre]);
         importados += 1;
         console.log(`  importado ${nombre}${existentes.has(nombre) ? ' (reemplazó al que había)' : ''}`);
       }

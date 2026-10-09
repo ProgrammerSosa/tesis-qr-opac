@@ -2,9 +2,11 @@
 -- correr a mano en el editor SQL de Supabase: todo es idempotente (se puede repetir sin problema).
 --
 -- Cómo se guarda: la aplicación trabaja con sus datos en memoria y guarda cada tipo de dato como un documento JSON en la tabla
--- `biblioteca.almacen` (una fila por tipo: catalogo, reservas, solvencia, cuentas, horarios, configuracion, actividad y eventos).
--- Las vistas `v_...` muestran esos documentos como tablas, para mirarlos y exportarlos a CSV desde el panel de Supabase. Son de solo
--- lectura: los cambios se hacen desde el panel de la biblioteca, no editando aquí.
+-- `biblioteca.almacen` (una fila por tipo: catalogo, reservas, solvencia, cuentas, horarios, configuracion, actividad, eventos...).
+-- Las listas largas (tesis, reservas, solicitudes de solvencia y eventos) no van dentro de su documento sino en `biblioteca.registros`,
+-- con una fila por registro: así cambiar una reserva escribe esa fila y no la lista entera.
+-- Las vistas `v_...` muestran todo como tablas, para mirarlo y exportarlo a CSV desde el panel de Supabase. Son de solo lectura: los
+-- cambios se hacen desde el panel de la biblioteca, no editando aquí (el servidor trabaja con su copia en memoria y la volvería a escribir).
 --
 -- Privacidad: todo vive en el esquema `biblioteca`, que la API pública de Supabase no expone, y se le quita el acceso a los roles
 -- públicos (`anon` y `authenticated`). Hay carnés, CUI y correos de estudiantes: no lo pongas en `public`.
@@ -20,6 +22,21 @@ create table if not exists biblioteca.almacen (
 comment on table biblioteca.almacen is 'Un documento JSON por tipo de dato de la biblioteca. Lo escribe solo el servidor.';
 
 alter table biblioteca.almacen enable row level security;
+
+-- `coleccion` es el nombre del documento al que pertenece la lista (catalogo, reservas, solvencia o eventos); `orden` conserva el
+-- orden en que se agregaron los registros.
+create table if not exists biblioteca.registros (
+  coleccion   text not null,
+  id          text not null,
+  orden       bigint not null,
+  datos       jsonb not null,
+  actualizado timestamptz not null default now(),
+  primary key (coleccion, id)
+);
+
+comment on table biblioteca.registros is 'Las listas largas de la biblioteca, una fila por registro (tesis, reservas, solicitudes, eventos). Lo escribe solo el servidor.';
+
+alter table biblioteca.registros enable row level security;
 
 do $$
 declare
@@ -64,9 +81,8 @@ select
   nullif(r->>'creadoEn', '')::timestamptz                           as creada_en,
   nullif(r->>'ingresoEn', '')::timestamptz                          as ingreso_en,
   nullif(r->>'salidaEn', '')::timestamptz                           as salida_en
-from biblioteca.almacen a,
-     jsonb_array_elements(coalesce(a.valor->'reservas', '[]'::jsonb)) r
-where a.nombre = 'reservas';
+from (select datos as r, orden from biblioteca.registros where coleccion = 'reservas') q
+order by q.orden;
 
 create view biblioteca.v_tesis as
 select
@@ -86,9 +102,8 @@ select
   t->'qr'->>'destino'                                               as qr_lleva_a,
   t->'qr'->>'resultado'                                             as qr_resultado,
   nullif(t->'qr'->>'verificadoEn', '')::timestamptz                 as qr_verificado_en
-from biblioteca.almacen a,
-     jsonb_array_elements(coalesce(a.valor->'tesis', '[]'::jsonb)) t
-where a.nombre = 'catalogo';
+from (select datos as t, orden from biblioteca.registros where coleccion = 'catalogo') q
+order by q.orden;
 
 create view biblioteca.v_solicitudes_solvencia as
 select
@@ -108,9 +123,8 @@ select
   s->>'observacion'                                                 as observacion,
   s->>'kiosco'                                                      as kiosco,
   nullif(s->>'creadoEn', '')::timestamptz                           as creada_en
-from biblioteca.almacen a,
-     jsonb_array_elements(coalesce(a.valor->'solicitudes', '[]'::jsonb)) s
-where a.nombre = 'solvencia';
+from (select datos as s, orden from biblioteca.registros where coleccion = 'solvencia') q
+order by q.orden;
 
 -- Sin la sal ni la clave cifrada: esas nunca se muestran.
 create view biblioteca.v_cuentas as
@@ -143,9 +157,8 @@ select
   e->>'kiosco'                                                      as kiosco,
   e->>'tesisId'                                                     as tesis,
   nullif(e->>'creadoEn', '')::timestamptz                           as creado_en
-from biblioteca.almacen a,
-     jsonb_array_elements(coalesce(a.valor->'eventos', '[]'::jsonb)) e
-where a.nombre = 'eventos';
+from (select datos as e, orden from biblioteca.registros where coleccion = 'eventos') q
+order by q.orden;
 
 create view biblioteca.v_cierres as
 select

@@ -22,7 +22,7 @@ const require = createRequire(import.meta.url);
 
 // `servidor`: la prueba usa un servidor que arranca este programa (su dirección llega en BASE). `fases`: se corre una vez por fase,
 // reiniciando el servidor entre una y otra con los mismos datos. `sitio`: necesita el sitio compilado (frontend/dist).
-// `modulos`: paquetes de desarrollo que necesita. Las demás arrancan sus propios servidores o prueban un módulo directamente.
+// `modulos`: paquetes de desarrollo que necesita. `base`: solo corre con DATABASE_URL_PRUEBA (prueba el almacenamiento en PostgreSQL). Las demás arrancan sus propios servidores o prueban un módulo directamente.
 const PRUEBAS = [
   { nombre: 'propuesta', servidor: true, fases: ['escribir', 'verificar'] },
   { nombre: 'horas', servidor: true },
@@ -37,6 +37,7 @@ const PRUEBAS = [
   { nombre: 'entregas' },
   { nombre: 'keepalive' },
   { nombre: 'correo', modulos: ['smtp-server', 'mailparser'] },
+  { nombre: 'postgres', base: true },
 ];
 
 const BASE_DE_PRUEBA = String(process.env.DATABASE_URL_PRUEBA || '').trim();
@@ -71,6 +72,7 @@ function correrArchivo(archivo, env) {
 function faltantes(prueba) {
   const motivos = [];
   if (prueba.sitio && !fs.existsSync(SITIO)) motivos.push('falta el sitio compilado (corre «npm run build» dentro de frontend)');
+  if (prueba.base && !BASE_DE_PRUEBA) motivos.push('necesita una base de datos de pruebas (define DATABASE_URL_PRUEBA)');
   (prueba.modulos ?? []).forEach((modulo) => {
     try {
       require.resolve(modulo);

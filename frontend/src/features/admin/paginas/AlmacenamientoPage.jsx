@@ -262,7 +262,7 @@ export default function AlmacenamientoPage() {
           <table className="w-full min-w-[600px] text-left text-sm">
             <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['Qué es', 'Tamaño', 'Última vez guardado'].map((h) => (
+                {['Qué es', 'Registros', 'Tamaño', 'Última vez guardado'].map((h) => (
                   <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">
                     {h}
                   </th>
@@ -272,7 +272,7 @@ export default function AlmacenamientoPage() {
             <tbody className="divide-y divide-border">
               {datos.documentos.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="px-3 py-6 text-center text-slate-400">
+                  <td colSpan={4} className="px-3 py-6 text-center text-slate-400">
                     Todavía no hay nada guardado.
                   </td>
                 </tr>
@@ -285,6 +285,7 @@ export default function AlmacenamientoPage() {
                         <span className="font-semibold text-slate-900">{nombre}</span>
                         {detalle ? <span className="block text-xs text-slate-500">{detalle}</span> : null}
                       </td>
+                      <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{d.registros === undefined ? '—' : d.registros.toLocaleString('es-GT')}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 font-mono text-xs text-slate-600">{tamano(d.bytes)}</td>
                       <td className="whitespace-nowrap px-3 py-2.5 text-slate-600">{d.actualizadoEn ? fechaLegible(d.actualizadoEn) : '—'}</td>
                     </tr>

@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client } = require('pg');
 
-// Conexión del almacén con PostgreSQL (Supabase o cualquier otro). Se usa una sola conexión, que escribe los documentos y además
+// Conexión del almacén con PostgreSQL (Supabase o cualquier otro). Se usa una sola conexión, que escribe los datos y además
 // sostiene el «turno»: un candado de aviso de PostgreSQL que solo una copia del servidor puede tener a la vez. Hace falta porque el
 // servidor trabaja con sus datos en memoria y los guarda enteros: dos copias escribiendo se pisarían los cambios. Al publicar una
 // versión nueva las dos conviven unos segundos; la nueva espera su turno hasta que la vieja termina y suelta la conexión.
@@ -176,9 +176,22 @@ async function prepararEsquema() {
   }
 }
 
+// Los documentos tal como están en `biblioteca.almacen`: nombre -> valor.
 async function leerTodo() {
   const { rows } = await cliente.query('select nombre, valor from biblioteca.almacen');
   return new Map(rows.map((fila) => [fila.nombre, fila.valor]));
+}
+
+// Los registros de las colecciones (las listas largas, que se guardan con una fila por registro): colección -> filas en su orden.
+// El texto de cada registro viene tal como lo entrega PostgreSQL; quien llama lo convierte.
+async function leerRegistros() {
+  const { rows } = await cliente.query('select coleccion, id, orden, datos from biblioteca.registros order by coleccion, orden');
+  const colecciones = new Map();
+  rows.forEach((fila) => {
+    if (!colecciones.has(fila.coleccion)) colecciones.set(fila.coleccion, []);
+    colecciones.get(fila.coleccion).push({ id: fila.id, orden: Number(fila.orden), datos: fila.datos });
+  });
+  return colecciones;
 }
 
 // Si la conexión se cayó, la vuelve a abrir y retoma el turno. Si el turno ya lo tiene otra copia, esta se apaga (alPerderElTurno):
@@ -211,10 +224,54 @@ async function escribir(nombre, texto) {
   );
 }
 
-// Cada documento con su tamaño y cuándo se guardó por última vez.
+const FILAS_POR_TANDA = 500;
+
+// Guarda una colección: en una sola transacción escribe el resto del documento (`texto`, sin la lista), agrega o cambia las filas de
+// `cambiadas` ([{ id, orden, texto }]) y borra las de `borradas` (ids). Con `reemplazar` borra antes todas las filas de la colección.
+// Así un cambio en un registro escribe ese registro y no la lista entera.
+async function escribirColeccion(nombre, texto, { cambiadas = [], borradas = [], reemplazar = false } = {}) {
+  await asegurarConexion();
+  await cliente.query('begin');
+  try {
+    if (reemplazar) await cliente.query('delete from biblioteca.registros where coleccion = $1', [nombre]);
+    for (let i = 0; i < borradas.length; i += 5000) {
+      await cliente.query('delete from biblioteca.registros where coleccion = $1 and id = any($2::text[])', [nombre, borradas.slice(i, i + 5000)]);
+    }
+    for (let i = 0; i < cambiadas.length; i += FILAS_POR_TANDA) {
+      const tanda = cambiadas.slice(i, i + FILAS_POR_TANDA);
+      await cliente.query(
+        'insert into biblioteca.registros (coleccion, id, orden, datos, actualizado) ' +
+          'select $1, t.id, t.orden, t.datos::jsonb, now() from unnest($2::text[], $3::bigint[], $4::text[]) as t(id, orden, datos) ' +
+          'on conflict (coleccion, id) do update set orden = excluded.orden, datos = excluded.datos, actualizado = now()',
+        [nombre, tanda.map((fila) => fila.id), tanda.map((fila) => fila.orden), tanda.map((fila) => fila.texto)]
+      );
+    }
+    await cliente.query(
+      'insert into biblioteca.almacen (nombre, valor, actualizado) values ($1, $2::jsonb, now()) ' +
+        'on conflict (nombre) do update set valor = excluded.valor, actualizado = now()',
+      [nombre, texto]
+    );
+    await cliente.query('commit');
+  } catch (error) {
+    await cliente.query('rollback').catch(() => {});
+    throw error;
+  }
+}
+
+// Cada documento con su tamaño, cuándo se guardó por última vez y, si es una colección, cuántos registros tiene.
 async function resumen() {
-  const { rows } = await cliente.query('select nombre, pg_column_size(valor) as bytes, actualizado from biblioteca.almacen order by nombre');
-  return rows.map((fila) => ({ nombre: fila.nombre, bytes: Number(fila.bytes), actualizadoEn: fila.actualizado.toISOString() }));
+  const { rows } = await cliente.query(
+    'select a.nombre, pg_column_size(a.valor) + coalesce(r.bytes, 0) as bytes, greatest(a.actualizado, r.actualizado) as actualizado, r.registros ' +
+      'from biblioteca.almacen a left join (' +
+      '  select coleccion, count(*) as registros, sum(pg_column_size(datos)) as bytes, max(actualizado) as actualizado from biblioteca.registros group by coleccion' +
+      ') r on r.coleccion = a.nombre order by a.nombre'
+  );
+  return rows.map((fila) => ({
+    nombre: fila.nombre,
+    bytes: Number(fila.bytes),
+    actualizadoEn: fila.actualizado.toISOString(),
+    ...(fila.registros === null ? {} : { registros: Number(fila.registros) }),
+  }));
 }
 
 // Mantiene viva la conexión y comprueba que sigue teniendo el turno. De vez en cuando hace una lectura de verdad: un proyecto gratuito de
@@ -252,7 +309,9 @@ module.exports = {
   tomarElTurno,
   prepararEsquema,
   leerTodo,
+  leerRegistros,
   escribir,
+  escribirColeccion,
   resumen,
   iniciarLatido,
   cerrar,

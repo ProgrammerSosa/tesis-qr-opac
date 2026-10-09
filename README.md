@@ -45,7 +45,9 @@ cd backend  && npm test        # todas; «npm test -- horas url-qr» corre solo 
 
 Cada prueba arranca su propio servidor en un puerto libre, con datos temporales y claves de prueba: no toca los datos de desarrollo
 ni manda nada a internet (el correo se prueba con servidores falsos). Para correrlas contra PostgreSQL define `DATABASE_URL_PRUEBA`
-con una base solo de pruebas (su nombre debe llevar «prueba» o «test»; se vacía antes de cada prueba). Están en `backend/pruebas`.
+con una base solo de pruebas (su nombre debe llevar «prueba» o «test»; se vacía antes de cada prueba): así corre también el grupo
+`postgres`, que prueba el almacenamiento en la base de datos (filas por registro, turno entre copias, caída y recuperación,
+importador). Están en `backend/pruebas`.
 
 ## Para publicarlo
 
@@ -98,9 +100,16 @@ Sin configurar nada, el servidor guarda todo en archivos JSON (`backend/data`): 
 base de datos PostgreSQL (Supabase, Render, la de tu computadora...): los datos sobreviven a cada publicación del servidor y no hace
 falta un disco.
 
-- **Qué se guarda.** Cada tipo de dato (catálogo con sus QR, reservas, solicitudes de solvencia, cuentas, horarios, configuración,
-  actividad y estadísticas) es una fila de `biblioteca.almacen`, en formato JSON. El servidor trabaja con ellos en memoria y los guarda
-  un instante después de cada cambio (al apagarlo guarda lo que quede). El esquema se crea solo al arrancar (`backend/sql/esquema.sql`).
+- **Qué se guarda.** Cada tipo de dato (cuentas, horarios, configuración, actividad...) es una fila de `biblioteca.almacen`, en formato
+  JSON. Las listas largas (las tesis del catálogo con sus QR, las reservas, las solicitudes de solvencia y los eventos de las
+  estadísticas) van en `biblioteca.registros`, con **una fila por registro**: cambiar una reserva escribe esa fila y no todas. El servidor
+  trabaja con todo en memoria y guarda un instante después de cada cambio (al apagarlo guarda lo que quede). El esquema se crea solo al
+  arrancar (`backend/sql/esquema.sql`).
+- **Cuánto aguanta.** Medido con 30 000 tesis (unos 37 MB) y la base en la misma computadora: arrancar toma cerca de un segundo (con una base remota,
+  más: hay que traerlas todas) y guardar un cambio menos de medio segundo; el
+  servidor usa unos 190 MB de memoria. El tope real es la memoria del servidor (512 MB en Render gratis), no los 500 MB de Supabase.
+- **Si vienes de una versión anterior** (cada lista dentro de su documento), el servidor la pasa sola a filas en el primer arranque y lo
+  dice en la consola. Después de eso una versión anterior ya no puede leer la base: para volver atrás, restaura un respaldo.
 - **Verlos como tablas.** El esquema trae vistas de solo lectura (`v_reservas`, `v_tesis`, `v_solicitudes_solvencia`, `v_cuentas`,
   `v_actividad`, `v_eventos`, `v_cierres`): ábrelas en pgAdmin (Schemas → biblioteca → Views) o en el Table Editor de Supabase y
   expórtalas a CSV. No se edita ahí: los cambios se hacen desde el panel.
