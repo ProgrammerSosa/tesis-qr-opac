@@ -137,8 +137,8 @@ export default function TesisDigitalesPage() {
         filtros={[
           {
             etiqueta: 'Con y sin documento',
-            valor: lista.documento,
-            onCambio: lista.cambiarDocumento,
+            valor: lista.filtros.documento ?? '',
+            onCambio: (valor) => lista.cambiarFiltro('documento', valor),
             opciones: [
               ['con', 'Con documento digital'],
               ['sin', 'Sin documento digital'],

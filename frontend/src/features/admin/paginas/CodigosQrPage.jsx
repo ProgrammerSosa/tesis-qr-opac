@@ -187,7 +187,7 @@ export default function CodigosQrPage() {
         busqueda={lista.texto}
         onBusqueda={lista.setTexto}
         placeholder="Código, título o autor"
-        filtros={[{ etiqueta: 'Todas las verificaciones', valor: lista.verificacion, onCambio: lista.cambiarVerificacion, opciones: FILTRO_DE_VERIFICACION }]}
+        filtros={[{ etiqueta: 'Todas las verificaciones', valor: lista.filtros.verificacion ?? '', onCambio: (valor) => lista.cambiarFiltro('verificacion', valor), opciones: FILTRO_DE_VERIFICACION }]}
         resumen={lista.primeraCarga ? '' : `${lista.total.toLocaleString('es-GT')} tesis`}
       />
 

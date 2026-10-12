@@ -4,6 +4,7 @@ const {
   TESIS,
   limpiarUrl,
   digitalDisponible,
+  faltantes,
   listarParaAdmin,
   obtenerPorId,
   actualizarDocumento,
@@ -49,6 +50,8 @@ function getResumen(req, res) {
       conDocumentoDigital: TESIS.filter(digitalDisponible).length,
       qrPorRevisar: qrPorRevisar.length,
       qrPorRevisarMuestra: qrPorRevisar.slice(0, 6).map((t) => ({ id: t.id, titulo: t.titulo, resultado: t.qr.resultado })),
+      // Tesis a las que les falta algún dato importante (ver la configuración).
+      incompletas: TESIS.filter((t) => faltantes(t).length > 0).length,
     },
     reservas: reservasData.resumen(),
     solvencia: solvenciaData.resumen(),
@@ -107,8 +110,8 @@ function getUsuarios(req, res) {
 // Tesis con su documento digital y su código QR, para que el personal de tesis los gestione.
 // Con búsqueda (q), filtro por documento (con o sin) y por páginas.
 function getTesis(req, res) {
-  const { q, pagina, porPagina, documento, verificacion } = req.query;
-  return ok(res, listarParaAdmin({ q, pagina, porPagina, documento, verificacion }));
+  const { q, pagina, porPagina, documento, verificacion, completitud } = req.query;
+  return ok(res, listarParaAdmin({ q, pagina, porPagina, documento, verificacion, completitud }));
 }
 
 // --- Catálogo: alta, cambios, baja e importación ---

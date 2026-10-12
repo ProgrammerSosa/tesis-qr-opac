@@ -22,6 +22,7 @@ export default function ConfiguracionPage() {
   const [horasPorReserva, setHorasPorReserva] = useState('');
   const [horasPorDia, setHorasPorDia] = useState('');
   const [pausadas, setPausadas] = useState({});
+  const [importantes, setImportantes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +34,7 @@ export default function ConfiguracionPage() {
     setHorasPorReserva(String(configuracion.maxHorasPorReserva));
     setHorasPorDia(String(configuracion.maxHorasPorDia));
     setPausadas(configuracion.reservasPausadas);
+    setImportantes(configuracion.camposImportantes);
   }
 
   useEffect(() => {
@@ -61,7 +63,8 @@ export default function ConfiguracionPage() {
     Number(tolerancia) !== guardada.toleranciaMinutos ||
     Number(horasPorReserva) !== guardada.maxHorasPorReserva ||
     Number(horasPorDia) !== guardada.maxHorasPorDia ||
-    SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]);
+    SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]) ||
+    guardada.camposDeTesis.some(({ campo }) => importantes.includes(campo) !== guardada.camposImportantes.includes(campo));
 
   async function guardar(e) {
     e.preventDefault();
@@ -90,6 +93,7 @@ export default function ConfiguracionPage() {
         maxHorasPorReserva: porReserva,
         maxHorasPorDia: porDia,
         reservasPausadas: pausadas,
+        camposImportantes: guardada.camposDeTesis.map(({ campo }) => campo).filter((campo) => importantes.includes(campo)),
       });
       cargarEnFormulario(res.data.data);
       setAviso('Configuración guardada. Ya rige en los kioscos y en la web.');
@@ -101,7 +105,7 @@ export default function ConfiguracionPage() {
   }
 
   return (
-    <PaginaAdmin descripcion="Ajustes generales de las reservas. Lo que guardes rige desde ese momento, sin reiniciar nada.">
+    <PaginaAdmin descripcion="Ajustes generales de las reservas y del catálogo. Lo que guardes rige desde ese momento, sin reiniciar nada.">
       <form onSubmit={guardar} className="flex max-w-3xl flex-col gap-5">
         <AlertBanner>{error}</AlertBanner>
         {aviso ? (
@@ -197,6 +201,33 @@ export default function ConfiguracionPage() {
                     Pausar
                   </label>
                 </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5" aria-labelledby="datos-importantes">
+          <h2 id="datos-importantes" className="text-base font-bold text-slate-900">
+            Datos importantes de las tesis
+          </h2>
+          <p className="text-sm text-slate-600">
+            Código, título, autor y año son siempre obligatorios. Marca aquí qué otros datos debe tener una tesis completa. Si una tesis llega
+            sin alguno, se registra igual (a veces la entregan así), pero en el catálogo queda marcada como <b>incompleta</b> y se puede
+            filtrar para completarla después.
+          </p>
+          <ul className="divide-y divide-border rounded-lg border border-border">
+            {guardada.camposDeTesis.map(({ campo, nombre }) => (
+              <li key={campo} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="text-sm font-semibold text-slate-900">{nombre}</span>
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={importantes.includes(campo)}
+                    onChange={(e) => setImportantes((previos) => (e.target.checked ? [...previos, campo] : previos.filter((c) => c !== campo)))}
+                    className="h-4 w-4 accent-primary"
+                  />
+                  Importante
+                </label>
               </li>
             ))}
           </ul>

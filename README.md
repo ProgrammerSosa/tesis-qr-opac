@@ -210,6 +210,14 @@ En el panel, **Catálogo → Importar**: sube la hoja de cálculo del catálogo 
 las tesis una por una. El código de cada tesis no se cambia después: está impreso en el QR de su etiqueta. Las columnas `url`
 (la URL de la tesis) y `acceso` (descarga, consulta o sin acceso) son opcionales: con ellas cada tesis llega con su documento digital.
 
+### Datos importantes de las tesis
+
+Código, título, autor y año son obligatorios. Además, en **Configuración → Datos importantes de las tesis** el administrador marca qué
+otros datos debe tener una tesis completa (director, páginas, temas, resumen, signatura; de entrada, los cuatro primeros). Una tesis
+que llega sin alguno se registra igual, porque a veces la entregan así, pero en el catálogo del panel queda marcada «Incompleta: falta
+…», se puede filtrar con «Les faltan datos importantes» y el resumen dice cuántas hay. El formulario marca esos datos como
+«Importante» y avisa antes de guardar si falta alguno; la importación dice cuántas filas llegaron incompletas.
+
 ### Buscar en el catálogo
 
 La búsqueda (la del sitio y la del panel) no distingue tildes, eñes ni mayúsculas, y no pide escribir el título exacto: basta con

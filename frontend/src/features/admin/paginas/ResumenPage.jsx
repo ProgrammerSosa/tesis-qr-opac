@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, BookMarked, CalendarCheck, Clock, FileCheck2, FileText, Loader2, MonitorSmartphone, Search } from 'lucide-react';
+import { ArrowRight, BookMarked, CalendarCheck, Clock, FileCheck2, FileText, FileWarning, Loader2, MonitorSmartphone, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
 import { solvenciaApi } from '../../solvencia/solvenciaApi';
@@ -95,7 +95,8 @@ export default function ResumenPage() {
   if (cifras && puedeVer(rol, 'catalogo')) {
     tarjetas.push(
       { etiqueta: 'Tesis en el catálogo', valor: cifras.tesis.total, icono: BookMarked },
-      { etiqueta: 'Con documento digital', valor: cifras.tesis.conDocumentoDigital, icono: FileText }
+      { etiqueta: 'Con documento digital', valor: cifras.tesis.conDocumentoDigital, icono: FileText },
+      { etiqueta: 'Con datos por completar', valor: cifras.tesis.incompletas, icono: FileWarning }
     );
   }
   if (tarjetas.length === 0 && datos.estadisticas) {

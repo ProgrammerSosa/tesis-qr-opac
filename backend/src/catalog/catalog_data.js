@@ -1,5 +1,6 @@
 const almacen = require('../../utils/almacen');
 const { rechazo } = require('../../utils/errores');
+const configuracion = require('../configuracion/configuracion_data');
 
 // Niveles de acceso al documento digital (propuesta, sección 4.2):
 //   acceso_descarga = se puede consultar y descargar
@@ -207,9 +208,17 @@ function vistaPublica(t) {
   };
 }
 
-// Lo que ve el personal autorizado en el panel.
+// Los datos importantes que la tesis no trae (los elige el administrador en la configuración): [{ campo, nombre }].
+function faltantes(t) {
+  return configuracion.camposImportantes().filter(({ campo }) => {
+    const valor = t[campo];
+    return Array.isArray(valor) ? valor.length === 0 : valor === null || valor === undefined || String(valor).trim() === '';
+  });
+}
+
+// Lo que ve el personal autorizado en el panel: además, qué datos importantes le faltan.
 function vistaAdmin(t) {
-  return { ...t, documentoDigital: { ...t.documentoDigital, disponible: digitalDisponible(t) } };
+  return { ...t, documentoDigital: { ...t.documentoDigital, disponible: digitalDisponible(t) }, faltan: faltantes(t) };
 }
 
 const normalizar = (valor) => String(valor).trim().toLowerCase();
@@ -293,8 +302,9 @@ function tesisRelacionadas(tesisBase, limite = 3) {
 
 // Lista para el panel, con búsqueda y paginación (el catálogo real tiene miles de tesis).
 // `verificacion` deja solo las tesis con el enlace roto ('rotos'), las que el sitio no dejó comprobar ('sin_comprobar') o las que
-// todavía no se verifican ('sin_verificar').
-function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '', verificacion = '' } = {}) {
+// todavía no se verifican ('sin_verificar'). `completitud` deja solo las que tienen todos los datos importantes ('completas') o las que
+// no ('incompletas'). La respuesta trae además cuáles son esos datos, para que el formulario los marque.
+function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '', verificacion = '', completitud = '' } = {}) {
   // Lo escrito se busca a la vez en el código, el título, el autor y la signatura (ver «Búsqueda por texto»).
   const buscadas = palabrasDe(q);
   const filtradas = TESIS.filter((t) => {
@@ -303,13 +313,22 @@ function listarParaAdmin({ q = '', pagina = 1, porPagina = 25, documento = '', v
     if (verificacion === 'rotos' && t.qr.resultado !== 'enlace_roto') return false;
     if (verificacion === 'sin_comprobar' && t.qr.resultado !== 'sin_comprobar') return false;
     if (verificacion === 'sin_verificar' && t.qr.verificadoEn) return false;
+    if (completitud === 'incompletas' && faltantes(t).length === 0) return false;
+    if (completitud === 'completas' && faltantes(t).length > 0) return false;
     return buscadas.length === 0 || tieneTodas(textosDe(t).panel, buscadas);
   }).sort(masRecientesPrimero);
 
   const tamano = Math.min(Math.max(Number(porPagina) || 25, 1), 100);
   const paginas = Math.max(Math.ceil(filtradas.length / tamano), 1);
   const actual = Math.min(Math.max(Number(pagina) || 1, 1), paginas);
-  return { items: filtradas.slice((actual - 1) * tamano, actual * tamano).map(vistaAdmin), total: filtradas.length, pagina: actual, porPagina: tamano, paginas };
+  return {
+    items: filtradas.slice((actual - 1) * tamano, actual * tamano).map(vistaAdmin),
+    total: filtradas.length,
+    pagina: actual,
+    porPagina: tamano,
+    paginas,
+    camposImportantes: configuracion.camposImportantes(),
+  };
 }
 
 const MAXIMO_DE_URL = 2000;
@@ -659,7 +678,7 @@ function importarTesis(filas, { existentes = 'omitir', reemplazar = false } = {}
     }
   });
   if (validas.length === 0) {
-    return { creadas: 0, actualizadas: 0, omitidas: 0, errores: errores.slice(0, 50), totalErrores: errores.length };
+    return { creadas: 0, actualizadas: 0, omitidas: 0, incompletas: 0, errores: errores.slice(0, 50), totalErrores: errores.length };
   }
 
   if (reemplazar) TESIS.splice(0, TESIS.length);
@@ -667,22 +686,26 @@ function importarTesis(filas, { existentes = 'omitir', reemplazar = false } = {}
   let creadas = 0;
   let actualizadas = 0;
   let omitidas = 0;
+  let incompletas = 0; // de las que se crearon o actualizaron, cuántas quedaron sin algún dato importante
   const ahora = new Date().toISOString();
   validas.forEach(({ tesis, documento }) => {
     const previa = obtenerPorId(tesis.id);
     if (!previa) {
-      TESIS.push({ ...tesis, ...documentoYQrNuevos(documento, ahora) });
+      const nueva = { ...tesis, ...documentoYQrNuevos(documento, ahora) };
+      TESIS.push(nueva);
       creadas += 1;
+      if (faltantes(nueva).length > 0) incompletas += 1;
     } else if (existentes === 'actualizar') {
       Object.assign(previa, tesis);
       aplicarDocumentoYQr(previa, documento);
       actualizadas += 1;
+      if (faltantes(previa).length > 0) incompletas += 1;
     } else {
       omitidas += 1;
     }
   });
   guardar();
-  return { creadas, actualizadas, omitidas, errores: errores.slice(0, 50), totalErrores: errores.length };
+  return { creadas, actualizadas, omitidas, incompletas, errores: errores.slice(0, 50), totalErrores: errores.length };
 }
 
 module.exports = {
@@ -692,6 +715,7 @@ module.exports = {
   limpiarUrl,
   TESIS,
   digitalDisponible,
+  faltantes,
   destinoEfectivoDelQr,
   vistaPublica,
   vistaAdmin,

@@ -16,6 +16,12 @@ export default function TesisAgregada({ tesis, onImprimir }) {
           ? 'Quedó con su URL y su código QR, listo para imprimir.'
           : 'Quedó sin URL, así que su código QR lleva a la ficha. Cuando tenga URL, agrégala con «Editar» en el catálogo.'}
       </Nota>
+      {tesis.faltan?.length > 0 ? (
+        <Nota tono="aviso" titulo="Quedó incompleta">
+          Le falta {tesis.faltan.map((f) => f.nombre.toLowerCase()).join(', ')}. En el catálogo, el filtro «Les faltan datos importantes» la
+          muestra para completarla cuando tengas el dato.
+        </Nota>
+      ) : null}
 
       <div className="grid items-center gap-4 rounded-xl border border-border bg-surface p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
         <div className="mx-auto rounded-lg border border-border bg-white">

@@ -3,12 +3,18 @@ const FIELD_CLASS =
 const FIELD_ERROR_CLASS = 'border-secondary focus:border-secondary focus:ring-secondary/20';
 
 // `hint` es una explicación corta de qué dato se pide (los kioscos deben explicar con sencillez lo que piden).
-function FieldWrapper({ label, required, error, hint, children }) {
+// `importante` marca un dato que conviene llenar aunque no sea obligatorio (por ejemplo, los datos importantes de una tesis).
+export function MarcaImportante() {
+  return <span className="ml-1 rounded bg-amber-100 px-1.5 py-px text-[10px] font-bold uppercase tracking-wide text-amber-800">Importante</span>;
+}
+
+function FieldWrapper({ label, required, importante, error, hint, children }) {
   return (
     <label className="flex flex-col gap-1">
       {label ? (
         <span className="text-[11px] font-semibold text-slate-500">
           {label} {required ? <span className="text-secondary">*</span> : null}
+          {importante ? <MarcaImportante /> : null}
         </span>
       ) : null}
       {hint ? <span className="text-xs text-slate-500">{hint}</span> : null}
@@ -18,9 +24,9 @@ function FieldWrapper({ label, required, error, hint, children }) {
   );
 }
 
-export function Input({ label, required, error, hint, className = '', ...props }) {
+export function Input({ label, required, importante, error, hint, className = '', ...props }) {
   return (
-    <FieldWrapper label={label} required={required} error={error} hint={hint}>
+    <FieldWrapper label={label} required={required} importante={importante} error={error} hint={hint}>
       <input
         className={`${FIELD_CLASS} ${error ? FIELD_ERROR_CLASS : ''} ${className}`}
         aria-invalid={error ? true : undefined}
@@ -46,9 +52,9 @@ export function Select({ label, required, error, hint, className = '', children,
   );
 }
 
-export function Textarea({ label, required, error, hint, className = '', rows = 4, ...props }) {
+export function Textarea({ label, required, importante, error, hint, className = '', rows = 4, ...props }) {
   return (
-    <FieldWrapper label={label} required={required} error={error} hint={hint}>
+    <FieldWrapper label={label} required={required} importante={importante} error={error} hint={hint}>
       <textarea
         rows={rows}
         className={`${FIELD_CLASS} resize-y ${error ? FIELD_ERROR_CLASS : ''} ${className}`}

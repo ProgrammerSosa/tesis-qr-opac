@@ -2,12 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getErrorMessage } from '../../shared/api/axiosClient';
 
 // Lista del panel que viene del servidor por páginas, con búsqueda por texto (con una pequeña espera mientras se escribe)
-// y filtros por documento y por resultado de la verificación. `pedir(params)` es la función de la API; debe ser siempre la misma función.
+// y filtros con nombre (`filtros.documento`, `filtros.verificacion`...; `cambiarFiltro(nombre, valor)` los cambia). `pedir(params)` es la
+// función de la API; debe ser siempre la misma función. `respuesta` es la página completa que mandó el servidor.
 export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
   const [texto, setTexto] = useState('');
   const [consulta, setConsulta] = useState('');
-  const [documento, setDocumento] = useState('');
-  const [verificacion, setVerificacion] = useState('');
+  const [filtros, setFiltros] = useState({});
   const [pagina, setPagina] = useState(1);
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
@@ -26,7 +26,8 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     const numero = ++peticion.current;
     setCargando(true);
     try {
-      const res = await pedir({ q: consulta || undefined, documento: documento || undefined, verificacion: verificacion || undefined, pagina, porPagina });
+      const conValor = Object.fromEntries(Object.entries(filtros).filter(([, valor]) => valor));
+      const res = await pedir({ q: consulta || undefined, ...conValor, pagina, porPagina });
       if (numero !== peticion.current) return; // llegó una respuesta más nueva: esta ya no sirve
       setDatos(res.data.data);
       setError('');
@@ -36,19 +37,14 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     } finally {
       if (numero === peticion.current) setCargando(false);
     }
-  }, [pedir, consulta, documento, verificacion, pagina, porPagina]);
+  }, [pedir, consulta, filtros, pagina, porPagina]);
 
   useEffect(() => {
     cargar();
   }, [cargar]);
 
-  const cambiarDocumento = useCallback((valor) => {
-    setDocumento(valor);
-    setPagina(1);
-  }, []);
-
-  const cambiarVerificacion = useCallback((valor) => {
-    setVerificacion(valor);
+  const cambiarFiltro = useCallback((nombre, valor) => {
+    setFiltros((previos) => ({ ...previos, [nombre]: valor }));
     setPagina(1);
   }, []);
 
@@ -68,10 +64,10 @@ export function useListaPaginada(pedir, { porPagina = 25 } = {}) {
     setError,
     texto,
     setTexto,
-    documento,
-    cambiarDocumento,
-    verificacion,
-    cambiarVerificacion,
+    filtros,
+    cambiarFiltro,
+    hayFiltros: Object.values(filtros).some(Boolean),
+    respuesta: datos,
     irAPagina: setPagina,
     recargar: cargar,
     reemplazar,

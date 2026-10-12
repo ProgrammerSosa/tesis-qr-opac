@@ -11,11 +11,19 @@ const HORAS_MAXIMAS = 12; // el tope que el administrador puede fijar: más que 
 
 const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'la sala de lectura' };
 
+// Datos de una tesis que el administrador puede marcar como importantes (además de los obligatorios: código, título, autor y año).
+// Una tesis que no trae alguno se registra igual, porque a veces la entregan así, pero queda marcada como incompleta para que el
+// personal la encuentre y la complete después. Los demás datos (programa, institución, colección...) tienen siempre un valor por defecto.
+const CAMPOS_DE_TESIS = { director: 'Director(a)', paginas: 'Páginas', temas: 'Temas', resumen: 'Resumen', signatura: 'Signatura topográfica' };
+const CAMPOS_IMPORTANTES_INICIALES = ['director', 'paginas', 'temas', 'resumen'];
+const nombresDe = (campos) => (campos.length > 0 ? campos.map((c) => CAMPOS_DE_TESIS[c].toLowerCase()).join(', ') : 'ninguno');
+
 const INICIAL = {
   toleranciaMinutos: CONDICIONES.toleranciaMinutos,
   maxHorasPorReserva: CONDICIONES.maxHorasPorReserva,
   maxHorasPorDia: CONDICIONES.maxHorasPorDia,
   reservasPausadas: Object.fromEntries(TIPOS_DE_RESERVA.map((tipo) => [tipo, false])),
+  camposImportantes: CAMPOS_IMPORTANTES_INICIALES,
   actualizadaEn: null,
   actualizadaPor: null,
 };
@@ -32,6 +40,9 @@ if (guardado.maxHorasPorDia === undefined && guardado.cubiculoMaxHorasPorDia !==
 }
 delete estado.cubiculoMaxHorasPorReserva;
 delete estado.cubiculoMaxHorasPorDia;
+// Se conservan en el orden de CAMPOS_DE_TESIS y sin datos que ya no existan.
+const ordenados = (campos) => Object.keys(CAMPOS_DE_TESIS).filter((c) => campos.includes(c));
+estado.camposImportantes = ordenados(Array.isArray(estado.camposImportantes) ? estado.camposImportantes : CAMPOS_IMPORTANTES_INICIALES);
 
 function obtener() {
   return {
@@ -39,6 +50,8 @@ function obtener() {
     maxHorasPorReserva: estado.maxHorasPorReserva,
     maxHorasPorDia: estado.maxHorasPorDia,
     reservasPausadas: { ...estado.reservasPausadas },
+    camposImportantes: [...estado.camposImportantes],
+    camposDeTesis: Object.entries(CAMPOS_DE_TESIS).map(([campo, nombre]) => ({ campo, nombre })),
     actualizadaEn: estado.actualizadaEn,
     actualizadaPor: estado.actualizadaPor,
     limites: { toleranciaMinima: TOLERANCIA_MINIMA, toleranciaMaxima: TOLERANCIA_MAXIMA, horasMaximas: HORAS_MAXIMAS },
@@ -52,6 +65,11 @@ function toleranciaMinutos() {
 // Topes de horas de las reservas (valen para todos los lugares de estudio): por reserva y por persona al día.
 function limitesDeHoras() {
   return { maxHorasPorReserva: estado.maxHorasPorReserva, maxHorasPorDia: estado.maxHorasPorDia };
+}
+
+// Los datos importantes de las tesis, con su nombre: [{ campo, nombre }].
+function camposImportantes() {
+  return estado.camposImportantes.map((campo) => ({ campo, nombre: CAMPOS_DE_TESIS[campo] }));
 }
 
 function reservasPausadas(tipo) {
@@ -78,7 +96,7 @@ function horasDeReserva(valor, actual, nombre) {
 // Valida todo antes de cambiar algo: o se aplican todos los cambios, o ninguno.
 // Devuelve la configuración nueva y la lista de cambios hechos, para la bitácora.
 function actualizar(
-  { toleranciaMinutos: tolerancia, reservasPausadas: pausas, maxHorasPorReserva: porReserva, maxHorasPorDia: porDia } = {},
+  { toleranciaMinutos: tolerancia, reservasPausadas: pausas, maxHorasPorReserva: porReserva, maxHorasPorDia: porDia, camposImportantes: importantes } = {},
   sesion
 ) {
   let nuevaTolerancia = estado.toleranciaMinutos;
@@ -108,6 +126,14 @@ function actualizar(
     });
   }
 
+  let nuevosImportantes = estado.camposImportantes;
+  if (importantes !== undefined) {
+    if (!Array.isArray(importantes) || !importantes.every((c) => Object.hasOwn(CAMPOS_DE_TESIS, c))) {
+      throw rechazo('Los datos importantes de las tesis no son válidos');
+    }
+    nuevosImportantes = ordenados(importantes);
+  }
+
   const cambios = [];
   if (nuevaTolerancia !== estado.toleranciaMinutos) {
     cambios.push(`tolerancia ${estado.toleranciaMinutos} → ${nuevaTolerancia} min`);
@@ -124,7 +150,12 @@ function actualizar(
     }
   });
 
+  if (nuevosImportantes.join() !== estado.camposImportantes.join()) {
+    cambios.push(`datos importantes de las tesis: ${nombresDe(estado.camposImportantes)} → ${nombresDe(nuevosImportantes)}`);
+  }
+
   if (cambios.length > 0) {
+    estado.camposImportantes = nuevosImportantes;
     estado.toleranciaMinutos = nuevaTolerancia;
     estado.maxHorasPorReserva = nuevoPorReserva;
     estado.maxHorasPorDia = nuevoPorDia;
@@ -141,6 +172,7 @@ module.exports = {
   obtener,
   toleranciaMinutos,
   limitesDeHoras,
+  camposImportantes,
   reservasPausadas,
   tiposPausados,
   mensajeDePausa,

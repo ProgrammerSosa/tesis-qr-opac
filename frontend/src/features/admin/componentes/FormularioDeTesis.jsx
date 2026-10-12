@@ -3,7 +3,8 @@ import { X } from 'lucide-react';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Button from '../../../shared/components/Button';
 import Modal from '../../../shared/components/Modal';
-import { Input, Select, Textarea } from '../../../shared/components/FormField';
+import Nota from '../../../shared/components/Nota';
+import { Input, MarcaImportante, Select, Textarea } from '../../../shared/components/FormField';
 import { TIPOS_DOCUMENTO } from '../../catalog/tiposDocumento';
 import { calcularDocumentoYQr } from '../documentoYQr';
 import { useImpresionDeEtiquetas } from './ImpresionDeEtiquetas';
@@ -38,7 +39,7 @@ const VACIA = {
 // QR) cuando se edita.
 function borradorDe(tesis) {
   if (!tesis) return VACIA;
-  const { documentoDigital, qr, ...datos } = tesis;
+  const { documentoDigital, qr, faltan, ...datos } = tesis;
   return {
     ...VACIA,
     ...datos,
@@ -51,7 +52,7 @@ function borradorDe(tesis) {
 }
 
 // Temas de la tesis como etiquetas: se escribe uno y se agrega con Enter o con coma.
-function CampoDeTemas({ valor, onCambio }) {
+function CampoDeTemas({ valor, onCambio, importante }) {
   const [texto, setTexto] = useState('');
 
   function agregar() {
@@ -66,7 +67,10 @@ function CampoDeTemas({ valor, onCambio }) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="flex flex-col gap-1">
-        <span className="text-[11px] font-semibold text-slate-500">Temas</span>
+        <span className="text-[11px] font-semibold text-slate-500">
+          Temas
+          {importante ? <MarcaImportante /> : null}
+        </span>
         <span className="text-xs text-slate-500">Escribe un tema y pulsa Enter o coma para agregarlo (hasta 10).</span>
         <input
           value={texto}
@@ -103,7 +107,9 @@ function CampoDeTemas({ valor, onCambio }) {
 // Alta y edición de una tesis del catálogo: sus datos, la URL de la tesis (de la que sale su código QR) y el nivel de acceso.
 // En la edición el código no se cambia: ya está impreso en el QR de la etiqueta. Al agregar una tesis, `onGuardar` devuelve
 // la tesis guardada y el formulario pasa a mostrar su código QR listo para imprimir; `onOtra` empieza una tesis nueva.
-export default function FormularioDeTesis({ abierto, tesis, onCerrar, onGuardar, onOtra }) {
+// `camposImportantes` ([{ campo, nombre }]) son los datos que el administrador marcó como importantes: se ven marcados y, si alguno
+// queda vacío, se avisa que la tesis quedará incompleta (se puede guardar igual: a veces la tesis no trae ese dato).
+export default function FormularioDeTesis({ abierto, tesis, camposImportantes = [], onCerrar, onGuardar, onOtra }) {
   const editando = Boolean(tesis);
   const [form, setForm] = useState(() => borradorDe(tesis));
   // Mientras no elija el nivel de acceso, se le propone uno según haya o no URL (ver calcularDocumentoYQr).
@@ -117,6 +123,18 @@ export default function FormularioDeTesis({ abierto, tesis, onCerrar, onGuardar,
   const { imprimir, portal } = useImpresionDeEtiquetas();
 
   const cambiar = (campo) => (e) => setForm((previo) => ({ ...previo, [campo]: e.target.value }));
+  const esImportante = (campo) => camposImportantes.some((c) => c.campo === campo);
+  const vacio = (valor) => (Array.isArray(valor) ? valor.length === 0 : String(valor ?? '').trim() === '');
+  const faltan = camposImportantes.filter(({ campo }) => vacio(form[campo]));
+  // Los datos importantes que van entre «Más datos» se muestran arriba, a la vista.
+  const importantesDeMasDatos = ['director', 'paginas', 'signatura'].filter(esImportante);
+  const campoDeMasDatos = {
+    director: <Input key="director" label="Director(a)" importante={esImportante('director')} value={form.director} onChange={cambiar('director')} />,
+    paginas: <Input key="paginas" label="Páginas" importante={esImportante('paginas')} inputMode="numeric" value={form.paginas} onChange={cambiar('paginas')} />,
+    signatura: (
+      <Input key="signatura" label="Signatura topográfica" importante={esImportante('signatura')} value={form.signatura} onChange={cambiar('signatura')} />
+    ),
+  };
   const calculo = calcularDocumentoYQr({
     id: form.id,
     urlTesis: form.urlTesis,
@@ -176,8 +194,11 @@ export default function FormularioDeTesis({ abierto, tesis, onCerrar, onGuardar,
           ))}
         </Select>
       </div>
-      <CampoDeTemas valor={form.temas} onCambio={(temas) => setForm((previo) => ({ ...previo, temas }))} />
-      <Textarea label="Resumen" rows={4} value={form.resumen} onChange={cambiar('resumen')} />
+      <CampoDeTemas valor={form.temas} importante={esImportante('temas')} onCambio={(temas) => setForm((previo) => ({ ...previo, temas }))} />
+      <Textarea label="Resumen" importante={esImportante('resumen')} rows={4} value={form.resumen} onChange={cambiar('resumen')} />
+      {importantesDeMasDatos.length > 0 ? (
+        <div className="grid gap-3 sm:grid-cols-3">{importantesDeMasDatos.map((campo) => campoDeMasDatos[campo])}</div>
+      ) : null}
 
       <SeccionDeDocumentoYQr
         id={form.id}
@@ -199,9 +220,7 @@ export default function FormularioDeTesis({ abierto, tesis, onCerrar, onGuardar,
       {masDatos ? (
         <div className="grid gap-3 border-t border-border pt-3 sm:grid-cols-2">
           <Input label="Programa" value={form.programa} onChange={cambiar('programa')} hint="Si lo dejas vacío se usa el del tipo de documento." />
-          <Input label="Director(a)" value={form.director} onChange={cambiar('director')} />
-          <Input label="Páginas" inputMode="numeric" value={form.paginas} onChange={cambiar('paginas')} />
-          <Input label="Signatura topográfica" value={form.signatura} onChange={cambiar('signatura')} />
+          {['director', 'paginas', 'signatura'].filter((campo) => !esImportante(campo)).map((campo) => campoDeMasDatos[campo])}
           <Input label="Institución" value={form.institucion} onChange={cambiar('institucion')} placeholder="Universidad de San Carlos de Guatemala" />
           <Input label="Facultad" value={form.facultad} onChange={cambiar('facultad')} />
           <Input label="Colección" value={form.coleccion} onChange={cambiar('coleccion')} />
@@ -210,6 +229,13 @@ export default function FormularioDeTesis({ abierto, tesis, onCerrar, onGuardar,
           <Input label="Modalidad de acceso" value={form.modalidadAcceso} onChange={cambiar('modalidadAcceso')} placeholder="Anaquel cerrado" />
           <Input label="Consulta física" value={form.consultaFisica} onChange={cambiar('consultaFisica')} placeholder="Préstamo interno" />
         </div>
+      ) : null}
+
+      {faltan.length > 0 ? (
+        <Nota tono="aviso" titulo="Faltan datos importantes">
+          Falta {faltan.map((f) => f.nombre.toLowerCase()).join(', ')}. Si la tesis no los trae, puedes guardarla igual: quedará marcada como
+          incompleta en el catálogo para completarla después.
+        </Nota>
       ) : null}
     </form>
   );

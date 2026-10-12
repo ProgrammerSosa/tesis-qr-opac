@@ -100,6 +100,12 @@ export default function ImportarCatalogoModal({ esAdministrador, onCerrar, onTer
           <Nota tono={resultado.creadas + resultado.actualizadas > 0 ? 'ok' : 'aviso'} titulo="Importación terminada">
             {resultado.creadas} nuevas · {resultado.actualizadas} actualizadas · {resultado.omitidas} omitidas (ya existían) · {resultado.totalErrores} con errores.
           </Nota>
+          {resultado.incompletas > 0 ? (
+            <Nota tono="aviso" titulo={`${resultado.incompletas} quedaron incompletas`}>
+              Se importaron, pero les falta algún dato importante. En el catálogo, el filtro «Les faltan datos importantes» las muestra para
+              completarlas cuando tengas los datos.
+            </Nota>
+          ) : null}
           {resultado.errores.length > 0 ? (
             <div>
               <p className="font-bold text-slate-900">Filas que no se importaron</p>

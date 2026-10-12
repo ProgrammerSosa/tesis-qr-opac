@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
+import { FileWarning, Loader2, Pencil, Plus, Trash2, Upload } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { useListaPaginada } from '../useListaPaginada';
 import { useSesionAdmin } from '../SesionAdmin';
@@ -70,7 +70,7 @@ export default function CatalogoPage() {
 
   return (
     <PaginaAdmin
-      descripcion="Las tesis que se ven en el catálogo público. Al agregar una escribes sus datos y la URL de la tesis, y con esa URL se genera su código QR; también puedes corregir una o importar toda la hoja de cálculo del catálogo. El código de una tesis no se cambia: está impreso en el QR de su etiqueta."
+      descripcion="Las tesis que se ven en el catálogo público. Al agregar una escribes sus datos y la URL de la tesis, y con esa URL se genera su código QR; también puedes corregir una o importar toda la hoja de cálculo del catálogo. El código de una tesis no se cambia: está impreso en el QR de su etiqueta. Una tesis a la que le falta algún dato importante se guarda igual y queda marcada como incompleta; el administrador elige cuáles son esos datos en Configuración."
       acciones={
         <>
           <Button variant="secondary" icon={Upload} onClick={() => setImportando(true)}>
@@ -96,11 +96,20 @@ export default function CatalogoPage() {
         filtros={[
           {
             etiqueta: 'Con y sin documento',
-            valor: lista.documento,
-            onCambio: lista.cambiarDocumento,
+            valor: lista.filtros.documento ?? '',
+            onCambio: (valor) => lista.cambiarFiltro('documento', valor),
             opciones: [
               ['con', 'Con documento digital'],
               ['sin', 'Sin documento digital'],
+            ],
+          },
+          {
+            etiqueta: 'Completas e incompletas',
+            valor: lista.filtros.completitud ?? '',
+            onCambio: (valor) => lista.cambiarFiltro('completitud', valor),
+            opciones: [
+              ['incompletas', 'Les faltan datos importantes'],
+              ['completas', 'Con todos los datos importantes'],
             ],
           },
         ]}
@@ -129,7 +138,7 @@ export default function CatalogoPage() {
             ) : lista.items.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-3 py-8 text-center text-slate-400">
-                  {lista.texto || lista.documento ? 'Ninguna tesis coincide con la búsqueda.' : 'El catálogo está vacío. Agrega una tesis o importa la hoja de cálculo.'}
+                  {lista.texto || lista.hayFiltros ? 'Ninguna tesis coincide con la búsqueda.' : 'El catálogo está vacío. Agrega una tesis o importa la hoja de cálculo.'}
                 </td>
               </tr>
             ) : (
@@ -139,6 +148,12 @@ export default function CatalogoPage() {
                   <td className="px-3 py-3">
                     <p className="max-w-md font-semibold leading-snug text-slate-900">{t.titulo}</p>
                     <p className="mt-0.5 text-xs text-slate-500">{t.autor}</p>
+                    {t.faltan?.length > 0 ? (
+                      <p className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-800" data-testid="tesis-incompleta">
+                        <FileWarning size={12} aria-hidden="true" />
+                        Incompleta: falta {t.faltan.map((f) => f.nombre.toLowerCase()).join(', ')}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-3 py-3">{t.anio}</td>
                   <td className="px-3 py-3 text-xs text-slate-600">{TIPOS_DOCUMENTO[t.tipoDocumento] ?? t.modalidad}</td>
@@ -178,6 +193,7 @@ export default function CatalogoPage() {
           key={formulario.tesis?.id ?? `nueva-${vecesAgregando}`}
           abierto
           tesis={formulario.tesis}
+          camposImportantes={lista.respuesta?.camposImportantes ?? []}
           onCerrar={() => setFormulario(null)}
           onGuardar={guardar}
           onOtra={() => setVecesAgregando((n) => n + 1)}

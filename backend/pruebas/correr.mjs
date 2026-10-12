@@ -35,6 +35,7 @@ const PRUEBAS = [
   { nombre: 'sesiones' },
   { nombre: 'respaldo' },
   { nombre: 'busqueda' },
+  { nombre: 'campos' },
   { nombre: 'enlaces' },
   { nombre: 'salida' },
   { nombre: 'entregas' },
