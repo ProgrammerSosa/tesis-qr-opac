@@ -34,7 +34,7 @@ function getDisponibilidad(req, res) {
   return ok(res, disponibilidad(req.params.tipo, fecha));
 }
 
-function postReserva(req, res) {
+async function postReserva(req, res) {
   if (!validarTipo(req, res)) return;
   const { recursoId, fecha, hora, horaFin, solicitante, identificacion, correo, kiosco, duracion } = req.body;
   if (!recursoId || !fecha || !hora || !solicitante) {
@@ -53,8 +53,10 @@ function postReserva(req, res) {
       kiosco,
       duracion,
     });
-    notificaciones.reservaConfirmada(reserva); // si dejó un correo, recibe la confirmación; si el correo falla, la reserva sigue en pie
-    return ok(res, reserva, 'Reserva creada');
+    // Si dejó un correo, recibe la confirmación sin pedirla; la respuesta dice cómo le fue al envío. Si el correo falla, la reserva
+    // sigue en pie.
+    const correoDeConfirmacion = await notificaciones.confirmarPorCorreo(reserva.correo, () => notificaciones.reservaConfirmada(reserva));
+    return ok(res, { ...reserva, correoDeConfirmacion }, 'Reserva creada');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);
   }

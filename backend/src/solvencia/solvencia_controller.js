@@ -25,11 +25,12 @@ function getReglas(req, res) {
   return ok(res, { motivos: MOTIVOS, diasMaximosDeAnticipacion: DIAS_MAXIMOS_DE_ANTICIPACION, entregaSiEnviasAhora: entregaEstimada() });
 }
 
-function postSolicitud(req, res) {
+async function postSolicitud(req, res) {
   try {
     const solicitud = crear(req.body);
-    notificaciones.solvenciaRecibida(solicitud); // el aviso por correo no detiene la solicitud si falla
-    return ok(res, solicitud, 'Solicitud registrada');
+    // El comprobante sale por correo sin pedirlo; si falla, la solicitud sigue registrada.
+    const correoDeConfirmacion = await notificaciones.confirmarPorCorreo(solicitud.correo, () => notificaciones.solvenciaRecibida(solicitud));
+    return ok(res, { ...solicitud, correoDeConfirmacion }, 'Solicitud registrada');
   } catch (err) {
     return fail(res, err.message, err.estado || 500);
   }

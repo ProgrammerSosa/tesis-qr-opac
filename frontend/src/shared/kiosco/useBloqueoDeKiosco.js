@@ -33,7 +33,7 @@ function teclaProhibida(e) {
 
 function bloquearTeclado() {
   try {
-    Promise.resolve(navigator.keyboard?.lock?.(TECLAS_RESERVADAS)).catch(() => {});
+    Promise.resolve(navigator.keyboard?.lock?.(TECLAS_RESERVADAS)).catch(() => {});                                 
   } catch {
     // el navegador no lo permite: queda el bloqueo de teclas de la página
   }
