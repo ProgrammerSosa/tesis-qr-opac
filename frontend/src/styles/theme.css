@@ -157,6 +157,42 @@ body {
   }
 }
 
+/* Boleta de uso de un espacio (panel del personal): mientras se imprime, solo sale la boleta. La de cubículos va en hoja carta y la de
+   estaciones y sala de lectura en media carta, como los formularios de papel de la biblioteca. */
+#boleta-impresion {
+  display: none;
+}
+
+#boleta-impresion.carta {
+  page: boleta-carta;
+}
+
+#boleta-impresion.media-carta {
+  page: boleta-media-carta;
+}
+
+@page boleta-carta {
+  size: letter;
+  margin: 10mm;
+}
+
+@page boleta-media-carta {
+  size: 5.5in 8.5in;
+  margin: 6mm;
+}
+
+@media print {
+  body.imprimiendo-boleta #root {
+    display: none !important;
+  }
+
+  body.imprimiendo-boleta #boleta-impresion {
+    display: block;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
 /* Fondo del encabezado: negro azulado con resplandores azul y rojo sobre una cuadrícula tenue. */
 .hero-bg {
   background-color: #070b16;

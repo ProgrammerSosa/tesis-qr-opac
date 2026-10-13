@@ -294,6 +294,20 @@ espera, y cada reserva con el lugar que tomó («Cubículo 3», «Estación 12»
 Si la persona dejó su correo al reservar, se entera por correo de que su reserva se canceló o se liberó. Todo queda en la actividad del
 personal.
 
+**Plano y boleta de uso.** Cada reserva de la tabla muestra un plano pequeño de la sala con su lugar marcado en rojo. Arriba, en
+**Boleta de uso: buscar por carné**, el personal escribe el carné del estudiante que llega, ve sus reservas con el plano y pulsa
+**Imprimir boleta**. La boleta es la misma hoja que la biblioteca usa en papel, con el nombre, el carné, el lugar, la fecha y el horario
+ya llenos:
+
+- **Cubículos** (hoja carta): «Reserva de Cubículo», con la tabla del equipo en buen o mal estado (pizarrón, mesa, sillas, marcadores,
+  almohadilla, pared, casillero, aire acondicionado, paredes de vidrio), las normas de uso (la tolerancia sale de la configuración),
+  las firmas, los documentos de préstamo y el horario de reservas de la semana (sale de **Horarios y cierres**).
+- **Estaciones y sala de lectura** (media carta): el número de la estación (o la mesa y la silla), los accesorios, los documentos de
+  préstamo, las horas de entrada y salida, las condiciones de uso y las firmas.
+
+Lo que el sistema no sabe (celular, llave, jornada o semestre, el documento que se deja y las horas reales) queda en blanco para
+llenarlo a mano. El equipo de cada tipo de lugar se ajusta en `frontend/src/features/reservas/equipoDeLosLugares.js`.
+
 ## Kioscos
 
 Cada kiosco abre el sitio con su número: `https://tu-servidor/?kiosco=1`, `?kiosco=2`... Con eso el sitio:

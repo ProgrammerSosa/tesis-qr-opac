@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Armchair, DoorClosed, Loader2, MonitorSmartphone, RefreshCw } from 'lucide-react';
+import { Armchair, DoorClosed, Loader2, MonitorSmartphone, Printer, RefreshCw, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
+import PlanoDelLugar from '../../reservas/PlanoDelLugar';
+import { useSesionAdmin } from '../SesionAdmin';
+import { useImpresionDeBoleta } from '../componentes/BoletaDeReserva';
 import { usePaginaLocal } from '../usePaginaLocal';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
@@ -74,6 +77,121 @@ function GrupoDeAtencion({ titulo, color, cantidad, vacio, children }) {
       </h3>
       {cantidad === 0 ? <p className="mt-1.5 text-sm text-slate-400">{vacio}</p> : <ul className="mt-1 divide-y divide-border">{children}</ul>}
     </div>
+  );
+}
+
+// Botón para imprimir la boleta de uso de una reserva (con los datos del estudiante y el plano de su lugar).
+function BotonDeBoleta({ onImprimir, grande = false }) {
+  if (grande) {
+    return (
+      <Button variant="brand" icon={Printer} onClick={onImprimir}>
+        Imprimir boleta
+      </Button>
+    );
+  }
+  return (
+    <button type="button" onClick={onImprimir} className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline">
+      <Printer size={13} aria-hidden="true" />
+      Boleta
+    </button>
+  );
+}
+
+const sinEspacios = (texto) => String(texto ?? '').replace(/\s+/g, '').toLowerCase();
+
+// Busca las reservas de un estudiante por su carné o identificación, para imprimirle la boleta cuando llega al mostrador. Muestra
+// primero las de hoy que siguen vigentes, luego las próximas y al final las anteriores.
+function BuscarPorCarne({ reservas, hoy, onImprimir }) {
+  const [texto, setTexto] = useState('');
+  const [buscado, setBuscado] = useState('');
+
+  const encontradas = useMemo(() => {
+    const carne = sinEspacios(buscado);
+    if (!carne) return [];
+    const exactas = reservas.filter((r) => sinEspacios(r.identificacion) === carne);
+    const lista = exactas.length > 0 ? exactas : reservas.filter((r) => sinEspacios(r.identificacion).includes(carne));
+    const grupo = (r) => {
+      const vigente = r.estado === 'reservado' || r.estado === 'en_uso';
+      if (r.fecha === hoy && vigente) return 0;
+      if (r.fecha >= hoy && vigente) return 1;
+      return 2;
+    };
+    return lista
+      .sort((a, b) => grupo(a) - grupo(b) || (grupo(a) === 2 ? -1 : 1) * `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
+      .slice(0, 6);
+  }, [reservas, buscado, hoy]);
+
+  return (
+    <section className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5" aria-labelledby="boleta-por-carne">
+      <div>
+        <h2 id="boleta-por-carne" className="text-base font-bold text-slate-900">
+          Boleta de uso: buscar por carné
+        </h2>
+        <p className="mt-0.5 text-sm text-slate-600">
+          Cuando el estudiante llega, escribe su carné o identificación: aparece su reserva con el plano de su lugar y puedes imprimir la
+          boleta, ya llena con sus datos, para que revise y firme el estado del mobiliario y el equipo.
+        </p>
+      </div>
+      <form
+        className="flex flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setBuscado(texto);
+        }}
+      >
+        <label className="relative min-w-[14rem] flex-1 sm:max-w-sm">
+          <span className="sr-only">Carné o identificación</span>
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            inputMode="numeric"
+            placeholder="Carné o identificación del estudiante"
+            className="w-full rounded-md border border-border bg-white py-2 pl-9 pr-3 font-mono text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+        </label>
+        <Button type="submit" variant="primary" icon={Search} disabled={!texto.trim()}>
+          Buscar
+        </Button>
+      </form>
+
+      {buscado ? (
+        encontradas.length === 0 ? (
+          <p className="text-sm text-slate-500" role="status">
+            No hay reservas con el carné <span className="font-mono font-semibold text-slate-700">{buscado.trim()}</span>.
+          </p>
+        ) : (
+          <ul className="flex flex-col gap-3" aria-label="Reservas del estudiante">
+            {encontradas.map((r) => {
+              const estadoDeReserva = ESTADO_RESERVA[r.estado] ?? { tone: 'neutral', label: r.estado };
+              return (
+                <li key={r.id} className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row" data-testid="reserva-del-carne">
+                  <div className="w-full shrink-0 rounded-md border border-border bg-surface p-1 sm:w-80">
+                    <PlanoDelLugar recursoId={r.recursoId} nombre={r.recursoNombre} />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-2">
+                    <LugarDeReserva reserva={r} grande />
+                    <p className="text-sm text-slate-700">
+                      <span className="font-semibold text-slate-900">{r.solicitante}</span>
+                      <span className="block font-mono text-xs text-slate-500">
+                        {r.identificacion} · {r.id}
+                      </span>
+                    </p>
+                    <p className="text-sm text-slate-700">
+                      {fechaCorta(r.fecha)} · <span className="font-mono">{r.hora}–{r.horaFin}</span>
+                    </p>
+                    <div className="mt-auto flex flex-wrap items-center gap-3">
+                      <Badge tone={estadoDeReserva.tone}>{estadoDeReserva.label}</Badge>
+                      <BotonDeBoleta grande onImprimir={() => onImprimir(r)} />
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )
+      ) : null}
+    </section>
   );
 }
 
@@ -180,6 +298,9 @@ export default function ReservasPage() {
   const [confirmacion, setConfirmacion] = useState(null); // { tipo, reserva } mientras se pide confirmar
   const [errorDeConfirmacion, setErrorDeConfirmacion] = useState('');
   const [trabajando, setTrabajando] = useState(false);
+  const [semana, setSemana] = useState([]); // horario de reservas de cada día, para la boleta de los cubículos
+  const { sesion } = useSesionAdmin();
+  const boleta = useImpresionDeBoleta({ toleranciaMinutos: tolerancia, semana, atendidoPor: sesion.nombre || sesion.usuario });
 
   const cargar = useCallback(async () => {
     try {
@@ -200,6 +321,10 @@ export default function ReservasPage() {
     reservasApi
       .condiciones()
       .then((res) => setTolerancia(res.data.data.toleranciaMinutos))
+      .catch(() => {});
+    reservasApi
+      .horarioSemanal()
+      .then((res) => setSemana(res.data.data.semana))
       .catch(() => {});
     // Se actualiza sola mientras la pestaña está a la vista: quien atiende ve lo que pasó sin tocar nada.
     const intervalo = setInterval(() => {
@@ -233,14 +358,17 @@ export default function ReservasPage() {
   }
 
   const acciones = (reserva) => (
-    <AccionesDeReserva
+    <>
+      <AccionesDeReserva
       reserva={reserva}
       ocupado={trabajando}
       onIngreso={() => ejecutar('ingreso', reserva)}
       onSalida={() => setConfirmacion({ tipo: 'salida', reserva })}
       onLiberar={() => setConfirmacion({ tipo: 'liberar', reserva })}
       onCancelar={() => setConfirmacion({ tipo: 'cancelar', reserva })}
-    />
+      />
+      <BotonDeBoleta onImprimir={() => boleta.imprimir(reserva)} />
+    </>
   );
 
   const reloj = relojDeLaBiblioteca(ahora);
@@ -313,6 +441,8 @@ export default function ReservasPage() {
           ))}
         </div>
       ) : null}
+
+      <BuscarPorCarne reservas={reservas} hoy={reloj.fecha} onImprimir={boleta.imprimir} />
 
       <section className="flex flex-col gap-5 rounded-xl border border-border bg-white p-5" aria-label="Para atender ahora">
         <h2 className="text-base font-bold text-slate-900">Para atender ahora</h2>
@@ -387,10 +517,10 @@ export default function ReservasPage() {
         />
 
         <div className="overflow-x-auto rounded-xl border border-border bg-white">
-          <table className="w-full min-w-[760px] text-left text-sm">
+          <table className="w-full min-w-[900px] text-left text-sm">
             <thead className="bg-surface text-xs uppercase tracking-wide text-slate-500">
               <tr>
-                {['Reserva', 'Lugar', 'Persona', 'Cuándo', 'Estado'].map((h) => (
+                {['Reserva', 'Lugar', 'En el plano', 'Persona', 'Cuándo', 'Estado'].map((h) => (
                   <th key={h} className="whitespace-nowrap px-3 py-2.5 font-semibold">
                     {h}
                   </th>
@@ -400,7 +530,7 @@ export default function ReservasPage() {
             <tbody className="divide-y divide-border">
               {pagina.visibles.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-3 py-8 text-center text-slate-400">
+                  <td colSpan={6} className="px-3 py-8 text-center text-slate-400">
                     {reservas.length === 0
                       ? 'Aún no hay reservas registradas.'
                       : alcance === 'hoy' && !busqueda && !estado && !tipo
@@ -422,6 +552,11 @@ export default function ReservasPage() {
                         <LugarDeReserva reserva={r} />
                       </td>
                       <td className="px-3 py-2.5">
+                        <div className="w-36 rounded border border-border bg-surface p-0.5">
+                          <PlanoDelLugar recursoId={r.recursoId} nombre={r.recursoNombre} />
+                        </div>
+                      </td>
+                      <td className="px-3 py-2.5">
                         {r.solicitante}
                         {r.identificacion ? <span className="block font-mono text-xs text-slate-500">{r.identificacion}</span> : null}
                         <span className="block text-xs text-slate-500">{r.kiosco ? `Kiosco ${r.kiosco}` : 'Web'}</span>
@@ -436,7 +571,9 @@ export default function ReservasPage() {
                       <td className="px-3 py-2.5">
                         <Badge tone={estadoDeReserva.tone}>{estadoDeReserva.label}</Badge>
                         {nota ? <span className="mt-1 block max-w-[14rem] text-xs text-slate-500">{nota}</span> : null}
-                        {r.estado === 'reservado' || r.estado === 'en_uso' ? <div className="mt-2">{acciones(r)}</div> : null}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+                          {r.estado === 'reservado' || r.estado === 'en_uso' ? acciones(r) : <BotonDeBoleta onImprimir={() => boleta.imprimir(r)} />}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -465,6 +602,7 @@ export default function ReservasPage() {
       >
         {confirmacion ? <ContenidoDeConfirmacion tipo={confirmacion.tipo} reserva={confirmacion.reserva} reloj={reloj} /> : null}
       </ModalConfirmar>
+      {boleta.portal}
     </PaginaAdmin>
   );
 }
