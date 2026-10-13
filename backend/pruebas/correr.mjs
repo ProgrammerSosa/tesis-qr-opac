@@ -40,6 +40,7 @@ const PRUEBAS = [
   { nombre: 'salida' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },
+  { nombre: 'aviso-correo' },
   { nombre: 'correo', modulos: ['smtp-server', 'mailparser'] },
   { nombre: 'postgres', base: true },
 ];

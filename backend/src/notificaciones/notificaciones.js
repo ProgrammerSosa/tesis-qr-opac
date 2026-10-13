@@ -140,6 +140,29 @@ function solvenciaRecibida(solicitud) {
   return avisarPorCorreo({ para: solicitud.correo, ...mensajeDeSolvencia(solicitud) });
 }
 
+// Cuánto se espera el correo de confirmación antes de responder: así la pantalla puede decir si salió o si falló. Si el servicio de
+// correo tarda más, el envío sigue por su cuenta y la pantalla dice que va en camino (CORREO_ESPERA_CONFIRMACION_MS es para las pruebas).
+const ESPERA_DE_LA_CONFIRMACION_MS = Number(process.env.CORREO_ESPERA_CONFIRMACION_MS) || 6000;
+
+// Manda el comprobante de una reserva o una solicitud recién hecha y dice cómo le fue, para mostrarlo en pantalla:
+//   null        no dejó correo
+//   'enviado'   salió (puede tardar unos minutos en llegar a la bandeja)
+//   'simulado'  el correo de la biblioteca no está configurado: no salió
+//   'fallido'   el servicio de correo lo rechazó o no respondió
+//   'pendiente' el servicio tarda: el envío sigue en segundo plano
+async function confirmarPorCorreo(para, enviar) {
+  if (!para) return null;
+  let reloj;
+  const espera = new Promise((resolver) => {
+    reloj = setTimeout(() => resolver('pendiente'), ESPERA_DE_LA_CONFIRMACION_MS);
+  });
+  const resultado = await Promise.race([enviar(), espera]);
+  clearTimeout(reloj);
+  if (resultado === 'pendiente') return 'pendiente';
+  if (!resultado) return 'fallido';
+  return resultado.simulado ? 'simulado' : 'enviado';
+}
+
 function reservaCancelada(reserva) {
   return avisarPorCorreo({ para: reserva.correo, ...mensajeDeReservaCancelada(reserva) });
 }
@@ -157,6 +180,7 @@ module.exports = {
   textoDeReserva,
   textoDeSolvencia,
   reservaConfirmada,
+  confirmarPorCorreo,
   reservaCancelada,
   reservaLiberada,
   solvenciaRecibida,

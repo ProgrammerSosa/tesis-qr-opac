@@ -79,10 +79,40 @@ function Ticket({ titulo, operacion, filas, instrucciones }) {
 export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNueva, onNueva }) {
   const { kiosco, registrarEvento } = useKiosco();
   const [imprimiendo, setImprimiendo] = useState(false);
-  const [correo, setCorreo] = useState(registro.correo || '');
+  // Si dejó su correo, el servidor ya le mandó el comprobante al registrar la operación y dice cómo le fue (`correoDeConfirmacion`):
+  // la pantalla solo lo cuenta. El campo para enviarlo aparece si no dejó correo, si el envío falló o si lo pide para otro correo.
+  const aviso = registro.correoDeConfirmacion;
+  const [otroCorreo, setOtroCorreo] = useState(false);
+  const [correo, setCorreo] = useState(aviso === 'fallido' || aviso === undefined ? registro.correo || '' : '');
   const [enviando, setEnviando] = useState(false);
   const [enviado, setEnviado] = useState(null);
   const [error, setError] = useState('');
+
+  const avisoAutomatico = {
+    enviado: (
+      <>
+        Te enviamos este comprobante a <b>{registro.correo}</b>. Si no lo ves en unos minutos, revisa la carpeta de correo no deseado.
+      </>
+    ),
+    pendiente: (
+      <>
+        Estamos enviando este comprobante a <b>{registro.correo}</b>; puede tardar unos minutos. Revisa también la carpeta de correo no deseado.
+      </>
+    ),
+    fallido: (
+      <>
+        No pudimos enviar el comprobante a <b>{registro.correo}</b>. Revisa que el correo esté bien escrito y vuelve a intentarlo, o imprime
+        este comprobante.
+      </>
+    ),
+    simulado: (
+      <>
+        El correo de la biblioteca todavía no está activo, así que este comprobante no te llegará por correo: imprímelo o anota tu número y tu
+        código.
+      </>
+    ),
+  }[aviso];
+  const mostrarFormulario = !registro.correo || aviso === undefined || aviso === 'fallido' || otroCorreo;
 
   const titulo = TITULOS[tipo];
   const operacion = fechaYHora(registro.creadoEn);
@@ -168,21 +198,42 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
           ) : null}
         </div>
 
-        <form onSubmit={enviarPorCorreo} className="campos-grandes flex flex-col gap-2 sm:flex-row sm:items-end">
-          <div className="sm:w-80">
-            <Input
-              label="Enviar el comprobante a mi correo"
-              type="email"
-              required
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              placeholder="correo@ejemplo.com"
-            />
-          </div>
-          <Button type="submit" variant="secondary" icon={Mail} disabled={enviando || !correo.trim()} className="sm:h-12">
-            {enviando ? 'Enviando...' : 'Enviar por correo'}
-          </Button>
-        </form>
+        {avisoAutomatico ? (
+          <p className={`flex items-start gap-2 text-sm leading-relaxed ${aviso === 'fallido' ? 'text-amber-900' : 'text-slate-700'}`} role="status">
+            <Mail size={16} className={`mt-0.5 shrink-0 ${aviso === 'fallido' ? 'text-amber-600' : 'text-primary'}`} aria-hidden="true" />
+            <span>
+              {avisoAutomatico}
+              {aviso === 'enviado' || aviso === 'pendiente' ? (
+                <>
+                  {' '}
+                  {!otroCorreo ? (
+                    <button type="button" onClick={() => setOtroCorreo(true)} className="font-semibold text-primary hover:underline">
+                      Enviarlo a otro correo
+                    </button>
+                  ) : null}
+                </>
+              ) : null}
+            </span>
+          </p>
+        ) : null}
+
+        {mostrarFormulario ? (
+          <form onSubmit={enviarPorCorreo} className="campos-grandes flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="sm:w-80">
+              <Input
+                label={registro.correo ? 'Enviar el comprobante a este correo' : '¿Lo quieres por correo? Escribe tu correo'}
+                type="email"
+                required
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
+            <Button type="submit" variant="secondary" icon={Mail} disabled={enviando || !correo.trim()} className="sm:h-12">
+              {enviando ? 'Enviando...' : 'Enviar por correo'}
+            </Button>
+          </form>
+        ) : null}
         <AlertBanner>{error}</AlertBanner>
         {enviado ? (
           <p className="text-sm text-slate-700">
