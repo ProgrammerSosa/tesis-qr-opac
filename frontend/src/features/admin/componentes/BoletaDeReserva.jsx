@@ -56,7 +56,7 @@ function Referencia({ reserva, impresaEn }) {
 
 // --- Cubículos: hoja carta -------------------------------------------------------------------------------------------
 
-function FormatoCubiculo({ reserva, toleranciaMinutos, semana, atendidoPor, impresaEn }) {
+function FormatoCubiculo({ reserva, toleranciaMinutos, horasDePenalizacion, semana, atendidoPor, impresaEn }) {
   const equipo = EQUIPO_POR_TIPO.cubiculo;
   return (
     <article className="flex flex-col gap-2.5 bg-white text-[10pt] leading-snug text-slate-900">
@@ -144,6 +144,7 @@ function FormatoCubiculo({ reserva, toleranciaMinutos, semana, atendidoPor, impr
                 De no haber dado aviso y no llegar en los {toleranciaMinutos || 30} minutos posteriores a la hora reservada, la reserva será
                 cancelada, para el aprovechamiento del recurso.
               </li>
+              {horasDePenalizacion > 0 ? <li>Quien no se presente a su reserva no podrá reservar durante {horasDePenalizacion} horas.</li> : null}
             </ul>
           </li>
         </ol>
@@ -234,7 +235,7 @@ function FormatoCubiculo({ reserva, toleranciaMinutos, semana, atendidoPor, impr
 
 // --- Estaciones y sala de lectura: media carta -----------------------------------------------------------------------
 
-function FormatoEstacion({ reserva, atendidoPor, impresaEn }) {
+function FormatoEstacion({ reserva, horasDePenalizacion, atendidoPor, impresaEn }) {
   const equipo = EQUIPO_POR_TIPO[reserva.tipo] ?? EQUIPO_POR_TIPO.estacion;
   const esSala = reserva.tipo === 'sala_lectura';
   return (
@@ -312,6 +313,7 @@ function FormatoEstacion({ reserva, atendidoPor, impresaEn }) {
         <li>El uso de casillero es exclusivo en el momento de préstamo {esSala ? 'del lugar' : 'de la estación'};</li>
         <li>Deberá entregar a la Biblioteca {esSala ? 'el lugar' : 'la estación'} antes de retirarse y recoger el documento que validó el préstamo;</li>
         <li>La Biblioteca no es responsable por objetos olvidados.</li>
+        {horasDePenalizacion > 0 ? <li>Quien no se presente a su reserva no podrá reservar durante {horasDePenalizacion} horas.</li> : null}
       </ol>
 
       <div className="mt-3 text-center">
@@ -337,7 +339,7 @@ export function BoletaDeReserva(props) {
 // Imprimir la boleta de una reserva: `imprimir(reserva)` abre el cuadro de impresión con solo la boleta (hoja carta para los
 // cubículos, media carta para lo demás); `portal` va dentro del JSX de quien lo usa. La boleta se dibuja únicamente mientras se
 // imprime; `afterprint` avisa cuando termina o se cancela. Los estilos de impresión están en theme.css.
-export function useImpresionDeBoleta({ toleranciaMinutos, semana = [], atendidoPor }) {
+export function useImpresionDeBoleta({ toleranciaMinutos, horasDePenalizacion = 0, semana = [], atendidoPor }) {
   const [reserva, setReserva] = useState(null);
   const [impresaEn, setImpresaEn] = useState(null);
 
@@ -356,7 +358,14 @@ export function useImpresionDeBoleta({ toleranciaMinutos, semana = [], atendidoP
   const portal = reserva
     ? createPortal(
         <div id="boleta-impresion" className={reserva.tipo === 'cubiculo' ? 'carta' : 'media-carta'}>
-          <BoletaDeReserva reserva={reserva} toleranciaMinutos={toleranciaMinutos} semana={semana} atendidoPor={atendidoPor} impresaEn={impresaEn} />
+          <BoletaDeReserva
+            reserva={reserva}
+            toleranciaMinutos={toleranciaMinutos}
+            horasDePenalizacion={horasDePenalizacion}
+            semana={semana}
+            atendidoPor={atendidoPor}
+            impresaEn={impresaEn}
+          />
         </div>,
         document.body
       )

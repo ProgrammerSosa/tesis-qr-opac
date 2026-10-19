@@ -44,6 +44,8 @@ export const ACCIONES_DE_ACTIVIDAD = {
   'reserva.cancelada': 'Canceló una reserva',
   'reserva.liberada': 'Liberó un lugar reservado',
   'reserva.salida_anticipada': 'Registró una salida antes de tiempo',
+  'reserva.penalizada': 'Penalizó a alguien por no presentarse',
+  'reserva.penalizacion_quitada': 'Quitó una penalización por no presentarse',
   'solicitud.avanzada': 'Avanzó una solicitud de solvencia',
   'solicitud.rechazada': 'Rechazó una solicitud de solvencia',
   'tesis.documento': 'Cambió el documento digital de una tesis',

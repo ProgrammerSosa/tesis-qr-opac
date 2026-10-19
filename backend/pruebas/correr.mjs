@@ -39,6 +39,7 @@ const PRUEBAS = [
   { nombre: 'campos' },
   { nombre: 'enlaces' },
   { nombre: 'salida' },
+  { nombre: 'penalizacion' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },
   { nombre: 'aviso-correo' },

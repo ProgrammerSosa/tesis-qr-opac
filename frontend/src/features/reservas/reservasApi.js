@@ -14,4 +14,7 @@ export const reservasApi = {
   avanzar: (id) => axiosClient.patch(`/reservas/item/${id}/avanzar`),
   cancelar: (id) => axiosClient.patch(`/reservas/item/${id}/cancelar`),
   liberar: (id) => axiosClient.patch(`/reservas/item/${id}/liberar`),
+  // Quién no puede reservar por no haberse presentado, y quitarle la penalización.
+  penalizaciones: () => axiosClient.get('/reservas/penalizaciones'),
+  quitarPenalizacion: (id) => axiosClient.patch(`/reservas/item/${id}/quitar-penalizacion`),
 };

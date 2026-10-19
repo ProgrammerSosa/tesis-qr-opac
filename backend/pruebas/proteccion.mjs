@@ -70,6 +70,8 @@ const RUTAS = [
   ['PATCH', '/reservas/item/R-999/avanzar', CIRC],
   ['PATCH', '/reservas/item/R-999/cancelar', CIRC],
   ['PATCH', '/reservas/item/R-999/liberar', CIRC],
+  ['GET', '/reservas/penalizaciones', CIRC],
+  ['PATCH', '/reservas/item/R-999/quitar-penalizacion', CIRC],
   ['GET', '/solvencia', CIRC],
   ['GET', '/solvencia/resumen', CIRC],
   ['PATCH', '/solvencia/SOL-999/avanzar', CIRC],

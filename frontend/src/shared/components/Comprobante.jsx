@@ -43,10 +43,11 @@ function filasDe(tipo, r) {
   return [];
 }
 
-function instruccionesDe(tipo, registro, toleranciaMinutos) {
+function instruccionesDe(tipo, registro, toleranciaMinutos, horasDePenalizacion) {
   if (tipo === 'reserva') {
+    const castigo = horasDePenalizacion > 0 ? ` y no podrás reservar durante ${horasDePenalizacion} horas` : '';
     return `Presenta el número de reserva o el código de confirmación en el mostrador.${
-      toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera.` : ''
+      toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera${castigo}.` : ''
     }`;
   }
   return 'El personal de la biblioteca revisará tu solicitud y te hará llegar tu solvencia en el horario de entrega indicado. Guarda este comprobante: lleva tu número de solicitud y tu código de confirmación.';
@@ -76,7 +77,7 @@ function Ticket({ titulo, operacion, filas, instrucciones }) {
   );
 }
 
-export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNueva, onNueva }) {
+export default function Comprobante({ tipo, registro, toleranciaMinutos, horasDePenalizacion = 0, textoNueva, onNueva }) {
   const { kiosco, registrarEvento } = useKiosco();
   const [imprimiendo, setImprimiendo] = useState(false);
   // Si dejó su correo, el servidor ya le mandó el comprobante al registrar la operación y dice cómo le fue (`correoDeConfirmacion`):
@@ -117,7 +118,7 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, textoNu
   const titulo = TITULOS[tipo];
   const operacion = fechaYHora(registro.creadoEn);
   const filas = filasDe(tipo, registro);
-  const instrucciones = instruccionesDe(tipo, registro, toleranciaMinutos);
+  const instrucciones = instruccionesDe(tipo, registro, toleranciaMinutos, horasDePenalizacion);
 
   // El ticket se dibuja solo mientras se imprime; `afterprint` avisa cuando termina o se cancela.
   useEffect(() => {

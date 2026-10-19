@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Armchair, DoorClosed, Loader2, MonitorSmartphone, Printer, RefreshCw, Search } from 'lucide-react';
+import { Armchair, Ban, DoorClosed, Loader2, MonitorSmartphone, Printer, RefreshCw, Search } from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { reservasApi } from '../../reservas/reservasApi';
 import PlanoDelLugar from '../../reservas/PlanoDelLugar';
@@ -38,7 +38,14 @@ const ACCION_DE_LA_API = {
   salida: reservasApi.avanzar,
   liberar: reservasApi.liberar,
   cancelar: reservasApi.cancelar,
+  quitar_penalizacion: reservasApi.quitarPenalizacion,
 };
+
+// "21/10/2026 09:15", en hora de la biblioteca.
+function momento(iso) {
+  const { fecha, hora } = fechaYHora(iso);
+  return `${fecha} ${hora}`;
+}
 
 // Cuánto lugar queda de cada tipo, ahora mismo.
 function OcupacionDeLugares({ tipo, datos }) {
@@ -101,7 +108,7 @@ const sinEspacios = (texto) => String(texto ?? '').replace(/\s+/g, '').toLowerCa
 
 // Busca las reservas de un estudiante por su carné o identificación, para imprimirle la boleta cuando llega al mostrador. Muestra
 // primero las de hoy que siguen vigentes, luego las próximas y al final las anteriores.
-function BuscarPorCarne({ reservas, hoy, onImprimir }) {
+function BuscarPorCarne({ reservas, penalizaciones, hoy, onImprimir }) {
   const [texto, setTexto] = useState('');
   const [buscado, setBuscado] = useState('');
 
@@ -120,6 +127,7 @@ function BuscarPorCarne({ reservas, hoy, onImprimir }) {
       .sort((a, b) => grupo(a) - grupo(b) || (grupo(a) === 2 ? -1 : 1) * `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`))
       .slice(0, 6);
   }, [reservas, buscado, hoy]);
+  const penalizacion = buscado ? penalizaciones.find((p) => sinEspacios(p.identificacion) === sinEspacios(buscado)) : null;
 
   return (
     <section className="flex flex-col gap-4 rounded-xl border border-border bg-white p-5" aria-labelledby="boleta-por-carne">
@@ -154,6 +162,13 @@ function BuscarPorCarne({ reservas, hoy, onImprimir }) {
           Buscar
         </Button>
       </form>
+
+      {penalizacion ? (
+        <Nota tono="aviso" titulo="Este carné no puede reservar">
+          No se presentó a su reserva {penalizacion.reservaId} ({penalizacion.recursoNombre}, {fechaCorta(penalizacion.fecha)} a las {penalizacion.hora}) y no
+          puede reservar hasta el <b>{momento(penalizacion.hasta)}</b>. Si avisó o fue un error, quítale la penalización en «Sin poder reservar», más abajo.
+        </Nota>
+      ) : null}
 
       {buscado ? (
         encontradas.length === 0 ? (
@@ -195,6 +210,43 @@ function BuscarPorCarne({ reservas, hoy, onImprimir }) {
   );
 }
 
+// Las personas que no se presentaron a una reserva y por eso no pueden reservar por un tiempo. Si avisaron o fue un error, el personal
+// les quita la penalización.
+function SinPoderReservar({ lista, ocupado, onQuitar }) {
+  return (
+    <section className="flex flex-col gap-3 rounded-xl border border-amber-200 bg-white p-5" aria-labelledby="sin-poder-reservar">
+      <div>
+        <h2 id="sin-poder-reservar" className="flex items-center gap-2 text-base font-bold text-slate-900">
+          <Ban size={17} className="text-amber-600" aria-hidden="true" />
+          Sin poder reservar por no presentarse
+          <span className="text-xs font-semibold text-slate-400">{lista.length}</span>
+        </h2>
+        <p className="mt-0.5 text-sm text-slate-600">No llegaron a su reserva: hasta la hora indicada no pueden reservar ningún lugar de estudio.</p>
+      </div>
+      <ul className="divide-y divide-border">
+        {lista.map((p) => (
+          <li key={p.reservaId} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
+            <div className="min-w-0 flex-1 basis-48">
+              <p className="truncate text-sm font-semibold text-slate-900">{p.solicitante}</p>
+              <p className="font-mono text-xs text-slate-500">{p.identificacion}</p>
+            </div>
+            <p className="min-w-0 flex-1 basis-56 text-xs text-slate-600">
+              Faltó a <span className="font-mono">{p.reservaId}</span> · {p.recursoNombre}, {fechaCorta(p.fecha)} {p.hora}
+              {p.canceladas.length > 0 ? ` · ${p.canceladas.length} reserva${p.canceladas.length === 1 ? '' : 's'} cancelada${p.canceladas.length === 1 ? '' : 's'}` : ''}
+            </p>
+            <p className="text-sm text-slate-700">
+              Hasta el <b className="font-mono">{momento(p.hasta)}</b>
+            </p>
+            <button type="button" disabled={ocupado} onClick={() => onQuitar(p)} className="text-xs font-semibold text-primary hover:underline disabled:opacity-50">
+              Quitar penalización
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 function FilaDeAtencion({ reserva, detalle, children }) {
   return (
     <li className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3">
@@ -220,6 +272,14 @@ function ContenidoDeConfirmacion({ tipo, reserva, reloj }) {
   const lugar = <b>{reserva.recursoNombre}</b>;
   const persona = <b>{reserva.solicitante}</b>;
   const aviso = reserva.correo ? <p>Le avisaremos por correo a {reserva.correo}.</p> : null;
+  if (tipo === 'quitar_penalizacion') {
+    return (
+      <p>
+        {persona} (carné <span className="font-mono">{reserva.identificacion}</span>) podrá reservar otra vez desde ahora. Las reservas que se le cancelaron por
+        no presentarse no vuelven: si todavía las necesita, tiene que reservar de nuevo.
+      </p>
+    );
+  }
   if (tipo === 'liberar') {
     return (
       <>
@@ -259,9 +319,11 @@ const TEXTOS_DE_CONFIRMACION = {
   liberar: { titulo: '¿Liberar este lugar?', boton: 'Sí, liberar el lugar', volver: 'No, dejarlo', peligro: true },
   cancelar: { titulo: '¿Cancelar la reserva?', boton: 'Sí, cancelar la reserva', volver: 'No, mantenerla', peligro: true },
   salida: { titulo: '¿Registrar la salida?', boton: 'Sí, registrar la salida', volver: 'Volver', peligro: false },
+  quitar_penalizacion: { titulo: '¿Quitar la penalización?', boton: 'Sí, ya puede reservar', volver: 'No, dejarla', peligro: false },
 };
 
 function avisoDeResultado(tipo, reserva) {
+  if (tipo === 'quitar_penalizacion') return `Penalización quitada: ${reserva.solicitante} ya puede reservar.`;
   if (tipo === 'ingreso') return `Ingreso registrado: ${reserva.solicitante} ya está en ${reserva.recursoNombre}.`;
   if (tipo === 'salida') {
     return reserva.salioAntes
@@ -273,7 +335,12 @@ function avisoDeResultado(tipo, reserva) {
 }
 
 function notaDelEstado(r) {
+  if (r.estado === 'liberada' && r.penalizadoHasta) {
+    const castigo = r.penalizacionQuitada ? 'penalización quitada' : `sin reservar hasta el ${momento(r.penalizadoHasta)}`;
+    return `${MOTIVO_LIBERACION[r.motivoLiberacion] ?? r.motivoLiberacion} · ${castigo}`;
+  }
   if (r.estado === 'liberada' && r.motivoLiberacion) return MOTIVO_LIBERACION[r.motivoLiberacion] ?? r.motivoLiberacion;
+  if (r.estado === 'cancelado' && r.motivoCancelacion === 'penalizacion') return `Cancelada porque no se presentó a ${r.canceladaPorFaltaEn}`;
   if (r.estado === 'finalizado' && r.salioAntes) return `Se fue antes: liberó de ${r.horaFin} a ${r.horaFinOriginal}`;
   if (r.estado === 'finalizado' && r.salidaAutomatica) return 'Se cerró sola al terminar su hora';
   if (r.estado === 'en_uso' && r.ingresoEn) return `Adentro desde las ${fechaYHora(r.ingresoEn).hora}`;
@@ -287,6 +354,8 @@ export default function ReservasPage() {
   const [reservas, setReservas] = useState([]);
   const [lugares, setLugares] = useState(null);
   const [tolerancia, setTolerancia] = useState(15);
+  const [horasDePenalizacion, setHorasDePenalizacion] = useState(0);
+  const [penalizaciones, setPenalizaciones] = useState([]);
   const [ahora, setAhora] = useState(() => new Date());
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
@@ -300,12 +369,13 @@ export default function ReservasPage() {
   const [trabajando, setTrabajando] = useState(false);
   const [semana, setSemana] = useState([]); // horario de reservas de cada día, para la boleta de los cubículos
   const { sesion } = useSesionAdmin();
-  const boleta = useImpresionDeBoleta({ toleranciaMinutos: tolerancia, semana, atendidoPor: sesion.nombre || sesion.usuario });
+  const boleta = useImpresionDeBoleta({ toleranciaMinutos: tolerancia, horasDePenalizacion, semana, atendidoPor: sesion.nombre || sesion.usuario });
 
   const cargar = useCallback(async () => {
     try {
-      const [lista, resumen] = await Promise.all([reservasApi.listar(), adminApi.resumen()]);
+      const [lista, resumen, castigos] = await Promise.all([reservasApi.listar(), adminApi.resumen(), reservasApi.penalizaciones()]);
       setReservas(lista.data.data);
+      setPenalizaciones(castigos.data.data);
       setLugares(resumen.data.data.reservas.lugares);
       setAhora(new Date());
       setError('');
@@ -320,7 +390,10 @@ export default function ReservasPage() {
     cargar();
     reservasApi
       .condiciones()
-      .then((res) => setTolerancia(res.data.data.toleranciaMinutos))
+      .then((res) => {
+        setTolerancia(res.data.data.toleranciaMinutos);
+        setHorasDePenalizacion(res.data.data.horasDePenalizacion ?? 0);
+      })
       .catch(() => {});
     reservasApi
       .horarioSemanal()
@@ -420,7 +493,7 @@ export default function ReservasPage() {
 
   return (
     <PaginaAdmin
-      descripcion="Qué lugares están ocupados, quién está adentro y a quién se espera. Si alguien no se presenta dentro del tiempo de tolerancia, el lugar se libera solo; si se va antes de que termine su hora, al registrar su salida las horas que no usó quedan libres."
+      descripcion="Qué lugares están ocupados, quién está adentro y a quién se espera. Si alguien no se presenta dentro del tiempo de tolerancia, el lugar se libera solo y esa persona queda un tiempo sin poder reservar; si se va antes de que termine su hora, al registrar su salida las horas que no usó quedan libres."
       acciones={
         <Button variant="secondary" icon={RefreshCw} onClick={cargar}>
           Actualizar
@@ -442,7 +515,15 @@ export default function ReservasPage() {
         </div>
       ) : null}
 
-      <BuscarPorCarne reservas={reservas} hoy={reloj.fecha} onImprimir={boleta.imprimir} />
+      <BuscarPorCarne reservas={reservas} penalizaciones={penalizaciones} hoy={reloj.fecha} onImprimir={boleta.imprimir} />
+
+      {penalizaciones.length > 0 ? (
+        <SinPoderReservar
+          lista={penalizaciones}
+          ocupado={trabajando}
+          onQuitar={(p) => setConfirmacion({ tipo: 'quitar_penalizacion', reserva: { id: p.reservaId, solicitante: p.solicitante, identificacion: p.identificacion } })}
+        />
+      ) : null}
 
       <section className="flex flex-col gap-5 rounded-xl border border-border bg-white p-5" aria-label="Para atender ahora">
         <h2 className="text-base font-bold text-slate-900">Para atender ahora</h2>

@@ -7,6 +7,9 @@ const {
   liberarReserva,
   buscarReserva,
   resumen,
+  cuandoSePenalice,
+  penalizaciones,
+  quitarPenalizacion,
 } = require('./reservas_data');
 const { CONDICIONES } = require('./recursos_data');
 const configuracion = require('../configuracion/configuracion_data');
@@ -15,6 +18,16 @@ const { registrar } = require('../actividad/actividad_data');
 const { ok, fail, notFound } = require('../../utils/httpResponse');
 
 const TIPOS_VALIDOS = ['cubiculo', 'estacion', 'sala_lectura'];
+
+// Quien no se presenta a su reserva queda penalizado: si dejó correo se le avisa hasta cuándo, y queda en la bitácora.
+cuandoSePenalice(({ reserva, canceladas }) => {
+  registrar(
+    null,
+    'reserva.penalizada',
+    `${reserva.id} (${reserva.identificacion}): no se presentó; sin reservar hasta el ${new Date(reserva.penalizadoHasta).toLocaleString('es-GT', { dateStyle: 'short', timeStyle: 'short' })}${canceladas.length > 0 ? `; canceladas ${canceladas.map((c) => c.id).join(', ')}` : ''}`
+  );
+  notificaciones.noSePresento({ reserva, canceladas });
+});
 
 const TEXTO_DE_ESTADO = { reservado: 'reservado', en_uso: 'en uso', finalizado: 'finalizado' };
 const ESTADO_SIGUIENTE = { reservado: 'en_uso', en_uso: 'finalizado' };
@@ -69,6 +82,7 @@ function getCondiciones(req, res) {
   return ok(res, {
     ...generales,
     toleranciaMinutos: configuracion.toleranciaMinutos(),
+    horasDePenalizacion: configuracion.horasDePenalizacion(),
     limites: configuracion.limitesDeHoras(),
     pausadas: configuracion.tiposPausados(),
   });
@@ -117,6 +131,21 @@ function patchLiberar(req, res) {
   }
 }
 
+function getPenalizaciones(req, res) {
+  return ok(res, penalizaciones());
+}
+
+function patchQuitarPenalizacion(req, res) {
+  try {
+    const reserva = quitarPenalizacion(req.params.id, req.sesion);
+    if (!reserva) return notFound(res, 'Reserva no encontrada');
+    registrar(req.sesion, 'reserva.penalizacion_quitada', `${reserva.id} (${reserva.identificacion})`);
+    return ok(res, reserva, 'Penalización quitada: ya puede reservar');
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
+}
+
 function getResumen(req, res) {
   return ok(res, resumen());
 }
@@ -129,5 +158,7 @@ module.exports = {
   patchAvanzar,
   patchCancelar,
   patchLiberar,
+  getPenalizaciones,
+  patchQuitarPenalizacion,
   getResumen,
 };

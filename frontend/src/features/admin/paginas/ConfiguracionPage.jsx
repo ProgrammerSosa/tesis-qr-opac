@@ -19,6 +19,7 @@ const SERVICIOS = [
 export default function ConfiguracionPage() {
   const [guardada, setGuardada] = useState(null); // lo que tiene el servidor
   const [tolerancia, setTolerancia] = useState('');
+  const [penalizacion, setPenalizacion] = useState('');
   const [horasPorReserva, setHorasPorReserva] = useState('');
   const [horasPorDia, setHorasPorDia] = useState('');
   const [pausadas, setPausadas] = useState({});
@@ -31,6 +32,7 @@ export default function ConfiguracionPage() {
   function cargarEnFormulario(configuracion) {
     setGuardada(configuracion);
     setTolerancia(String(configuracion.toleranciaMinutos));
+    setPenalizacion(String(configuracion.horasDePenalizacion));
     setHorasPorReserva(String(configuracion.maxHorasPorReserva));
     setHorasPorDia(String(configuracion.maxHorasPorDia));
     setPausadas(configuracion.reservasPausadas);
@@ -58,9 +60,10 @@ export default function ConfiguracionPage() {
     return <AlertBanner>{error || 'No se pudo cargar la configuración'}</AlertBanner>;
   }
 
-  const { toleranciaMinima, toleranciaMaxima, horasMaximas } = guardada.limites;
+  const { toleranciaMinima, toleranciaMaxima, horasMaximas, penalizacionMaxima } = guardada.limites;
   const hayCambios =
     Number(tolerancia) !== guardada.toleranciaMinutos ||
+    Number(penalizacion) !== guardada.horasDePenalizacion ||
     Number(horasPorReserva) !== guardada.maxHorasPorReserva ||
     Number(horasPorDia) !== guardada.maxHorasPorDia ||
     SERVICIOS.some(({ tipo }) => pausadas[tipo] !== guardada.reservasPausadas[tipo]) ||
@@ -71,6 +74,11 @@ export default function ConfiguracionPage() {
     const minutos = Number(tolerancia);
     if (!Number.isInteger(minutos) || minutos < toleranciaMinima || minutos > toleranciaMaxima) {
       setError(`La tolerancia debe ser un número entero de ${toleranciaMinima} a ${toleranciaMaxima} minutos.`);
+      return;
+    }
+    const castigo = Number(penalizacion);
+    if (!Number.isInteger(castigo) || castigo < 0 || castigo > penalizacionMaxima) {
+      setError(`Las horas sin poder reservar deben ser un número entero de 0 a ${penalizacionMaxima}.`);
       return;
     }
     const porReserva = Number(horasPorReserva);
@@ -90,6 +98,7 @@ export default function ConfiguracionPage() {
     try {
       const res = await adminApi.guardarConfiguracion({
         toleranciaMinutos: minutos,
+        horasDePenalizacion: castigo,
         maxHorasPorReserva: porReserva,
         maxHorasPorDia: porDia,
         reservasPausadas: pausadas,
@@ -115,7 +124,7 @@ export default function ConfiguracionPage() {
         ) : null}
 
         <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-5">
-          <h2 className="text-base font-bold text-slate-900">Tiempo de tolerancia</h2>
+          <h2 className="text-base font-bold text-slate-900">Tiempo de tolerancia y penalización</h2>
           <p className="text-sm text-slate-600">
             Si quien reservó no se presenta dentro de estos minutos desde la hora de inicio, la reserva se libera sola y el lugar
             queda disponible. Vale para cubículos, estaciones y sala de lectura.
@@ -132,6 +141,24 @@ export default function ConfiguracionPage() {
               className="w-24 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
             minutos (de {toleranciaMinima} a {toleranciaMaxima})
+          </label>
+          <p className="text-sm text-slate-600">
+            Quien no se presenta queda unas horas <b>sin poder reservar</b> ningún lugar de estudio, y se cancelan las reservas que tenía en
+            ese tiempo. El personal puede quitar la penalización desde Reservas. Con 0 no hay penalización.
+          </p>
+          <label className="flex items-center gap-3 text-sm text-slate-700">
+            <input
+              type="number"
+              min={0}
+              max={penalizacionMaxima}
+              step={1}
+              required
+              value={penalizacion}
+              onChange={(e) => setPenalizacion(e.target.value)}
+              aria-label="Horas sin poder reservar por no presentarse"
+              className="w-24 rounded-md border border-border bg-white px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+            />
+            horas sin poder reservar (de 0 a {penalizacionMaxima})
           </label>
         </section>
 

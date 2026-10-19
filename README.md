@@ -294,6 +294,13 @@ espera, y cada reserva con el lugar que tomó («Cubículo 3», «Estación 12»
 Si la persona dejó su correo al reservar, se entera por correo de que su reserva se canceló o se liberó. Todo queda en la actividad del
 personal.
 
+**Penalización por no presentarse.** Si alguien no llega a su reserva y el sistema la libera sola al pasar la tolerancia, esa persona
+queda **48 horas sin poder reservar** ningún lugar de estudio (contadas desde que venció la tolerancia), y las otras reservas que tenía
+para ese tiempo se cancelan para que otra persona use el lugar. Al intentar reservar se le dice hasta cuándo; si dejó su correo, le
+llega un aviso. En **Reservas** aparece la lista «Sin poder reservar por no presentarse» con el botón **Quitar penalización** (por
+ejemplo, si avisó y no se registró el aviso), y al buscar su carné se ve el aviso. Si el personal libera la reserva a mano con
+**No llegó** (avisó que no vendría), no hay penalización. Las horas se cambian en **Configuración** (0 la apaga).
+
 **Plano y boleta de uso.** Cada reserva de la tabla muestra un plano pequeño de la sala con su lugar marcado en rojo. Arriba, en
 **Boleta de uso: buscar por carné**, el personal escribe el carné del estudiante que llega, ve sus reservas con el plano y pulsa
 **Imprimir boleta**. La boleta es la misma hoja que la biblioteca usa en papel, con el nombre, el carné, el lugar, la fecha y el horario
@@ -337,7 +344,7 @@ completo el equipo debe estar configurado como kiosco:
 
 | Rol | Qué puede hacer |
 | --- | --- |
-| Administrador | Todo: cuentas del personal, configuración (tolerancia, horas de las reservas y pausas), horarios y cierres, catálogo, actividad |
+| Administrador | Todo: cuentas del personal, configuración (tolerancia, penalización, horas de las reservas y pausas), horarios y cierres, catálogo, actividad |
 | Personal de circulación | Reservas, solicitudes de solvencia y usuarios |
 | Personal de tesis | Catálogo, documentos digitales y códigos QR |
 | Consulta | Solo estadísticas |

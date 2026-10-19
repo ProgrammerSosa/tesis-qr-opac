@@ -8,6 +8,7 @@ const TIPOS_DE_RESERVA = ['cubiculo', 'estacion', 'sala_lectura'];
 const TOLERANCIA_MINIMA = 5;
 const TOLERANCIA_MAXIMA = 60;
 const HORAS_MAXIMAS = 12; // el tope que el administrador puede fijar: más que eso ya no es una reserva de estudio
+const PENALIZACION_MAXIMA = 168; // una semana sin poder reservar es el castigo más largo por no presentarse
 
 const NOMBRE_DEL_SERVICIO = { cubiculo: 'cubículos', estacion: 'estaciones', sala_lectura: 'la sala de lectura' };
 
@@ -20,6 +21,7 @@ const nombresDe = (campos) => (campos.length > 0 ? campos.map((c) => CAMPOS_DE_T
 
 const INICIAL = {
   toleranciaMinutos: CONDICIONES.toleranciaMinutos,
+  horasDePenalizacion: CONDICIONES.horasDePenalizacion,
   maxHorasPorReserva: CONDICIONES.maxHorasPorReserva,
   maxHorasPorDia: CONDICIONES.maxHorasPorDia,
   reservasPausadas: Object.fromEntries(TIPOS_DE_RESERVA.map((tipo) => [tipo, false])),
@@ -47,6 +49,7 @@ estado.camposImportantes = ordenados(Array.isArray(estado.camposImportantes) ? e
 function obtener() {
   return {
     toleranciaMinutos: estado.toleranciaMinutos,
+    horasDePenalizacion: estado.horasDePenalizacion,
     maxHorasPorReserva: estado.maxHorasPorReserva,
     maxHorasPorDia: estado.maxHorasPorDia,
     reservasPausadas: { ...estado.reservasPausadas },
@@ -54,12 +57,17 @@ function obtener() {
     camposDeTesis: Object.entries(CAMPOS_DE_TESIS).map(([campo, nombre]) => ({ campo, nombre })),
     actualizadaEn: estado.actualizadaEn,
     actualizadaPor: estado.actualizadaPor,
-    limites: { toleranciaMinima: TOLERANCIA_MINIMA, toleranciaMaxima: TOLERANCIA_MAXIMA, horasMaximas: HORAS_MAXIMAS },
+    limites: { toleranciaMinima: TOLERANCIA_MINIMA, toleranciaMaxima: TOLERANCIA_MAXIMA, horasMaximas: HORAS_MAXIMAS, penalizacionMaxima: PENALIZACION_MAXIMA },
   };
 }
 
 function toleranciaMinutos() {
   return estado.toleranciaMinutos;
+}
+
+// Cuántas horas queda sin poder reservar quien no se presentó a una reserva (0: no hay castigo).
+function horasDePenalizacion() {
+  return estado.horasDePenalizacion;
 }
 
 // Topes de horas de las reservas (valen para todos los lugares de estudio): por reserva y por persona al día.
@@ -96,7 +104,14 @@ function horasDeReserva(valor, actual, nombre) {
 // Valida todo antes de cambiar algo: o se aplican todos los cambios, o ninguno.
 // Devuelve la configuración nueva y la lista de cambios hechos, para la bitácora.
 function actualizar(
-  { toleranciaMinutos: tolerancia, reservasPausadas: pausas, maxHorasPorReserva: porReserva, maxHorasPorDia: porDia, camposImportantes: importantes } = {},
+  {
+    toleranciaMinutos: tolerancia,
+    horasDePenalizacion: penalizacion,
+    reservasPausadas: pausas,
+    maxHorasPorReserva: porReserva,
+    maxHorasPorDia: porDia,
+    camposImportantes: importantes,
+  } = {},
   sesion
 ) {
   let nuevaTolerancia = estado.toleranciaMinutos;
@@ -104,6 +119,14 @@ function actualizar(
     nuevaTolerancia = Number(tolerancia);
     if (!Number.isInteger(nuevaTolerancia) || nuevaTolerancia < TOLERANCIA_MINIMA || nuevaTolerancia > TOLERANCIA_MAXIMA) {
       throw rechazo(`La tolerancia debe ser un número entero de ${TOLERANCIA_MINIMA} a ${TOLERANCIA_MAXIMA} minutos`);
+    }
+  }
+
+  let nuevaPenalizacion = estado.horasDePenalizacion;
+  if (penalizacion !== undefined) {
+    nuevaPenalizacion = Number(penalizacion);
+    if (!Number.isInteger(nuevaPenalizacion) || nuevaPenalizacion < 0 || nuevaPenalizacion > PENALIZACION_MAXIMA) {
+      throw rechazo(`Las horas sin poder reservar por no presentarse deben ser un número entero de 0 a ${PENALIZACION_MAXIMA}`);
     }
   }
 
@@ -138,6 +161,9 @@ function actualizar(
   if (nuevaTolerancia !== estado.toleranciaMinutos) {
     cambios.push(`tolerancia ${estado.toleranciaMinutos} → ${nuevaTolerancia} min`);
   }
+  if (nuevaPenalizacion !== estado.horasDePenalizacion) {
+    cambios.push(`sin reservar por no presentarse: ${estado.horasDePenalizacion} → ${nuevaPenalizacion} h`);
+  }
   if (nuevoPorReserva !== estado.maxHorasPorReserva) {
     cambios.push(`horas por reserva: máximo ${estado.maxHorasPorReserva} → ${nuevoPorReserva} h`);
   }
@@ -157,6 +183,7 @@ function actualizar(
   if (cambios.length > 0) {
     estado.camposImportantes = nuevosImportantes;
     estado.toleranciaMinutos = nuevaTolerancia;
+    estado.horasDePenalizacion = nuevaPenalizacion;
     estado.maxHorasPorReserva = nuevoPorReserva;
     estado.maxHorasPorDia = nuevoPorDia;
     estado.reservasPausadas = nuevasPausas;
@@ -171,6 +198,7 @@ module.exports = {
   TIPOS_DE_RESERVA,
   obtener,
   toleranciaMinutos,
+  horasDePenalizacion,
   limitesDeHoras,
   camposImportantes,
   reservasPausadas,

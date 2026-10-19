@@ -11,9 +11,11 @@ const SILLAS_POR_MESA = 6;
 // Todos los lugares de estudio (cubículos, estaciones y sillas de la sala de lectura) se reservan por horas enteras, eligiendo
 // desde qué hora hasta qué hora (como mínimo una hora). Para que una persona no se quede con todos los lugares, hay un tope de horas
 // por reserva y otro por persona al día entre todos ellos. Son los valores con los que arranca el sistema; el administrador los
-// cambia en la configuración.
+// cambia en la configuración. Quien no se presenta a una reserva queda
+// `horasDePenalizacion` horas sin poder reservar ningún lugar de estudio (0 = sin castigo).
 const CONDICIONES = {
   toleranciaMinutos: 15,
+  horasDePenalizacion: 48,
   diasMaximosDeAnticipacion: 30,
   maxHorasPorReserva: 8,
   maxHorasPorDia: 8,

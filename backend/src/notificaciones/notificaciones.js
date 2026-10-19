@@ -1,5 +1,6 @@
 const { avisarPorCorreo } = require('../../utils/correo');
 const { plantilla } = require('../../utils/plantillaCorreo');
+const configuracion = require('../configuracion/configuracion_data');
 
 // Los correos que el sistema manda a las personas: el comprobante de una reserva o de una solicitud de solvencia (propuesta,
 // sección 4.5.5, "comprobante digital"). Aquí solo se redacta el mensaje (texto y HTML, ver utils/plantillaCorreo.js); el envío
@@ -14,6 +15,20 @@ function fechaYHora(iso) {
 // "jueves 8 de octubre de 2026" a partir de "2026-10-08".
 function fechaLarga(fecha) {
   return new Date(`${fecha}T12:00:00`).toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+// "lunes 19 de octubre a las 09:15" a partir de un momento ISO.
+function momentoLargo(iso) {
+  const { hora } = fechaYHora(iso);
+  return `${new Date(iso).toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '')} a las ${hora}`;
+}
+
+// Lo que se le dice a quien reserva sobre no presentarse: se libera la reserva y, si hay castigo, cuántas horas queda sin reservar.
+function avisoDeTolerancia() {
+  const horas = configuracion.horasDePenalizacion();
+  return `Si no te presentas dentro del tiempo de tolerancia, la reserva se libera${
+    horas > 0 ? ` y no podrás reservar ningún lugar de estudio durante ${horas} horas` : ''
+  }.`;
 }
 
 // --- Mensajes -------------------------------------------------------------------------------------------------------
@@ -36,7 +51,7 @@ function mensajeDeReserva(r) {
         ['A nombre de', r.solicitante],
       ],
       parrafos: [
-        'Presenta el número de reserva o el código de confirmación en el mostrador. Si no te presentas dentro del tiempo de tolerancia, la reserva se libera. La biblioteca puede cancelar una reserva si se incumple el reglamento del servicio.',
+        `Presenta el número de reserva o el código de confirmación en el mostrador. ${avisoDeTolerancia()} La biblioteca puede cancelar una reserva si se incumple el reglamento del servicio.`,
       ],
     }),
   };
@@ -107,6 +122,33 @@ function mensajeDeReservaLiberada(r) {
   };
 }
 
+// Quien no se presentó queda unas horas sin poder reservar: se le dice hasta cuándo y qué reservas suyas se cancelaron por eso.
+function mensajeDeNoPresentado(r, canceladas = []) {
+  const horas = r.horasDePenalizacion;
+  return {
+    tipo: 'reserva_no_presentado',
+    asunto: `No te presentaste a tu reserva ${r.id}`,
+    ...plantilla({
+      titulo: 'No te presentaste a tu reserva',
+      previa: `Podrás volver a reservar desde el ${momentoLargo(r.penalizadoHasta)}`,
+      filas: [
+        ['Número de reserva', r.id, 'codigo'],
+        ['Lugar', r.recursoNombre],
+        ['Horario', `${fechaLarga(r.fecha)}, de ${r.hora} a ${r.horaFin}`],
+        ['A nombre de', r.solicitante],
+        ['Puedes volver a reservar desde el', momentoLargo(r.penalizadoHasta)],
+        ...(canceladas.length > 0
+          ? [['Reservas canceladas', canceladas.map((c) => `${c.id}: ${c.recursoNombre}, ${fechaLarga(c.fecha)}, de ${c.hora} a ${c.horaFin}`).join('; ')]]
+          : []),
+      ],
+      parrafos: [
+        `No te presentaste dentro del tiempo de tolerancia, así que la reserva se liberó y el lugar quedó para otra persona. Por eso no podrás reservar ningún lugar de estudio durante ${horas} horas${canceladas.length > 0 ? ', y las reservas que tenías en ese tiempo se cancelaron' : ''}.`,
+        'Si crees que es un error, consulta en el mostrador de la biblioteca.',
+      ],
+    }),
+  };
+}
+
 // Para que el administrador compruebe desde el panel que el servidor sí puede enviar correos.
 function mensajeDePrueba({ quien, cuando = new Date() }) {
   const { fecha, hora } = fechaYHora(cuando.toISOString());
@@ -171,10 +213,17 @@ function reservaLiberada(reserva) {
   return avisarPorCorreo({ para: reserva.correo, ...mensajeDeReservaLiberada(reserva) });
 }
 
+// Si la reserva a la que faltó no tenía correo, se usa el de alguna de las que se cancelaron.
+function noSePresento({ reserva, canceladas }) {
+  const para = reserva.correo || canceladas.find((c) => c.correo)?.correo;
+  return avisarPorCorreo({ para, ...mensajeDeNoPresentado(reserva, canceladas) });
+}
+
 module.exports = {
   mensajeDeReserva,
   mensajeDeReservaCancelada,
   mensajeDeReservaLiberada,
+  mensajeDeNoPresentado,
   mensajeDeSolvencia,
   mensajeDePrueba,
   textoDeReserva,
@@ -183,5 +232,6 @@ module.exports = {
   confirmarPorCorreo,
   reservaCancelada,
   reservaLiberada,
+  noSePresento,
   solvenciaRecibida,
 };

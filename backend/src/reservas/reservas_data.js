@@ -63,18 +63,107 @@ function momentoDeReserva(reserva, hora) {
 const inicioDeReserva = (reserva) => momentoDeReserva(reserva, reserva.hora);
 const finDeReserva = (reserva) => momentoDeReserva(reserva, reserva.horaFin);
 
+// El carné, el correo o el documento se comparan sin importar mayúsculas ni espacios de más: «AB123» y «ab123 » son la misma persona.
+const mismaPersona = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
+
+// --- Penalización por no presentarse ---------------------------------------------------------------------------------
+// Quien no se presenta a una reserva (se libera sola al pasar la tolerancia) queda unas horas sin poder reservar ningún lugar de
+// estudio: 48 por defecto, las fija el administrador en la configuración. Se cuentan desde que venció la tolerancia, aunque el
+// servidor se dé cuenta más tarde. Las otras reservas que esa persona tenía para ese tiempo se cancelan, y el lugar queda libre para
+// otra persona. El personal puede quitar la penalización (por ejemplo, si avisó y no se registró el aviso).
+const HORA_MS = 60 * 60 * 1000;
+const avisosDePenalizacion = [];
+
+// Para que el controlador avise por correo: `fn({ reserva, canceladas })` se llama cada vez que alguien queda penalizado.
+function cuandoSePenalice(fn) {
+  avisosDePenalizacion.push(fn);
+}
+
+function penalizar(reserva, vencioEn, horas) {
+  const hasta = new Date(vencioEn.getTime() + horas * HORA_MS);
+  reserva.penalizadoHasta = hasta.toISOString();
+  reserva.horasDePenalizacion = horas;
+  const canceladas = reservas.filter(
+    (r) =>
+      r !== reserva &&
+      r.estado === 'reservado' &&
+      mismaPersona(r.identificacion, reserva.identificacion) &&
+      inicioDeReserva(r).getTime() >= vencioEn.getTime() &&
+      inicioDeReserva(r).getTime() < hasta.getTime()
+  );
+  canceladas.forEach((r) => {
+    r.estado = 'cancelado';
+    r.canceladaEn = new Date().toISOString();
+    r.motivoCancelacion = 'penalizacion';
+    r.canceladaPorFaltaEn = reserva.id;
+  });
+  return { reserva, canceladas };
+}
+
+const penalizacionVigente = (r, ahora) => Boolean(r.penalizadoHasta) && !r.penalizacionQuitada && new Date(r.penalizadoHasta).getTime() > ahora.getTime();
+
+// La penalización que tiene ahora una persona (la que termina más tarde, si faltó a más de una), o null.
+function penalizacionDe(identificacion, ahora = new Date()) {
+  return (
+    reservas
+      .filter((r) => penalizacionVigente(r, ahora) && mismaPersona(r.identificacion, identificacion))
+      .sort((a, b) => b.penalizadoHasta.localeCompare(a.penalizadoHasta))[0] ?? null
+  );
+}
+
+// Las penalizaciones que siguen corriendo, la que termina primero arriba: el personal las ve en el panel.
+function penalizaciones(ahora = new Date()) {
+  liberarVencidas(ahora);
+  return reservas
+    .filter((r) => penalizacionVigente(r, ahora))
+    .sort((a, b) => a.penalizadoHasta.localeCompare(b.penalizadoHasta))
+    .map((r) => ({
+      reservaId: r.id,
+      solicitante: r.solicitante,
+      identificacion: r.identificacion,
+      recursoNombre: r.recursoNombre,
+      fecha: r.fecha,
+      hora: r.hora,
+      horaFin: r.horaFin,
+      hasta: r.penalizadoHasta,
+      canceladas: reservas.filter((c) => c.canceladaPorFaltaEn === r.id).map((c) => c.id),
+    }));
+}
+
+function quitarPenalizacion(id, sesion, ahora = new Date()) {
+  const reserva = buscarReserva(id);
+  if (!reserva) return null;
+  if (!penalizacionVigente(reserva, ahora)) {
+    throw rechazo('Esa reserva no tiene una penalización vigente', 409);
+  }
+  reserva.penalizacionQuitada = { en: ahora.toISOString(), por: sesion?.usuario ?? null };
+  guardar();
+  return reserva;
+}
+
+// "lunes 19 de octubre" y "lunes 19 de octubre a las 09:15", para los avisos.
+const diaLegible = (d) => d.toLocaleDateString('es-GT', { weekday: 'long', day: 'numeric', month: 'long' }).replace(',', '');
+function momentoLegible(iso) {
+  const d = new Date(iso);
+  return `${diaLegible(d)} a las ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
 // Pone al día las reservas según la hora que es, y se revisa cada vez que se consulta:
 //  - Si quien reservó no se presenta dentro de la tolerancia (no se "sella el ingreso"), la reserva se libera sola y el lugar
-//    vuelve a estar disponible (propuesta, sección 4.5.2). Los minutos de tolerancia los fija el administrador.
+//    vuelve a estar disponible (propuesta, sección 4.5.2). Los minutos de tolerancia los fija el administrador. Además, esa persona
+//    queda penalizada (ver arriba).
 //  - Si la persona está adentro y su hora terminó, la reserva se da por finalizada: el personal no tiene que cerrarla a mano.
 function liberarVencidas(ahora = new Date()) {
   const tolerancia = configuracion.toleranciaMinutos() * 60 * 1000;
+  const horasDeCastigo = configuracion.horasDePenalizacion();
+  const penalizadas = [];
   let huboCambios = false;
   reservas.forEach((reserva) => {
     if (reserva.estado === 'reservado' && ahora.getTime() >= inicioDeReserva(reserva).getTime() + tolerancia) {
       reserva.estado = 'liberada';
       reserva.liberadaEn = ahora.toISOString();
       reserva.motivoLiberacion = 'no_presentado';
+      if (horasDeCastigo > 0) penalizadas.push(penalizar(reserva, new Date(inicioDeReserva(reserva).getTime() + tolerancia), horasDeCastigo));
       huboCambios = true;
     } else if (reserva.estado === 'en_uso' && ahora.getTime() >= finDeReserva(reserva).getTime()) {
       reserva.estado = 'finalizado';
@@ -84,6 +173,15 @@ function liberarVencidas(ahora = new Date()) {
     }
   });
   if (huboCambios) guardar();
+  penalizadas.forEach((penalizada) =>
+    avisosDePenalizacion.forEach((avisar) => {
+      try {
+        avisar(penalizada);
+      } catch (err) {
+        console.error('No se pudo avisar de una penalización:', err.message);
+      }
+    })
+  );
 }
 
 function horasOcupadas(tipo, recursoId, fecha) {
@@ -91,9 +189,6 @@ function horasOcupadas(tipo, recursoId, fecha) {
     .filter((r) => r.tipo === tipo && r.recursoId === recursoId && r.fecha === fecha && vigente(r))
     .flatMap(franjasDeReserva);
 }
-
-// El carné, el correo o el documento se comparan sin importar mayúsculas ni espacios de más: «AB123» y «ab123 » son la misma persona.
-const mismaPersona = (a, b) => String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 // Las reservas vigentes de una persona ese día, en cualquier lugar de estudio.
 function reservasDePersona(identificacion, fecha) {
@@ -197,6 +292,13 @@ function crearReserva({ tipo, recursoId, fecha, hora, horaFin, solicitante, iden
   const documento = String(identificacion || '').trim();
   if (!documento) {
     throw rechazo('Indica tu carné, correo institucional o documento para reservar');
+  }
+  const falta = penalizacionDe(documento);
+  if (falta) {
+    throw rechazo(
+      `No puedes reservar hasta el ${momentoLegible(falta.penalizadoHasta)}: no te presentaste a tu reserva ${falta.id} (${falta.recursoNombre}, ${diaLegible(momentoDeReserva(falta, falta.hora))} a las ${falta.hora}). Si crees que es un error, consulta en el mostrador de la biblioteca.`,
+      403
+    );
   }
   const correoLimpio = String(correo || '').trim();
   if (correoLimpio && !correoValido(correoLimpio)) {
@@ -364,4 +466,8 @@ module.exports = {
   franjasDeReserva,
   ocupacionAhora,
   resumen,
+  cuandoSePenalice,
+  penalizacionDe,
+  penalizaciones,
+  quitarPenalizacion,
 };

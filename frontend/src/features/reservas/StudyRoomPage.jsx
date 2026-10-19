@@ -64,6 +64,7 @@ export default function StudyRoomPage() {
   const hoy = hoyISO();
   const diasMaximos = condiciones?.diasMaximosDeAnticipacion ?? 30;
   const tolerancia = condiciones?.toleranciaMinutos ?? 15;
+  const horasDePenalizacion = condiciones?.horasDePenalizacion ?? 48;
   const maxHorasPorReserva = condiciones?.limites?.maxHorasPorReserva ?? 8;
   const maxHorasPorDia = condiciones?.limites?.maxHorasPorDia ?? 8;
 
@@ -255,6 +256,7 @@ export default function StudyRoomPage() {
               tipo="reserva"
               registro={comprobante}
               toleranciaMinutos={tolerancia}
+              horasDePenalizacion={horasDePenalizacion}
               textoNueva="Hacer otra reserva"
               onNueva={() => setComprobante(null)}
             />
@@ -316,6 +318,12 @@ export default function StudyRoomPage() {
               <li>Para reservar necesitas tu carné, tu correo institucional o tu documento.</li>
               <li>
                 Si no te presentas dentro de {tolerancia} minutos del inicio, la reserva se libera y el lugar queda disponible para otra persona.
+                {horasDePenalizacion > 0 ? (
+                  <>
+                    {' '}
+                    Además, <b>no podrás reservar durante {horasDePenalizacion} horas</b> y se cancelan las reservas que tengas en ese tiempo.
+                  </>
+                ) : null}
               </li>
               <li>Puedes reservar hasta {diasMaximos} días adelante. Al terminar recibes un comprobante: imprímelo o envíalo a tu correo.</li>
             </ul>
