@@ -73,9 +73,9 @@ if (FASE === 'escribir') {
   const diaLunes = await api('GET', `/horarios/dia?fecha=${lunes}`);
   verificar('horas reservables de un lunes: 08-11 y 14-18 (fuera el cierre del mediodía)', JSON.stringify(diaLunes.datos.franjas) === JSON.stringify(['08:00', '09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00', '18:00']), JSON.stringify(diaLunes.datos.franjas));
   const diaSabado = await api('GET', `/horarios/dia?fecha=${sabado}`);
-  verificar('horas reservables de un sábado: 08-11 y 13-16', JSON.stringify(diaSabado.datos.franjas) === JSON.stringify(['08:00', '09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']), JSON.stringify(diaSabado.datos.franjas));
+  verificar('horas reservables de un sábado: de 08:00 a 18:00 sin pausa (la última empieza a las 17:00)', JSON.stringify(diaSabado.datos.franjas) === JSON.stringify(['08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00']), JSON.stringify(diaSabado.datos.franjas));
   const diaDomingo = await api('GET', `/horarios/dia?fecha=${domingo}`);
-  verificar('horas reservables de un domingo: solo la mañana', JSON.stringify(diaDomingo.datos.franjas) === JSON.stringify(['08:00', '09:00', '10:00', '11:00']));
+  verificar('horas reservables de un domingo: de 08:00 a 13:00 (la última empieza a las 12:00)', JSON.stringify(diaDomingo.datos.franjas) === JSON.stringify(['08:00', '09:00', '10:00', '11:00', '12:00']), JSON.stringify(diaDomingo.datos.franjas));
   verificar('fecha inválida -> 400', (await api('GET', '/horarios/dia?fecha=2026-02-31')).estado === 400);
 
   console.log('== Horarios y cierres (administrador)');
@@ -113,8 +113,9 @@ if (FASE === 'escribir') {
   verificar('reservar a las 19:00 (ya no cabe la hora) -> 400', (await reservar('estacion', { recursoId: 'est-2', fecha: lunes, hora: '19:00' })).estado === 400);
   const conCorreo = await reservar('estacion', { recursoId: 'est-2', fecha: lunes, hora: '14:00', correo: 'ana@usac.edu.gt' });
   verificar('reservar a las 14:00 (con correo) -> 200', conCorreo.estado === 200, JSON.stringify(conCorreo.json));
-  verificar('reservar el domingo por la tarde -> 400', (await reservar('estacion', { recursoId: 'est-2', fecha: domingo, hora: '14:00' })).estado === 400);
-  verificar('reservar el sábado a las 13:00 -> 200', (await reservar('estacion', { recursoId: 'est-3', fecha: sabado, hora: '13:00' })).estado === 200);
+  verificar('reservar el domingo a las 13:00 (ya cerró) -> 400', (await reservar('estacion', { recursoId: 'est-2', fecha: domingo, hora: '13:00' })).estado === 400);
+  verificar('reservar el sábado a las 12:00 (ya no hay pausa) -> 200', (await reservar('estacion', { recursoId: 'est-3', fecha: sabado, hora: '12:00' })).estado === 200);
+  verificar('reservar el sábado a las 18:00 (ya cerró) -> 400', (await reservar('estacion', { recursoId: 'est-3', fecha: sabado, hora: '18:00' })).estado === 400);
   const fases = { recursoId: 'cub-1', modalidad: 'fases', duracion: 4 };
   const cruce = await reservar('cubiculo', { ...fases, fecha: lunes, hora: '11:00' });
   verificar('cubículo de 4 horas que cruzaría el cierre del mediodía -> 400', cruce.estado === 400, cruce.error);

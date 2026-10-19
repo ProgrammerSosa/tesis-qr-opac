@@ -29,18 +29,36 @@ const INICIAL = {
       ['08:00', '12:50'],
       ['13:10', '19:15'],
     ]),
-    sabado: [
-      ['08:00', '12:50'],
-      ['12:55', '17:50'],
-    ],
-    domingo: [['08:00', '12:50']],
+    sabado: [['08:00', '18:00']],
+    domingo: [['08:00', '13:00']],
   },
   cierres: [], // { id, desde, hasta, motivo }
   contadorDeCierres: 0,
+  finDeSemanaAl2026_10: true,
 };
 
 const estado = almacen.cargar('horarios', INICIAL);
 delete estado.atencion; // los datos guardados por versiones anteriores traían también el horario de atención: ya no se usa
+
+// En octubre de 2026 la biblioteca cambió el fin de semana: sábado de 8:00 a 18:00 y domingo de 8:00 a 13:00, sin pausa. Un sistema
+// que ya estaba funcionando pasa al horario nuevo una sola vez, y solo en el día que conserva el horario anterior tal como venía: si el
+// administrador ya lo había cambiado desde el panel, se respeta lo suyo.
+const FIN_DE_SEMANA_ANTERIOR = {
+  sabado: [
+    ['08:00', '12:50'],
+    ['12:55', '17:50'],
+  ],
+  domingo: [['08:00', '12:50']],
+};
+if (!estado.finDeSemanaAl2026_10) {
+  Object.entries(FIN_DE_SEMANA_ANTERIOR).forEach(([dia, anterior]) => {
+    if (JSON.stringify(estado.reservas[dia]) === JSON.stringify(anterior)) {
+      estado.reservas[dia] = INICIAL.reservas[dia].map((tramo) => [...tramo]);
+    }
+  });
+  estado.finDeSemanaAl2026_10 = true;
+  almacen.guardar('horarios', estado);
+}
 
 // --- Cierres ---------------------------------------------------------------------------------------------------------
 

@@ -26,6 +26,7 @@ const require = createRequire(import.meta.url);
 const PRUEBAS = [
   { nombre: 'propuesta', servidor: true, fases: ['escribir', 'verificar'] },
   { nombre: 'horas', servidor: true },
+  { nombre: 'fin-de-semana' },
   { nombre: 'url-qr', servidor: true },
   { nombre: 'pdf', servidor: true },
   { nombre: 'proteccion', servidor: true, sitio: true },
