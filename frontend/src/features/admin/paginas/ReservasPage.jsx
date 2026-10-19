@@ -367,9 +367,8 @@ export default function ReservasPage() {
   const [confirmacion, setConfirmacion] = useState(null); // { tipo, reserva } mientras se pide confirmar
   const [errorDeConfirmacion, setErrorDeConfirmacion] = useState('');
   const [trabajando, setTrabajando] = useState(false);
-  const [semana, setSemana] = useState([]); // horario de reservas de cada día, para la boleta de los cubículos
   const { sesion } = useSesionAdmin();
-  const boleta = useImpresionDeBoleta({ toleranciaMinutos: tolerancia, horasDePenalizacion, semana, atendidoPor: sesion.nombre || sesion.usuario });
+  const boleta = useImpresionDeBoleta({ toleranciaMinutos: tolerancia, horasDePenalizacion, atendidoPor: sesion.nombre || sesion.usuario });
 
   const cargar = useCallback(async () => {
     try {
@@ -394,10 +393,6 @@ export default function ReservasPage() {
         setTolerancia(res.data.data.toleranciaMinutos);
         setHorasDePenalizacion(res.data.data.horasDePenalizacion ?? 0);
       })
-      .catch(() => {});
-    reservasApi
-      .horarioSemanal()
-      .then((res) => setSemana(res.data.data.semana))
       .catch(() => {});
     // Se actualiza sola mientras la pestaña está a la vista: quien atiende ve lo que pasó sin tocar nada.
     const intervalo = setInterval(() => {

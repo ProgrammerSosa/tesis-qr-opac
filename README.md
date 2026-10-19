@@ -308,7 +308,7 @@ ya llenos:
 
 - **Cubículos** (hoja carta): «Reserva de Cubículo», con la tabla del equipo en buen o mal estado (pizarrón, mesa, sillas, marcadores,
   almohadilla, pared, casillero, aire acondicionado, paredes de vidrio), las normas de uso (la tolerancia sale de la configuración),
-  las firmas, los documentos de préstamo y el horario de reservas de la semana (sale de **Horarios y cierres**).
+  las firmas, los documentos de préstamo y el día y las horas que reservó (solo su horario, no el de toda la semana).
 - **Estaciones y sala de lectura** (media carta): el número de la estación (o la mesa y la silla), los accesorios, los documentos de
   préstamo, las horas de entrada y salida, las condiciones de uso y las firmas.
 

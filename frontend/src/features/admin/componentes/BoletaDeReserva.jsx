@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EQUIPO_POR_TIPO } from '../../reservas/equipoDeLosLugares';
 import { LIBRARY } from '../../../shared/config/library';
-import { fechaYHora } from '../../../shared/utils/fechas';
+import { fechaYHora, nombreDelDia } from '../../../shared/utils/fechas';
 
 // Boletas de uso de los espacios de estudio: las mismas hojas que la biblioteca imprime en el mostrador, pero con los datos de la
 // reserva ya llenos (nombre, carné, lugar, fecha y horario). Lo que el sistema no sabe (celular, llave, documento que se deja, horas
 // reales) queda en blanco para llenarlo a mano. Hay dos formatos, como en papel:
-//   - cubículos: hoja carta «Reserva de Cubículo», con el equipo, las normas, las firmas y el horario;
+//   - cubículos: hoja carta «Reserva de Cubículo», con el equipo, las normas, las firmas y el horario que pidió la persona;
 //   - estaciones y sala de lectura: media carta, con los accesorios, las condiciones de uso y las firmas.
 
 const fechaEscrita = (iso) => {
@@ -15,21 +15,12 @@ const fechaEscrita = (iso) => {
   return `${dia}/${mes}/${anio}`;
 };
 const numeroDelLugar = (reserva) => (reserva.tipo === 'sala_lectura' ? reserva.recursoNombre : String(reserva.recursoId).split('-').pop());
-
-// Días seguidos con el mismo horario se juntan en una fila: «Lunes a viernes», «Sábado», «Domingo».
-function filasDelHorario(semana) {
-  const filas = [];
-  semana.forEach((dia) => {
-    const texto = dia.reservas.length > 0 ? dia.reservas.map(([desde, hasta]) => `${desde} – ${hasta}`).join(' y ') : 'Cerrado';
-    const ultima = filas[filas.length - 1];
-    if (ultima && ultima.texto === texto) ultima.dias.push(dia.nombre);
-    else filas.push({ dias: [dia.nombre], texto });
-  });
-  return filas.map(({ dias, texto }) => ({
-    dia: dias.length === 1 ? dias[0] : dias.length === 2 ? `${dias[0]} y ${dias[1].toLowerCase()}` : `${dias[0]} a ${dias[dias.length - 1].toLowerCase()}`,
-    texto,
-  }));
-}
+// "Lunes 19/10/2026"
+const diaDeLaReserva = (reserva) => {
+  const nombre = nombreDelDia(reserva.fecha);
+  return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${fechaEscrita(reserva.fecha)}`;
+};
+const horasDeLaReserva = (reserva) => `${reserva.hora} – ${reserva.horaFin}${reserva.duracion > 1 ? ` (${reserva.duracion} horas)` : ' (1 hora)'}`;
 
 function Escudo({ className = '' }) {
   return <img src={LIBRARY.logo} alt="" className={`w-auto ${className}`} />;
@@ -56,7 +47,7 @@ function Referencia({ reserva, impresaEn }) {
 
 // --- Cubículos: hoja carta -------------------------------------------------------------------------------------------
 
-function FormatoCubiculo({ reserva, toleranciaMinutos, horasDePenalizacion, semana, atendidoPor, impresaEn }) {
+function FormatoCubiculo({ reserva, toleranciaMinutos, horasDePenalizacion, atendidoPor, impresaEn }) {
   const equipo = EQUIPO_POR_TIPO.cubiculo;
   return (
     <article className="flex flex-col gap-2.5 bg-white text-[10pt] leading-snug text-slate-900">
@@ -205,22 +196,18 @@ function FormatoCubiculo({ reserva, toleranciaMinutos, horasDePenalizacion, sema
         <thead>
           <tr className="bg-slate-100">
             <th className="w-[22%] border border-slate-600 px-1.5 py-0.5 text-left font-semibold">Día</th>
-            <th className="w-[38%] border border-slate-600 px-1.5 py-0.5 text-left font-semibold">Horario de reservas</th>
+            <th className="w-[38%] border border-slate-600 px-1.5 py-0.5 text-left font-semibold">Horario reservado</th>
             <th className="border border-slate-600 px-1.5 py-0.5 text-left font-semibold">Observaciones</th>
           </tr>
         </thead>
         <tbody>
-          {filasDelHorario(semana).map((fila, i, todas) => (
-            <tr key={fila.dia}>
-              <td className="border border-slate-600 px-1.5 py-0.5">{fila.dia}</td>
-              <td className="border border-slate-600 px-1.5 py-0.5">{fila.texto}</td>
-              {i === 0 ? (
-                <td rowSpan={todas.length} className="border border-slate-600 px-1.5 py-0.5 align-top">
-                  En caso de no existir reservas electrónicas, se asignan de forma presencial. Para dudas, consultar directamente a la Jefatura.
-                </td>
-              ) : null}
-            </tr>
-          ))}
+          <tr>
+            <td className="border border-slate-600 px-1.5 py-1 font-semibold">{diaDeLaReserva(reserva)}</td>
+            <td className="border border-slate-600 px-1.5 py-1 font-semibold">{horasDeLaReserva(reserva)}</td>
+            <td className="border border-slate-600 px-1.5 py-1 align-top">
+              En caso de no existir reservas electrónicas, se asignan de forma presencial. Para dudas, consultar directamente a la Jefatura.
+            </td>
+          </tr>
         </tbody>
       </table>
 
@@ -339,7 +326,7 @@ export function BoletaDeReserva(props) {
 // Imprimir la boleta de una reserva: `imprimir(reserva)` abre el cuadro de impresión con solo la boleta (hoja carta para los
 // cubículos, media carta para lo demás); `portal` va dentro del JSX de quien lo usa. La boleta se dibuja únicamente mientras se
 // imprime; `afterprint` avisa cuando termina o se cancela. Los estilos de impresión están en theme.css.
-export function useImpresionDeBoleta({ toleranciaMinutos, horasDePenalizacion = 0, semana = [], atendidoPor }) {
+export function useImpresionDeBoleta({ toleranciaMinutos, horasDePenalizacion = 0, atendidoPor }) {
   const [reserva, setReserva] = useState(null);
   const [impresaEn, setImpresaEn] = useState(null);
 
@@ -362,7 +349,6 @@ export function useImpresionDeBoleta({ toleranciaMinutos, horasDePenalizacion = 
             reserva={reserva}
             toleranciaMinutos={toleranciaMinutos}
             horasDePenalizacion={horasDePenalizacion}
-            semana={semana}
             atendidoPor={atendidoPor}
             impresaEn={impresaEn}
           />
