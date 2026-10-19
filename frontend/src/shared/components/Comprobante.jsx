@@ -11,49 +11,94 @@ import { getErrorMessage } from '../api/axiosClient';
 import { useKiosco } from '../kiosco/KioscoContext';
 import { fechaLarga, fechaYHora } from '../utils/fechas';
 
-// Constancia de una operación (propuesta, sección 4.5.5): se ve en pantalla, se puede imprimir como ticket
-// (impresora térmica del kiosco) y se puede enviar por correo. Sirve para reservas y para solicitudes de solvencia.
+// Constancia de una operación (propuesta, sección 4.5.5): se ve en pantalla con el mismo diseño y los mismos datos que el correo que
+// recibe la persona (backend/utils/plantillaCorreo.js y notificaciones.js), se puede imprimir y se puede enviar por correo. Sirve para
+// reservas y para solicitudes de solvencia. En el kiosco se imprime como ticket angosto (impresora térmica); en el sitio, la misma hoja
+// que se ve en pantalla.
 
-const TITULOS = { reserva: 'Confirmación de reserva', solvencia: 'Solicitud de solvencia' };
+const TITULOS = { reserva: 'Confirmación de reserva', solvencia: 'Solicitud de solvencia recibida' };
 
+// [etiqueta, valor, 'codigo'?]: con 'codigo', el valor se resalta como en el correo (números y códigos de confirmación).
 function filasDe(tipo, r) {
   if (tipo === 'reserva') {
     return [
-      ['Número de reserva', r.id],
-      ['Código de confirmación', r.codigoConfirmacion],
-      ['Espacio', r.recursoNombre],
+      ['Número de reserva', r.id, 'codigo'],
+      ['Código de confirmación', r.codigoConfirmacion, 'codigo'],
+      ['Lugar', r.recursoNombre],
       ...(r.modalidadNombre ? [['Tipo de reserva', r.modalidadNombre]] : []),
-      ['Horario de uso', `${r.fecha} · ${r.hora} a ${r.horaFin}${r.duracion > 1 ? ` (${r.duracion} horas)` : ''}`],
+      ['Horario de uso', `${fechaLarga(r.fecha)}, de ${r.hora} a ${r.horaFin}${r.duracion > 1 ? ` (${r.duracion} horas)` : ''}`],
       ['A nombre de', r.solicitante],
     ];
   }
   if (tipo === 'solvencia') {
     return [
-      ['Número de solicitud', r.id],
-      ['Código de confirmación', r.codigoConfirmacion],
+      ['Número de solicitud', r.id, 'codigo'],
+      ['Código de confirmación', r.codigoConfirmacion, 'codigo'],
       ['Motivo', r.motivo],
       ['Solicitante', r.solicitante],
-      ['Carné', r.identificacion],
-      ['Programa', r.programa],
-      ['Orden de pago', r.ordenDePago],
-      ...(r.fechaPapeleria ? [['Presentas tu papelería', fechaLarga(r.fechaPapeleria)]] : []),
-      ...(r.entregaEstimada ? [['Entrega estimada', `${fechaLarga(r.entregaEstimada.fecha)}, ${r.entregaEstimada.hora} h`]] : []),
+      ...(r.identificacion ? [['Carné', r.identificacion]] : []),
+      ...(r.programa ? [['Programa', r.programa]] : []),
+      ...(r.ordenDePago ? [['Orden de pago', r.ordenDePago]] : []),
+      ...(r.fechaPapeleria ? [['Presentas tu papelería el', fechaLarga(r.fechaPapeleria)]] : []),
+      ...(r.entregaEstimada ? [['Entrega estimada', `${fechaLarga(r.entregaEstimada.fecha)}, a las ${r.entregaEstimada.hora}`]] : []),
     ];
   }
   return [];
 }
 
-function instruccionesDe(tipo, registro, toleranciaMinutos, horasDePenalizacion) {
+function instruccionesDe(tipo, toleranciaMinutos, horasDePenalizacion) {
   if (tipo === 'reserva') {
-    const castigo = horasDePenalizacion > 0 ? ` y no podrás reservar durante ${horasDePenalizacion} horas` : '';
-    return `Presenta el número de reserva o el código de confirmación en el mostrador.${
-      toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera${castigo}.` : ''
-    }`;
+    const castigo = horasDePenalizacion > 0 ? ` y no podrás reservar ningún lugar de estudio durante ${horasDePenalizacion} horas` : '';
+    const tolerancia = toleranciaMinutos ? ` Si no te presentas dentro de ${toleranciaMinutos} minutos del inicio, la reserva se libera${castigo}.` : '';
+    return `Presenta el número de reserva o el código de confirmación en el mostrador.${tolerancia} La biblioteca puede cancelar una reserva si se incumple el reglamento del servicio.`;
   }
-  return 'El personal de la biblioteca revisará tu solicitud y te hará llegar tu solvencia en el horario de entrega indicado. Guarda este comprobante: lleva tu número de solicitud y tu código de confirmación.';
+  return 'Tu solicitud será revisada por el personal de la biblioteca. Revisa que tus datos estén correctos: si la solvencia se emite con datos incorrectos (nombres, CUI, carné o fecha) no hay reposición y habría que pagar y tramitarla de nuevo.';
 }
 
-// Lo que sale por la impresora: va aparte de la pantalla, en un ticket angosto de 80 mm.
+// La hoja del comprobante, igual al correo: franja azul con la biblioteca, línea roja, el título, los datos y las indicaciones.
+function Hoja({ titulo, operacion, filas, estado, instrucciones }) {
+  return (
+    <article className="mx-auto w-full max-w-[600px] overflow-hidden rounded-xl border border-border bg-white text-slate-900">
+      <header className="bg-primary-dark px-6 py-5 text-white sm:px-7">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-blue-200">{LIBRARY.facultad}</p>
+        <p className="mt-1 font-display text-xl font-bold leading-snug">{LIBRARY.nombre}</p>
+      </header>
+      <div className="h-1 bg-action" aria-hidden="true" />
+
+      <div className="px-6 py-6 sm:px-7">
+        <h2 className="flex items-center gap-2 font-display text-[22px] font-semibold leading-snug text-primary">
+          <CheckCircle2 size={22} className="shrink-0" aria-hidden="true" />
+          {titulo}
+        </h2>
+        <dl className="mt-3.5 border-y border-border py-1.5">
+          {[['Fecha de la operación', `${operacion.fecha} · ${operacion.hora}`], ...filas].map(([etiqueta, valor, estilo]) => (
+            <div key={etiqueta} className="grid gap-x-3.5 py-[7px] sm:grid-cols-[36%_1fr]">
+              <dt className="text-[13px] text-slate-600">{etiqueta}</dt>
+              <dd className={`min-w-0 break-words ${estilo === 'codigo' ? 'font-mono text-[17px] font-bold tracking-wide' : 'text-[15px]'}`}>{valor}</dd>
+            </div>
+          ))}
+          <div className="grid items-center gap-x-3.5 py-[7px] sm:grid-cols-[36%_1fr]">
+            <dt className="text-[13px] text-slate-600">Estado</dt>
+            <dd>
+              <Badge tone={estado.tono} dot>
+                {estado.texto}
+              </Badge>
+            </dd>
+          </div>
+        </dl>
+        <p className="mt-4 text-sm leading-relaxed text-slate-600">{instrucciones}</p>
+      </div>
+
+      <footer className="bg-surface px-6 py-4 text-xs leading-relaxed text-slate-600 sm:px-7">
+        Guarda este comprobante: lleva tu número y tu código de confirmación.
+        <br />
+        {LIBRARY.universidad}
+      </footer>
+    </article>
+  );
+}
+
+// Lo que sale por la impresora térmica del kiosco: un ticket angosto de 80 mm, con los mismos datos.
 function Ticket({ titulo, operacion, filas, instrucciones }) {
   return (
     <div style={{ width: '72mm', fontFamily: 'monospace', fontSize: '11px', lineHeight: 1.45, color: '#000' }}>
@@ -118,20 +163,25 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, horasDe
   const titulo = TITULOS[tipo];
   const operacion = fechaYHora(registro.creadoEn);
   const filas = filasDe(tipo, registro);
-  const instrucciones = instruccionesDe(tipo, registro, toleranciaMinutos, horasDePenalizacion);
+  const instrucciones = instruccionesDe(tipo, toleranciaMinutos, horasDePenalizacion);
+  const estado = tipo === 'reserva' ? { tono: 'status', texto: 'Reservado' } : { tono: 'warning', texto: 'Pendiente de revisión' };
+  const hoja = <Hoja titulo={titulo} operacion={operacion} filas={filas} estado={estado} instrucciones={instrucciones} />;
+  // En el kiosco sale el ticket de la impresora térmica; en el sitio, la hoja tal como se ve.
+  const conTicket = Boolean(kiosco);
 
-  // El ticket se dibuja solo mientras se imprime; `afterprint` avisa cuando termina o se cancela.
+  // Lo impreso se dibuja solo mientras se imprime; `afterprint` avisa cuando termina o se cancela.
   useEffect(() => {
     if (!imprimiendo) return undefined;
-    document.body.classList.add('imprimiendo-ticket');
+    const clase = conTicket ? 'imprimiendo-ticket' : 'imprimiendo-comprobante';
+    document.body.classList.add(clase);
     const terminar = () => setImprimiendo(false);
     window.addEventListener('afterprint', terminar, { once: true });
     window.print();
     return () => {
       window.removeEventListener('afterprint', terminar);
-      document.body.classList.remove('imprimiendo-ticket');
+      document.body.classList.remove(clase);
     };
-  }, [imprimiendo]);
+  }, [imprimiendo, conTicket]);
 
   function imprimir() {
     registrarEvento('comprobante_impreso');
@@ -160,34 +210,10 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, horasDe
   }
 
   return (
-    <div className="entrar rounded-2xl border border-primary/30 bg-blue-50 p-6 shadow-card">
-      <div className="mb-4 flex items-center gap-2.5 text-primary">
-        <CheckCircle2 size={24} aria-hidden="true" />
-        <h2 className="font-display text-xl font-semibold">{titulo}</h2>
-      </div>
+    <div className="entrar flex flex-col gap-4">
+      {hoja}
 
-      <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-2 text-sm">
-        <dt className="text-slate-500">Fecha de la operación</dt>
-        <dd>
-          {operacion.fecha} · {operacion.hora}
-        </dd>
-        {filas.map(([etiqueta, valor]) => (
-          <div key={etiqueta} className="contents">
-            <dt className="text-slate-500">{etiqueta}</dt>
-            <dd className={`min-w-0 break-words ${etiqueta.startsWith('Código') || etiqueta.startsWith('Número') ? 'font-mono font-semibold' : ''}`}>{valor}</dd>
-          </div>
-        ))}
-        <dt className="text-slate-500">Estado</dt>
-        <dd>
-          <Badge tone={tipo === 'reserva' ? 'status' : 'warning'} dot>
-            {tipo === 'reserva' ? 'Reservado' : 'Pendiente de revisión'}
-          </Badge>
-        </dd>
-      </dl>
-
-      <p className="mt-4 text-sm leading-relaxed text-slate-700">{instrucciones}</p>
-
-      <div className="mt-5 flex flex-col gap-3 border-t border-primary/20 pt-5">
+      <div className="mx-auto flex w-full max-w-[600px] flex-col gap-3 rounded-xl border border-border bg-white p-5">
         <div className="flex flex-wrap items-center gap-3">
           <Button variant="brand" icon={Printer} onClick={imprimir}>
             Imprimir comprobante
@@ -204,14 +230,12 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, horasDe
             <Mail size={16} className={`mt-0.5 shrink-0 ${aviso === 'fallido' ? 'text-amber-600' : 'text-primary'}`} aria-hidden="true" />
             <span>
               {avisoAutomatico}
-              {aviso === 'enviado' || aviso === 'pendiente' ? (
+              {(aviso === 'enviado' || aviso === 'pendiente') && !otroCorreo ? (
                 <>
                   {' '}
-                  {!otroCorreo ? (
-                    <button type="button" onClick={() => setOtroCorreo(true)} className="font-semibold text-primary hover:underline">
-                      Enviarlo a otro correo
-                    </button>
-                  ) : null}
+                  <button type="button" onClick={() => setOtroCorreo(true)} className="font-semibold text-primary hover:underline">
+                    Enviarlo a otro correo
+                  </button>
                 </>
               ) : null}
             </span>
@@ -254,9 +278,13 @@ export default function Comprobante({ tipo, registro, toleranciaMinutos, horasDe
 
       {imprimiendo
         ? createPortal(
-            <div id="ticket-impresion">
-              <Ticket titulo={titulo} operacion={operacion} filas={filas} instrucciones={instrucciones} />
-            </div>,
+            conTicket ? (
+              <div id="ticket-impresion">
+                <Ticket titulo={titulo} operacion={operacion} filas={filas} instrucciones={instrucciones} />
+              </div>
+            ) : (
+              <div id="comprobante-impresion">{hoja}</div>
+            ),
             document.body
           )
         : null}

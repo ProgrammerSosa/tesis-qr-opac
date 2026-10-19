@@ -5,7 +5,7 @@ Complemento digital de la biblioteca de la Facultad de Ciencias Jurídicas y Soc
 - **Catálogo (OPAC)** de tesis, con ficha, documento digital (acceso y descarga, solo consulta o sin acceso) y código QR.
 - **Reserva de espacios de estudio** (cubículos, estaciones y sala de lectura), con plano de la sala.
 - **Solicitud de solvencia**.
-- **Comprobantes** en pantalla, impresos (ticket de 80 mm) y por correo.
+- **Comprobantes** en pantalla (con el mismo diseño que el correo), impresos (hoja carta en el sitio, ticket de 80 mm en el kiosco) y por correo.
 - **Kioscos táctiles** con cierre de sesión por inactividad y candado de pantalla.
 - **Panel del personal** con cuatro roles y estadísticas de uso (`/privateAccess`).
 
@@ -203,6 +203,12 @@ el servidor elige según sus variables (modelo en `backend/.env.example`):
 `CORREO_REMITENTE` es la dirección desde la que se envía (en la API debe estar verificada en el servicio). En el panel, **Correo**
 (solo el administrador), se ve cómo quedó, se comprueba la conexión SMTP, se manda un correo de prueba y se ven los últimos
 envíos con sus errores. Si el correo falla, la reserva o la solicitud siguen adelante: la persona tiene su comprobante en pantalla.
+
+Si la persona dejó su correo, el comprobante sale **solo al confirmar** y la pantalla dice cómo le fue (enviado, en camino, falló o
+correo apagado); el campo para mandarlo aparece solo si no dejó correo, si el envío falló o si lo quiere en otro correo. El
+comprobante en pantalla tiene el mismo diseño y los mismos datos que el correo (franja azul con la biblioteca, línea roja, los datos y
+las indicaciones). **Imprimir comprobante** imprime esa misma hoja en tamaño carta; en el kiosco imprime el ticket angosto de 80 mm
+para la impresora térmica.
 
 ### Cargar el catálogo
 

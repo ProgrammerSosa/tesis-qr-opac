@@ -24,9 +24,10 @@ function momentoLargo(iso) {
 }
 
 // Lo que se le dice a quien reserva sobre no presentarse: se libera la reserva y, si hay castigo, cuántas horas queda sin reservar.
+// Es el mismo texto que muestra el comprobante en pantalla (frontend/src/shared/components/Comprobante.jsx).
 function avisoDeTolerancia() {
   const horas = configuracion.horasDePenalizacion();
-  return `Si no te presentas dentro del tiempo de tolerancia, la reserva se libera${
+  return `Si no te presentas dentro de ${configuracion.toleranciaMinutos()} minutos del inicio, la reserva se libera${
     horas > 0 ? ` y no podrás reservar ningún lugar de estudio durante ${horas} horas` : ''
   }.`;
 }
