@@ -351,6 +351,16 @@ completo el equipo debe estar configurado como kiosco:
 
 El servidor comprueba el rol en cada petición; ocultar una sección en el panel es solo comodidad.
 
+### Estadísticas por período
+
+En **Estadísticas** (administración y consulta) se elige qué período ver: **Día**, **Semana** (de lunes a domingo), **Mes** o **Año**,
+con flechas para ir al anterior o al siguiente y un atajo para volver al actual; **Todo** lo registrado, o **Entre fechas** (desde y
+hasta, los dos días incluidos). Abre en el mes en curso. Las reservas cuentan por el día en que se usa el lugar; las búsquedas,
+consultas, accesos por QR, comprobantes, solicitudes y sesiones de kiosco, por el día en que ocurrieron (hora de Guatemala). Además de
+los totales, la demanda por hora y por día y las tesis más consultadas del período, la tarjeta **Cómo terminaron las reservas** dice
+cuántas se atendieron, cuántas personas no se presentaron, cuántas se cancelaron o liberó el personal, las horas reservadas y qué
+porcentaje de quienes reservaron llegó. La API es `GET /api/admin/estadisticas?desde=2026-10-01&hasta=2026-10-31` (sin fechas, todo).
+
 ### Protección de rutas
 
 - **En el navegador**, una guardia corre antes de mostrar cualquier página de `/privateAccess/...`: sin sesión manda al inicio de sesión (y al

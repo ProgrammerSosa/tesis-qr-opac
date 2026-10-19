@@ -232,8 +232,13 @@ function postRevisionDeEnlaces(req, res) {
   return ok(res, { iniciada }, iniciada ? 'Revisión iniciada' : 'Ya hay una revisión en curso', iniciada ? 202 : 200);
 }
 
+// ?desde=2026-10-01&hasta=2026-10-31 limita las estadísticas a ese período (ambos días incluidos); sin fechas, todo lo registrado.
 function getEstadisticas(req, res) {
-  return ok(res, calcular());
+  try {
+    return ok(res, calcular({ desde: req.query.desde, hasta: req.query.hasta }));
+  } catch (err) {
+    return fail(res, err.message, err.estado || 500);
+  }
 }
 
 module.exports = {

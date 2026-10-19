@@ -3,7 +3,8 @@ import axiosClient from '../../shared/api/axiosClient';
 export const adminApi = {
   resumen: () => axiosClient.get('/admin/resumen'),
   usuarios: (q) => axiosClient.get('/admin/usuarios', { params: q ? { q } : {} }),
-  estadisticas: () => axiosClient.get('/admin/estadisticas'),
+  // Sin fechas, todo lo registrado; con { desde, hasta } ("2026-10-01"), solo ese período.
+  estadisticas: (periodo = {}) => axiosClient.get('/admin/estadisticas', { params: periodo }),
 
   // Catálogo y documentos digitales: las listas vienen por páginas ({ items, total, pagina, porPagina, paginas }).
   tesis: (params) => axiosClient.get('/admin/tesis', { params }),

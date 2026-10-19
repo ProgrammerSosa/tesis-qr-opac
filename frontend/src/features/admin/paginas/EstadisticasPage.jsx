@@ -1,12 +1,34 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Armchair, DoorOpen, Download, FileCheck2, FileText, Loader2, Mail, MonitorSmartphone, Printer, QrCode, Receipt, RefreshCw, Search } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Armchair,
+  Ban,
+  CalendarCheck,
+  CalendarClock,
+  Clock,
+  DoorOpen,
+  Download,
+  FileCheck2,
+  FileText,
+  Loader2,
+  Mail,
+  MonitorSmartphone,
+  Printer,
+  QrCode,
+  Receipt,
+  RefreshCw,
+  Search,
+  UserX,
+} from 'lucide-react';
 import { adminApi } from '../adminApi';
 import { getErrorMessage } from '../../../shared/api/axiosClient';
 import AlertBanner from '../../../shared/components/AlertBanner';
 import Button from '../../../shared/components/Button';
 import StatTile from '../../../shared/components/StatTile';
+import { hoyISO, primerDiaDelMes } from '../../../shared/utils/fechas';
 import PaginaAdmin from '../componentes/PaginaAdmin';
+import PeriodoDeEstadisticas from '../componentes/PeriodoDeEstadisticas';
 import { fechaLegible } from '../estados';
+import { nombreDelPeriodo, rangoDe } from '../periodos';
 
 // Barras horizontales hechas con divs: cada fila muestra también el número, así no depende solo del color.
 function Barras({ filas }) {
@@ -39,24 +61,64 @@ function SinDatos({ children }) {
   return <p className="text-sm text-slate-400">{children}</p>;
 }
 
-// Estadísticas de uso de los servicios (propuesta, sección 4.5.7).
+// Cómo terminaron las reservas del período: cuántas se usaron, cuántas personas no llegaron y cuántas se cancelaron.
+function ResultadoDeLasReservas({ reservas }) {
+  const conResultado = reservas.atendidas + reservas.noSePresentaron;
+  const asistencia = conResultado > 0 ? Math.round((reservas.atendidas / conResultado) * 100) : null;
+  return (
+    <Tarjeta titulo="Cómo terminaron las reservas">
+      {reservas.total === 0 ? (
+        <SinDatos>No hay reservas en este período.</SinDatos>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+            <StatTile label="Atendidas (llegaron)" value={reservas.atendidas} icon={CalendarCheck} />
+            <StatTile label="No se presentaron" value={reservas.noSePresentaron} icon={UserX} />
+            <StatTile label="Canceladas" value={reservas.canceladas} icon={Ban} />
+            <StatTile label="Liberadas por el personal" value={reservas.liberadasPorElPersonal} icon={DoorOpen} />
+            <StatTile label="Pendientes (aún no llegan)" value={reservas.pendientes} icon={CalendarClock} />
+            <StatTile label="Horas reservadas" value={reservas.horasReservadas} icon={Clock} />
+          </div>
+          <p className="text-sm text-slate-600">
+            {asistencia === null
+              ? 'Todavía no hay reservas que hayan terminado en este período.'
+              : `Llegó el ${asistencia} % de las personas que reservaron (${reservas.atendidas} de ${conResultado}). ${reservas.penalizaciones} ${
+                  reservas.penalizaciones === 1 ? 'persona quedó penalizada' : 'personas quedaron penalizadas'
+                } por no presentarse.`}
+          </p>
+        </>
+      )}
+    </Tarjeta>
+  );
+}
+
+// Estadísticas de uso de los servicios (propuesta, sección 4.5.7), del período que elija el administrador.
 export default function EstadisticasPage() {
+  const hoy = hoyISO();
+  const [eleccion, setEleccion] = useState(() => ({ modo: 'mes', referencia: hoy, rango: { desde: primerDiaDelMes(hoy), hasta: hoy } }));
   const [datos, setDatos] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
+  const ultimaConsulta = useRef(0);
 
+  const periodo = eleccion.modo === 'rango' ? eleccion.rango : rangoDe(eleccion.modo, eleccion.referencia);
+  const { desde, hasta } = periodo;
+
+  // Si se cambia de período mientras llega la respuesta anterior, solo cuenta la última que se pidió.
   const cargar = useCallback(async () => {
+    const consulta = (ultimaConsulta.current += 1);
     setCargando(true);
     try {
-      const res = await adminApi.estadisticas();
+      const res = await adminApi.estadisticas({ ...(desde ? { desde } : {}), ...(hasta ? { hasta } : {}) });
+      if (consulta !== ultimaConsulta.current) return;
       setDatos(res.data.data);
       setError('');
     } catch (err) {
-      setError(getErrorMessage(err, 'No se pudieron cargar las estadísticas'));
+      if (consulta === ultimaConsulta.current) setError(getErrorMessage(err, 'No se pudieron cargar las estadísticas'));
     } finally {
-      setCargando(false);
+      if (consulta === ultimaConsulta.current) setCargando(false);
     }
-  }, []);
+  }, [desde, hasta]);
 
   useEffect(() => {
     cargar();
@@ -73,21 +135,23 @@ export default function EstadisticasPage() {
     );
   }
 
-  const { totales, comprobantes, porHora, porDia, tesisMasConsultadas, kioscos } = datos;
+  const { totales, reservas, comprobantes, porHora, porDia, tesisMasConsultadas, kioscos } = datos;
   const hayReservas = porHora.some((h) => h.total > 0);
+  const delPeriodo = nombreDelPeriodo(eleccion.modo, periodo).toLowerCase();
 
   return (
     <PaginaAdmin
-      descripcion={`Cómo se usan los servicios de la biblioteca. Datos calculados el ${fechaLegible(datos.generadoEn)}.`}
+      descripcion={`Cómo se usan los servicios de la biblioteca en el período que elijas. Las reservas cuentan por el día en que se usa el lugar; lo demás, por el día en que ocurrió. Datos calculados el ${fechaLegible(datos.generadoEn)}.`}
       acciones={
         <Button variant="secondary" icon={RefreshCw} onClick={cargar} disabled={cargando}>
           {cargando ? 'Actualizando...' : 'Actualizar'}
         </Button>
       }
     >
+      <PeriodoDeEstadisticas valor={eleccion} hoy={hoy} onCambiar={setEleccion} />
       <AlertBanner>{error}</AlertBanner>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className={`grid grid-cols-2 gap-3 transition-opacity lg:grid-cols-4 ${cargando ? 'opacity-60' : ''}`} aria-busy={cargando}>
         <StatTile label="Búsquedas en el OPAC" value={totales.busquedasOpac} icon={Search} />
         <StatTile label="Consultas de tesis digitales" value={totales.consultasDigitales} icon={FileText} />
         <StatTile label="Descargas de tesis digitales" value={totales.descargasDigitales} icon={Download} />
@@ -97,6 +161,8 @@ export default function EstadisticasPage() {
         <StatTile label="Reservas de espacios de estudio" value={totales.reservasEspacios} icon={Armchair} />
         <StatTile label="Solicitudes de solvencia" value={totales.solicitudesSolvencia} icon={FileCheck2} />
       </div>
+
+      <ResultadoDeLasReservas reservas={reservas} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Tarjeta titulo="Comprobantes">
@@ -111,7 +177,7 @@ export default function EstadisticasPage() {
           {hayReservas ? (
             <Barras filas={porHora.map((h) => ({ etiqueta: h.hora, valor: h.total }))} />
           ) : (
-            <SinDatos>Aún no hay reservas para calcular la demanda.</SinDatos>
+            <SinDatos>No hay reservas en {delPeriodo} para calcular la demanda.</SinDatos>
           )}
         </Tarjeta>
 
@@ -119,7 +185,7 @@ export default function EstadisticasPage() {
           {hayReservas ? (
             <Barras filas={porDia.map((d) => ({ etiqueta: d.dia, valor: d.total }))} />
           ) : (
-            <SinDatos>Aún no hay reservas para calcular la utilización.</SinDatos>
+            <SinDatos>No hay reservas en {delPeriodo} para calcular la utilización.</SinDatos>
           )}
         </Tarjeta>
       </div>
@@ -127,7 +193,7 @@ export default function EstadisticasPage() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Tarjeta titulo="Tesis más consultadas">
           {tesisMasConsultadas.length === 0 ? (
-            <SinDatos>Aún no se ha consultado ninguna tesis digital.</SinDatos>
+            <SinDatos>No se consultó ninguna tesis digital en {delPeriodo}.</SinDatos>
           ) : (
             <ol className="flex flex-col gap-2.5">
               {tesisMasConsultadas.map((t, i) => (
@@ -149,7 +215,7 @@ export default function EstadisticasPage() {
 
         <Tarjeta titulo="Uso por kiosco">
           {kioscos.length === 0 ? (
-            <SinDatos>Aún no hay sesiones registradas en los kioscos.</SinDatos>
+            <SinDatos>No hay sesiones de kiosco en {delPeriodo}.</SinDatos>
           ) : (
             <table className="w-full text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-500">

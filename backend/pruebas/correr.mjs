@@ -40,6 +40,7 @@ const PRUEBAS = [
   { nombre: 'enlaces' },
   { nombre: 'salida' },
   { nombre: 'penalizacion' },
+  { nombre: 'estadisticas' },
   { nombre: 'entregas' },
   { nombre: 'keepalive' },
   { nombre: 'aviso-correo' },
