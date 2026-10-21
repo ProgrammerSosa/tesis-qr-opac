@@ -1,5 +1,6 @@
 import { LIBRARY } from '../config/library';
 import { useKiosco } from '../kiosco/KioscoContext';
+import { ExternalLink } from 'lucide-react';
 
 // Íconos de redes sociales (trazo en línea, mismo estilo que el resto de los íconos). Lucide ya no los incluye.
 function Icono({ children, size = 20, ...props }) {
@@ -52,7 +53,7 @@ const REDES = [
   { clave: 'facebook', etiqueta: 'Facebook', href: LIBRARY.redes.facebook, Icono: IconoFacebook },
   { clave: 'instagram', etiqueta: 'Instagram', href: LIBRARY.redes.instagram, Icono: IconoInstagram },
   { clave: 'youtube', etiqueta: 'YouTube', href: LIBRARY.redes.youtube, Icono: IconoYoutube },
-  { clave: 'BibliotecaDigital', etiqueta: 'Biblioteca Digital', href: LIBRARY.redes.BibliotecaDigital, Icono: IconoYoutube },
+  { clave: 'BibliotecaDigital', etiqueta: 'Biblioteca Digital', href: LIBRARY.redes.BibliotecaDigital, Icono: ExternalLink },
 ];
 
 // Enlaces a las redes de la biblioteca. En un kiosco no se muestran: llevarían a la persona fuera del sistema.
