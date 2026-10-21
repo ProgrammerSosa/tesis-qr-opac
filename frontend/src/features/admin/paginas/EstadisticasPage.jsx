@@ -36,7 +36,7 @@ function Barras({ filas }) {
   return (
     <ul className="flex flex-col gap-1.5">
       {filas.map((f) => (
-        <li key={f.etiqueta} className="grid grid-cols-[5.5rem_1fr_2rem] items-center gap-2 text-xs">
+        <li key={f.etiqueta} className="grid grid-cols-[4.75rem_minmax(0,1fr)_2.5rem] items-center gap-2 text-xs">
           <span className="text-slate-600">{f.etiqueta}</span>
           <span className="h-3 overflow-hidden rounded-full bg-surface">
             <span className="block h-full rounded-full bg-primary" style={{ width: `${(f.valor / maximo) * 100}%` }} />
@@ -50,7 +50,7 @@ function Barras({ filas }) {
 
 function Tarjeta({ titulo, children }) {
   return (
-    <section className="flex flex-col gap-3 rounded-xl border border-border bg-white p-4">
+    <section className="flex min-w-0 flex-col gap-3 rounded-xl border border-border bg-white p-4">
       <h3 className="text-sm font-bold text-slate-900">{titulo}</h3>
       {children}
     </section>
@@ -166,7 +166,7 @@ export default function EstadisticasPage() {
 
       <div className="grid gap-4 lg:grid-cols-3">
         <Tarjeta titulo="Comprobantes">
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-1">
             <StatTile label="Generados" value={comprobantes.generados} icon={Receipt} />
             <StatTile label="Impresos" value={comprobantes.impresos} icon={Printer} />
             <StatTile label="Por correo" value={comprobantes.porCorreo} icon={Mail} />
@@ -202,7 +202,7 @@ export default function EstadisticasPage() {
                     {i + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block font-semibold leading-snug text-slate-900">{t.titulo}</span>
+                    <span className="block break-words font-semibold leading-snug text-slate-900">{t.titulo}</span>
                     <span className="block text-xs text-slate-500">
                       {t.consultas} consultas digitales · {t.accesosQr} accesos por QR · <span className="font-mono">{t.id}</span>
                     </span>
@@ -217,7 +217,8 @@ export default function EstadisticasPage() {
           {kioscos.length === 0 ? (
             <SinDatos>No hay sesiones de kiosco en {delPeriodo}.</SinDatos>
           ) : (
-            <table className="w-full text-left text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[18rem] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-500">
                 <tr>
                   <th className="py-1.5 font-semibold">Kiosco</th>
@@ -235,6 +236,7 @@ export default function EstadisticasPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </Tarjeta>
       </div>
